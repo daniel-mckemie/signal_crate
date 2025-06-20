@@ -67,7 +67,11 @@ void *ui_thread(void *arg) {
                     else if (type == 'b') state->blend = val;
                     pthread_mutex_unlock(&state->lock);
                 } else if (strcmp(command, "q") == 0) {
-                    endwin(); exit(0);
+					pthread_mutex_lock(&state->lock);
+					state->running = 0;
+					pthread_mutex_unlock(&state->lock);
+					endwin();
+					return NULL;
                 }
             } else if (ch == 27) {
                 entering_command = false;

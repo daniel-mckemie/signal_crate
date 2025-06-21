@@ -2,6 +2,7 @@
 #define AUDIO_H
 #include <pthread.h>
 #include <portaudio.h>
+#include "util.h"
 
 #define AMPLITUDE 0.99f
 
@@ -16,6 +17,13 @@ typedef struct {
 	float sample_rate; // This is for dynamic sample rate
 	pthread_mutex_t lock; // For threading with the UI
 	volatile int running;
+
+	// Smoothers
+	CParamSmooth smooth_freq;
+	CParamSmooth smooth_index;
+	CParamSmooth smooth_blend;
+	CParamSmooth smooth_fold_mod;
+	CParamSmooth smooth_fold_car;
 } FMState;
 
 int audio_callback(const void *input, void *output,

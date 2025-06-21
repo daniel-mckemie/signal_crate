@@ -17,18 +17,19 @@ int audio_callback(const void *input, void *output,
 	p1 = state->param1;
 	p2 = state->param2;
 	pthread_mutex_unlock(&state->lock); // Unlock thread
-
-	// Audio process goes in here
-	for (unsigned long i=0; i<frameCount; i++) {
-		// Sine Tone for example
+	
+	float smoothed1 = process_smoother(&state->smooth_param1, p1);
+	// smoothed2 compiles with warning because unused in audio callback
+	float smoothed2 = process_smoother(&state->smooth_param2, p2);
+		
+	// Audio process goes in here, sine tone for example
+	for (unsigned long i = 0; i < frameCount; i++) {
 		// Outputs here
-		out[i] = AMPLITUDE * sinf(state->phase);
-		state->phase += (float(TWO_PI * state->param1 / state->sample_rate);
-				if (state->phase >= TWO_PI)
-				state->phase -= TWO_PI;
-	}
+        out[i] = AMPLITUDE * sinf(state->phase);
+        state->phase += TWO_PI * smoothed1 / state->sample_rate;
+        if (state->phase >= TWO_PI) state->phase -= TWO_PI;
+    }
 
-	return paContinue;
-									  
+	return paContinue;								  
 
 }

@@ -2,16 +2,24 @@
 #define AUDIO_H
 #include <pthread.h>
 #include <portaudio.h>
+#include "util.h"
 
 #define AMPLITUDE 0.99f
 
 // This is the core of the module, defining params
 typedef struct {
-	float param1, // Ex cutoff
-	float param2,
+	float param1; // Ex. cutoff
+	float param2; // Ex. resonance
+	float sample_rate;
+
+	float phase; // Needed for sample process, oscillator
+
+	CParamSmooth smooth_param1;
+	CParamSmooth smooth_param2; // Compiles with warnings because unused in audio_callback
+
 	pthread_mutex_t lock; // Used for threading when creating a UI
 	volatile int running; // Used to cleanly quit
-} AudioModuleName
+} AudioModuleName;
 
 // define callback, should stay as-is
 int audio_callback(const void *input, void *output,

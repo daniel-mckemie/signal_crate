@@ -5,7 +5,7 @@
 #include "ui.h"
 
 int main() {
-	Pa_Internalize();
+	Pa_Initialize();
 
 	// Gets the in/out default device in Audio/MIDI Setup
 	int defaultDevice = Pa_GetDefaultOutputDevice();
@@ -20,14 +20,18 @@ int main() {
 	printf("Using sample rate: %.2f Hz\n", sampleRate);
 
 	PaStream *stream;
+	// Don't need smoother functions in state here
 	AudioModuleName state = {
 		.param1 = 440.f,
 		.param2 = 0.0f,
 		.sample_rate = (float)sampleRate,
 		.running = 1 // Indicates running to cleanly quit
-	}
+	};
 	pthread_mutex_init(&state.lock, NULL); // Initialize threading
 	
+	init_smoother(&state.smooth_param1, 0.99f);
+	init_smoother(&state.smooth_param2, 0.99f);
+
 	Pa_OpenDefaultStream(&stream, 1, 1, paFloat32, 
 			state.sample_rate, // Sample rate grabbed dynamically from Audio/MIDI Setup
 			256, // Buffer size

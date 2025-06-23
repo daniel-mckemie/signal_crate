@@ -26,10 +26,8 @@ void *ui_thread(void *arg) {
 			if (ch == KEY_LEFT) state->param1 += 0.5f; // key, param, amt change
 			else if (ch == 'k') state->param2 -= 0.5f;  // can also define specifc key
 
-			// Set boundaries for params
-			if (state->param1 < 0.01f) state->param1 = 0.01f;
-			if (state->param2 > 1.0f) state->param2 = 1.0f;      
-
+			// Boundaries function called here, defined in audio.c
+			clamp_params(state);
 			pthread_mutex_unlock(&state->lock); // Unlock once complete
 
 			// Hit ':' key to change to text input mode
@@ -52,6 +50,7 @@ void *ui_thread(void *arg) {
 					pthread_mutex_lock(&state->lock); // Lock state for input
 					if (type == 'f') state->param1 = val; // Press f followed by val <f 102>
 					else if (type == 'i') state->param2 = val; // Press i for param2 <i 10>
+					clamp_params(state); // boundaries call also here, defined in audio.c
 					pthread_mutex_unlock(&state->lock); // Unlock state
 				} else if (strcmp(command, "q") == 0) {
 					pthread_mutex_lock(&state->lock);

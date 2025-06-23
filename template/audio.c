@@ -33,3 +33,13 @@ int audio_callback(const void *input, void *output,
 	return paContinue;								  
 
 }
+
+// Function to set boundaries of audio parameters in a universal way
+// Handles text input and keyboard interaction; called in ui.c
+void clamp_params(AudioModuleName *state) {
+	// Enter all parameter boundaries
+	if (state->param1 < 0.01f) state->param1 = 0.01f;
+	if (state->param1 > 20000.0f) state->param1 = 20000.0f;
+	if (state->param2 < 0.01f) state->param2 = 0.01f;
+	if (state->param2 > 3.0f) state->param2 = 3.0f;
+}

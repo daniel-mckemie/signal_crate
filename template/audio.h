@@ -29,5 +29,7 @@ int audio_callback(const void *input, void *output,
 		PaStreamCallbackFlags statusFlags,
 		void *userData);
 
+void clamp_params(AudioModuleName *state); // To use where needed
+
 #endif
 

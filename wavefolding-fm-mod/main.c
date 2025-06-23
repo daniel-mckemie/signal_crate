@@ -32,11 +32,11 @@ int main() {
 	pthread_mutex_init(&state.lock, NULL);
 
 	// Initilize smoothing filters (smoothing coefficients)
-	init_smoother(&state.smooth_freq, 0.99f);
-	init_smoother(&state.smooth_index, 0.99f);
-	init_smoother(&state.smooth_blend, 0.99f);
-	init_smoother(&state.smooth_fold_mod, 0.99f);
-	init_smoother(&state.smooth_fold_car, 0.99f);
+	init_smoother(&state.smooth_freq, 0.75f);
+	init_smoother(&state.smooth_index, 0.75f);
+	init_smoother(&state.smooth_blend, 0.75f);
+	init_smoother(&state.smooth_fold_mod, 0.75f);
+	init_smoother(&state.smooth_fold_car, 0.75f);
 
 
 	Pa_OpenDefaultStream(&stream, 1, 1, paFloat32, state.sample_rate, 256,

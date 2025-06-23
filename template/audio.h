@@ -1,5 +1,6 @@
 #ifndef AUDIO_H
 #define AUDIO_H
+
 #include <pthread.h>
 #include <portaudio.h>
 #include "util.h"
@@ -26,7 +27,7 @@ int audio_callback(const void *input, void *output,
 		unsigned long frameCount,
 		const PaStreamCallbackTimeInfo* timeInfo,
 		PaStreamCallbackFlags statusFlags,
-		void *userdata);
+		void *userData);
 
 #endif
 

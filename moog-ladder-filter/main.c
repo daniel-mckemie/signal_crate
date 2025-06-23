@@ -21,16 +21,16 @@ int main() {
 
 	PaStream *stream;
 	// Don't need smoother functions in state here
-	AudioModuleName state = {
-		.param1 = 440.f,
-		.param2 = 0.0f,
+	MoogFilter state = {
+		.cutoff = 440.f,
+		.resonance = 0.00f,
 		.sample_rate = (float)sampleRate,
 		.running = 1 // Indicates running to cleanly quit
 	};
 	pthread_mutex_init(&state.lock, NULL); // Initialize threading
 	
-	init_smoother(&state.smooth_param1, 0.75f);
-	init_smoother(&state.smooth_param2, 0.75f);
+	init_smoother(&state.smooth_cutoff, 0.75f);
+	init_smoother(&state.smooth_resonance, 0.75f);
 
 	Pa_OpenDefaultStream(&stream, 1, 1, paFloat32, 
 			state.sample_rate, // Sample rate grabbed dynamically from Audio/MIDI Setup
@@ -52,3 +52,4 @@ int main() {
 	pthread_join(ui_tid, NULL); // Wait for UI to exit
 	return 0;
 }
+

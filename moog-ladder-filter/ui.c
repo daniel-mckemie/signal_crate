@@ -5,11 +5,8 @@
 #include <time.h>
 #include "ui.h"
 
-// This lets you use keys and input text commands
-// for changing params. It also provides visual
-// feedback. All in terminal.
 void *ui_thread(void *arg) {
-	AudioModuleName *state = (AudioModuleName*)arg;
+	MoogFilter *state = (MoogFilter*)arg;
 
 	initscr(); cbreak(); noecho();
 	keypad(stdscr, TRUE);
@@ -23,12 +20,16 @@ void *ui_thread(void *arg) {
 		int ch = getch();
 		if (!entering_command) {
 			pthread_mutex_lock(&state->lock); // Lock state for input
-			if (ch == KEY_LEFT) state->param1 += 0.5f; // key, param, amt change
-			else if (ch == 'k') state->param2 -= 0.5f;  // can also define specifc key
+			if (ch == '0') state->cutoff += 0.5f; 
+			else if (ch == '9') state->cutoff -= 0.5f; 
+			else if (ch == ')') state->resonance += 0.01f; 
+			else if (ch == '(') state->resonance -= 0.01f; 
 
 			// Set boundaries for params
-			if (state->param1 < 0.01f) state->param1 = 0.01f;
-			if (state->param2 > 1.0f) state->param2 = 1.0f;      
+			if (state->cutoff < 10.0f) state->cutoff = 10.0f;
+			if (state->cutoff > state->sample_rate * 0.45f) state->cutoff = state->sample_rate * 0.45f;
+			if (state->resonance < 0.0f) state->resonance = 0.0f;
+			if (state->resonance > 4.2f) state->resonance = 4.2f;      
 
 			pthread_mutex_unlock(&state->lock); // Unlock once complete
 
@@ -41,21 +42,21 @@ void *ui_thread(void *arg) {
 
 			// Prints out info in terminal, (xpos,ypos,"Info" --> state)
 			clear();
-			mvprintw(1,2,"Title of the instrument");
-			mvprintw(3,2,"[<]/[>] or key f: Param 1        (%.2f Hz)", state->param1);
-			mvprintw(4,2,"[^]/[v] or key i: Param 2       (%.2f)", state->param2);
+			mvprintw(1,2,"Moog Ladder Filter");
+			mvprintw(3,2,"[9]/[0] or key c: Cutoff (%.2f Hz)", state->cutoff);
+			mvprintw(4,2,"[(]/[)] or key r: Resonance (%.2f)", state->resonance);
 		} else {
 			if (ch == '\n') { // Carriage return sends command, omit it
 				entering_command = false;
 				char type; float val;
 				if (sscanf(command, "%c %f", &type, &val) == 2) {
-					pthread_mutex_lock(&state->lock); // Lock state for input
-					if (type == 'f') state->param1 = val; // Press f followed by val <f 102>
-					else if (type == 'i') state->param2 = val; // Press i for param2 <i 10>
-					pthread_mutex_unlock(&state->lock); // Unlock state
+					pthread_mutex_lock(&state->lock); 
+					if (type == 'c') state->cutoff = val; 
+					else if (type == 'r') state->resonance = val; 
+					pthread_mutex_unlock(&state->lock); 
 				} else if (strcmp(command, "q") == 0) {
 					pthread_mutex_lock(&state->lock);
-					state->running = 0; // Updates to NOT running for a clean quit
+					state->running = 0; 
 					pthread_mutex_unlock(&state->lock);
 					endwin();
 					return NULL;  // Exit app
@@ -75,7 +76,8 @@ void *ui_thread(void *arg) {
 		struct timespec ts = {0, 50000000};	// Sleep for 50ms for commands to set
 		nanosleep(&ts, NULL);
 	}
-
 	endwin();
 	return NULL;
 }
+
+

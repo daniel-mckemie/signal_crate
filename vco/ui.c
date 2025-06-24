@@ -5,8 +5,11 @@
 #include <time.h>
 #include "ui.h"
 
+// This lets you use keys and input text commands
+// for changing params. It also provides visual
+// feedback. All in terminal.
 void *ui_thread(void *arg) {
-	MoogFilter *state = (MoogFilter*)arg;
+	VCO *state = (VCO*)arg;
 
 	initscr(); cbreak(); noecho();
 	keypad(stdscr, TRUE);
@@ -20,13 +23,18 @@ void *ui_thread(void *arg) {
 		int ch = getch();
 		if (!entering_command) {
 			pthread_mutex_lock(&state->lock); // Lock state for input
-			if (ch == '0') state->cutoff += 0.5f; 
-			else if (ch == '9') state->cutoff -= 0.5f; 
-			else if (ch == ')') state->resonance += 0.01f; 
-			else if (ch == '(') state->resonance -= 0.01f; 
+			if (ch == '9') state->frequency += 0.5f; 
+			else if (ch == '0') state->frequency -= 0.5f;  
+			else if (ch == '(') state->amplitude += 0.01f;  
+			else if (ch == ')') state->amplitude -= 0.01f;
+			else if (ch == 'p') state->phase += 0.01f; 
+			else if (ch == 'o') state->phase -= 0.01f;  
+			else if (ch == 'w') state->waveform = (state->waveform + 1) % 4;  
 
-			clamp_params(state); // Defined in moog_filter.c
-
+			const char *wave_names[] = {"Sine", "Saw", "Square", "Triangle"};
+			
+			// Boundaries function called here, defined in audio.c
+			clamp_params(state);
 			pthread_mutex_unlock(&state->lock); // Unlock once complete
 
 			// Hit ':' key to change to text input mode
@@ -38,22 +46,25 @@ void *ui_thread(void *arg) {
 
 			// Prints out info in terminal, (xpos,ypos,"Info" --> state)
 			clear();
-			mvprintw(1,2,"Moog Ladder Filter");
-			mvprintw(3,2,"[9]/[0] or key c: Cutoff (%.2f Hz)", state->cutoff);
-			mvprintw(4,2,"[(]/[)] or key r: Resonance (%.2f)", state->resonance);
+			mvprintw(1,2,"Voltage Controlled Oscillator");
+			mvprintw(3,2,"[9]/[0] or key f: freq        (%.2f Hz)", state->frequency);
+			mvprintw(4,2,"[(]/[)] or key a: amp         (%.2f)", state->amplitude);
+			mvprintw(5,2,"[p]/[o] or key p: phase       (%.2f)", state->phase);
+			mvprintw(6,2,"key w: waveform (0=sin,1=saw,2=sq,3=tri (%s)", wave_names[state->waveform]);
 		} else {
 			if (ch == '\n') { // Carriage return sends command, omit it
 				entering_command = false;
 				char type; float val;
 				if (sscanf(command, "%c %f", &type, &val) == 2) {
-					pthread_mutex_lock(&state->lock); 
-					if (type == 'c') state->cutoff = val; 
-					else if (type == 'r') state->resonance = val; 
-					clamp_params(state); // Defined in moog_filter.c
-					pthread_mutex_unlock(&state->lock); 
+					pthread_mutex_lock(&state->lock); // Lock state for input
+					if (type == 'f') state->frequency = val;
+					else if (type == 'a') state->amplitude = val;
+					else if (type == 'p') state->phase = val; 
+					clamp_params(state); // boundaries call also here, defined in vco.c
+					pthread_mutex_unlock(&state->lock); // Unlock state
 				} else if (strcmp(command, "q") == 0) {
 					pthread_mutex_lock(&state->lock);
-					state->running = 0; 
+					state->running = 0; // Updates to NOT running for a clean quit
 					pthread_mutex_unlock(&state->lock);
 					endwin();
 					return NULL;  // Exit app
@@ -73,8 +84,7 @@ void *ui_thread(void *arg) {
 		struct timespec ts = {0, 50000000};	// Sleep for 50ms for commands to set
 		nanosleep(&ts, NULL);
 	}
+
 	endwin();
 	return NULL;
 }
-
-

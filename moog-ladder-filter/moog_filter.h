@@ -1,5 +1,5 @@
-#ifndef AUDIO_H 
-#define AUDIO_H 
+#ifndef MOOG_FILTER_H 
+#define MOOG_FILTER_H 
 
 #include <pthread.h>
 #include <portaudio.h>
@@ -25,5 +25,7 @@ int audio_callback(const void *input, void *output,
 		const PaStreamCallbackTimeInfo* timeInfo,
 		PaStreamCallbackFlags statusFlags,
 		void *userdata);
+
+void clamp_params(MoogFilter *state);
 
 #endif

@@ -5,8 +5,7 @@
 
 #define TWO_PI (2.0f * M_PI)
 
-float fold(float x, float threshold);
-
+// This is a function that handles smoothing of params with real time changes
 typedef struct {
 	float a;
 	float b;
@@ -16,6 +15,4 @@ typedef struct {
 void init_smoother(CParamSmooth *s, float a);
 float process_smoother(CParamSmooth *s, float in);
 
-
 #endif
-

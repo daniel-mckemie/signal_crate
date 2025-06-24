@@ -1,16 +1,7 @@
 #include "util.h"
 
-float fold(float x, float threshold) {
-	while (fabsf(x) > threshold) {
-		if (x > threshold) {
-			x = 2 * threshold - x;
-		} else {
-			x = -2 * threshold - x;
-		}
-	}
-	return x;
-}
-
+// This is the smoother function in the header
+// can be any util functions
 void init_smoother(CParamSmooth *s, float a) {
 	s->a = a;
 	s->b = 1.0f - a;
@@ -21,4 +12,3 @@ float process_smoother(CParamSmooth *s, float in) {
 	s->z = s->b * in + s->a * s->z;
 	return s->z;
 }
-

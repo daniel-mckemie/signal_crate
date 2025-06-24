@@ -11,22 +11,18 @@ int audio_callback(const void *input, void *output,
 	const float *in = (const float*)input;
 	float *out = (float*)output;
 
-	// param names abbreviated
+	// param names abbreviated used in for loop, p1 and p2
 	float p1, p2;
 	pthread_mutex_lock(&state->lock); // Lock thread
-	p1 = state->param1;
-	p2 = state->param2;
+	p1 = process_smoother(&state->smooth_param1, state->param1); // From audio.h
+	p2 = process_smoother(&state->smooth_param2, state->param2);
 	pthread_mutex_unlock(&state->lock); // Unlock thread
 	
-	float smoothed1 = process_smoother(&state->smooth_param1, p1);
-	// smoothed2 compiles with warning because unused in audio callback
-	float smoothed2 = process_smoother(&state->smooth_param2, p2);
-		
 	// Audio process goes in here, sine tone for example
 	for (unsigned long i = 0; i < frameCount; i++) {
 		// Outputs here
         out[i] = AMPLITUDE * sinf(state->phase);
-        state->phase += TWO_PI * smoothed1 / state->sample_rate;
+        state->phase += TWO_PI * p1 / state->sample_rate;
         if (state->phase >= TWO_PI) state->phase -= TWO_PI;
     }
 

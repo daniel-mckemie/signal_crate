@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <portaudio.h>
 #include <pthread.h>
-#include "audio.h"
+#include "wf_fm_mod.h"
 #include "ui.h"
 
 int main() {

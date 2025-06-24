@@ -1,5 +1,5 @@
-PROJECT=moog-ladder-filter
-SRC=main.c moog_filter.c ui.c util.c
+PROJECT=vco
+SRC=main.c vco.c ui.c util.c
 CC=gcc
 CFLAGS=-Wall -O2 -I/opt/homebrew/include
 LDFLAGS=-L/opt/homebrew/lib

@@ -1,9 +1,8 @@
 #ifndef UI_H
 #define UI_H
 
-#include "wf_fm_mod.h"
+#include "vco.h"
 
 void *ui_thread(void *arg);
 
 #endif
-

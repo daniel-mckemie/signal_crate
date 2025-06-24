@@ -1,7 +1,7 @@
 #ifndef UI_H
 #define UI_H
 
-#include "audio.h"
+#include "moog_filter.h"
 
 void *ui_thread(void *arg);
 

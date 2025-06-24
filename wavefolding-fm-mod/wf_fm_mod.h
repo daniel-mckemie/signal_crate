@@ -1,5 +1,5 @@
-#ifndef AUDIO_H
-#define AUDIO_H
+#ifndef WF_FM_MOD_H
+#define WF_FM_MOD_H
 #include <pthread.h>
 #include <portaudio.h>
 #include "util.h"
@@ -32,4 +32,5 @@ int audio_callback(const void *input, void *output,
 		PaStreamCallbackFlags statusFlags,
 		void *userData);
 
+void clamp_params(FMState *state);
 #endif

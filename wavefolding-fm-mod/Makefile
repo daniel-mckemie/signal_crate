@@ -1,5 +1,5 @@
 PROJECT=wavefolding-fm-mod
-SRC=main.c audio.c ui.c util.c
+SRC=main.c wf_fm_mod.c ui.c util.c
 CC=gcc
 CFLAGS=-Wall -O2 -I/opt/homebrew/include
 LDFLAGS=-L/opt/homebrew/lib

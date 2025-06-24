@@ -31,13 +31,7 @@ void *ui_thread(void *arg) {
             else if (ch == KEY_UP) state->index += 0.01f;
             else if (ch == KEY_DOWN) state->index -= 0.01f;
 
-            if (state->fold_threshold_mod < 0.01f) state->fold_threshold_mod = 0.01f;
-            if (state->fold_threshold_mod > 1.0f) state->fold_threshold_mod = 1.0f;
-            if (state->fold_threshold_car < 0.01f) state->fold_threshold_car = 0.01f;
-            if (state->fold_threshold_car > 1.0f) state->fold_threshold_car = 1.0f;
-            if (state->blend < 0.01f) state->blend = 0.01f;
-            if (state->blend > 1.0f) state->blend = 1.0f;
-            if (state->index < 0.01f) state->index = 0.01f;
+			clamp_params(state);
             pthread_mutex_unlock(&state->lock);
 
             if (ch == ':') {
@@ -65,6 +59,7 @@ void *ui_thread(void *arg) {
                     else if (type == 'm') state->fold_threshold_mod = val;
                     else if (type == 'c') state->fold_threshold_car = val;
                     else if (type == 'b') state->blend = val;
+					clamp_params(state);
                     pthread_mutex_unlock(&state->lock);
                 } else if (strcmp(command, "q") == 0) {
 					pthread_mutex_lock(&state->lock);

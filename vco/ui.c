@@ -23,13 +23,10 @@ void *ui_thread(void *arg) {
 		int ch = getch();
 		if (!entering_command) {
 			pthread_mutex_lock(&state->lock); // Lock state for input
-			if (ch == '9') state->frequency += 0.5f; 
-			else if (ch == '0') state->frequency -= 0.5f;  
-			else if (ch == '(') state->amplitude += 0.01f;  
-			else if (ch == ')') state->amplitude -= 0.01f;
-			else if (ch == 'p') state->phase += 0.01f; 
-			else if (ch == 'o') state->phase -= 0.01f;  
-			else if (ch == 'w') state->waveform = (state->waveform + 1) % 4;  
+			if (ch == '0') state->frequency += 0.5f; 
+			else if (ch == '9') state->frequency -= 0.5f;  
+			else if (ch == ')') state->amplitude += 0.01f;  
+			else if (ch == '(') state->amplitude -= 0.01f;
 
 			const char *wave_names[] = {"Sine", "Saw", "Square", "Triangle"};
 			
@@ -49,8 +46,7 @@ void *ui_thread(void *arg) {
 			mvprintw(1,2,"Voltage Controlled Oscillator");
 			mvprintw(3,2,"[9]/[0] or key f: freq        (%.2f Hz)", state->frequency);
 			mvprintw(4,2,"[(]/[)] or key a: amp         (%.2f)", state->amplitude);
-			mvprintw(5,2,"[p]/[o] or key p: phase       (%.2f)", state->phase);
-			mvprintw(6,2,"key w: waveform (0=sin,1=saw,2=sq,3=tri (%s)", wave_names[state->waveform]);
+			mvprintw(5,2,"key w: waveform (0=sin,1=saw,2=sq,3=tri (%s)", wave_names[state->waveform]);
 		} else {
 			if (ch == '\n') { // Carriage return sends command, omit it
 				entering_command = false;
@@ -59,7 +55,7 @@ void *ui_thread(void *arg) {
 					pthread_mutex_lock(&state->lock); // Lock state for input
 					if (type == 'f') state->frequency = val;
 					else if (type == 'a') state->amplitude = val;
-					else if (type == 'p') state->phase = val; 
+					else if (type == 'w') state->waveform = ((int)val) % 4; 
 					clamp_params(state); // boundaries call also here, defined in vco.c
 					pthread_mutex_unlock(&state->lock); // Unlock state
 				} else if (strcmp(command, "q") == 0) {

@@ -24,7 +24,6 @@ int main() {
 	VCO state = {
 		.frequency = 440.f,
 		.amplitude = 0.5f,
-		.phase = 0.0f,
 		.sample_rate = (float)sampleRate,
 		.running = 1 // Indicates running to cleanly quit
 	};
@@ -32,7 +31,6 @@ int main() {
 	
 	init_smoother(&state.smooth_freq, 0.75f);
 	init_smoother(&state.smooth_amp, 0.75f);
-	init_smoother(&state.smooth_phase, 0.75f);
 
 	Pa_OpenDefaultStream(&stream, 1, 1, paFloat32, 
 			state.sample_rate, // Sample rate grabbed dynamically from Audio/MIDI Setup

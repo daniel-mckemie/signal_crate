@@ -15,13 +15,11 @@ typedef enum {
 typedef struct {
 	float frequency; 
 	float amplitude; 
-	float phase;
 	Waveform waveform;
 	float sample_rate;
 
 	CParamSmooth smooth_freq;
 	CParamSmooth smooth_amp;
-	CParamSmooth smooth_phase;
 
 	pthread_mutex_t lock; // Used for threading when creating a UI
 	volatile int running; // Used to cleanly quit

@@ -11,19 +11,20 @@ int audio_callback(const void *input, void *output,
 	float *out = (float*)output;
 
 	// param names abbreviated, freq, amp, phs
-	float freq, amp, phs;
+	float freq, amp;
+	Waveform waveform;
 	pthread_mutex_lock(&state->lock); // Lock thread
 	freq = process_smoother(&state->smooth_freq, state->frequency);
 	amp = process_smoother(&state->smooth_amp, state->amplitude);
-	phs = process_smoother(&state->smooth_phase, state->phase);
-	Waveform waveform = state->waveform;
+	waveform = state->waveform;
 	pthread_mutex_unlock(&state->lock); // Unlock thread
 
-		
+	static float phs = 0.0f; 
+
 	// Audio process goes in here, sine tone for example
 	for (unsigned long i = 0; i < frameCount; i++) {
-		// Outputs here
 		float value = 0.0f;
+		
 		switch(waveform) {
 			case WAVE_SINE:
 				value = sinf(phs);
@@ -45,7 +46,6 @@ int audio_callback(const void *input, void *output,
 		if (phs >= TWO_PI) phs -= TWO_PI;
 		
     }
-	state->phase = phs;
 
 	return paContinue;								  
 }
@@ -58,6 +58,4 @@ void clamp_params(VCO *state) {
 	if (state->frequency > 20000.0f) state->frequency = 20000.0f;
 	if (state->amplitude < 0.0f) state->amplitude = 0.0f;
 	if (state->amplitude > 1.0f) state->amplitude = 1.0f;
-	if (state->phase < 0.0f) state->phase = 0.0f;
-	if (state->phase > TWO_PI) state->phase = fmodf(state->phase, TWO_PI);
 }

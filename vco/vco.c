@@ -1,6 +1,7 @@
 #include <math.h>
 #include "vco.h"
 #include "util.h"
+#include "module.h"
 
 int audio_callback(const void *input, void *output,
 		unsigned long frameCount,
@@ -13,6 +14,7 @@ int audio_callback(const void *input, void *output,
 	// param names abbreviated, freq, amp, phs
 	float freq, amp;
 	Waveform waveform;
+
 	pthread_mutex_lock(&state->lock); // Lock thread
 	freq = process_smoother(&state->smooth_freq, state->frequency);
 	amp = process_smoother(&state->smooth_amp, state->amplitude);

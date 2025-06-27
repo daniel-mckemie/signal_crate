@@ -1,7 +1,6 @@
 #include <math.h>
 #include "vco.h"
 #include "util.h"
-#include "module.h"
 
 int audio_callback(const void *input, void *output,
 		unsigned long frameCount,

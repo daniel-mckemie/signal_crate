@@ -4,8 +4,8 @@ LDFLAGS = -dynamiclib -L/opt/homebrew/lib -lportaudio -lpthread -lm -lncurses
 
 all: vco.dylib
 
-vco.dylib: vco.c util.c vco_ui.c
-	$(CC) $(CFLAGS) vco.c util.c vco_ui.c -o vco.dylib $(LDFLAGS)
+vco.dylib: vco.c util.c
+	$(CC) $(CFLAGS) vco.c util.c -o vco.dylib $(LDFLAGS)
 
 clean:
 	rm -f vco.dylib

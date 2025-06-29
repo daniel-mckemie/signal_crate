@@ -42,7 +42,7 @@ int main() {
 
     Pa_Initialize();
     PaStream* stream;
-    Pa_OpenDefaultStream(&stream, 0, 1, paFloat32, sample_rate, FRAMES_PER_BUFFER, audio_callback, NULL);
+    Pa_OpenDefaultStream(&stream, 1, 1, paFloat32, sample_rate, FRAMES_PER_BUFFER, audio_callback, NULL);
     Pa_StartStream(stream);
 
     ui_loop();

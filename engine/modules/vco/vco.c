@@ -46,6 +46,13 @@ static void vco_draw_ui(Module *m, int row) {
 
 }
 
+static void clamp_params(VCO *state) {
+    if (state->frequency < 0.01f) state->frequency = 0.01f;
+    if (state->frequency > 20000.0f) state->frequency = 20000.0f;
+    if (state->amplitude < 0.0f) state->amplitude = 0.0f;
+    if (state->amplitude > 1.0f) state->amplitude = 1.0f;
+}
+
 static void vco_handle_input(Module *m, int key) {
     VCO *state = (VCO*)m->state;
 
@@ -84,16 +91,8 @@ static void vco_handle_input(Module *m, int key) {
             state->command_buffer[state->command_index] = '\0';
         }
     }
-
+	clamp_params(state);
     pthread_mutex_unlock(&state->lock);
-}
-
-
-static void clamp_params(VCO *state) {
-    if (state->frequency < 0.01f) state->frequency = 0.01f;
-    if (state->frequency > 20000.0f) state->frequency = 20000.0f;
-    if (state->amplitude < 0.0f) state->amplitude = 0.0f;
-    if (state->amplitude > 1.0f) state->amplitude = 1.0f;
 }
 
 Module* create_module(float sample_rate) {

@@ -15,16 +15,22 @@ static int audio_callback(const void* input, void* output,
                           void* userData) {
     float* out = (float*)output;
     float* in = (float*)input;
+	int allocated_input = 0;
+	if (in == NULL) {
+		in = calloc(framesPerBuffer, sizeof(float));
+		allocated_input = 1;
+	}
     float* buffer = calloc(framesPerBuffer, sizeof(float));
     process_chain(in, buffer, framesPerBuffer);
     memcpy(out, buffer, framesPerBuffer * sizeof(float));
     free(buffer);
+	if (allocated_input) free(in);
     return paContinue;
 }
 
 int main() {
     char patch[256];
-    printf("Enter patch (e.g., vco moog-ladder-filter wavefolding-fm-mod): ");
+    printf("Enter patch (e.g., vco moog_filter wavefolding-fm-mod): ");
     fgets(patch, sizeof(patch), stdin);
 
     char* token = strtok(patch, " \n");

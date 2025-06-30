@@ -38,11 +38,18 @@ static void wf_fm_mod_process(Module *m, float* in, float* out, unsigned long fr
 
 static void wf_fm_mod_draw_ui(Module *m, int row) {
 	WFFMMod *state = (WFFMMod*)m->state;
+
+	pthread_mutex_lock(&state->lock);
+
 	mvprintw(row, 2, "[Wavefolding FM Mod] Mod Freq %.2f Hz", state->modulator_freq);
 	mvprintw(row+1, 2,"					   Mod Index %.2f", state->index);
 	mvprintw(row+2, 2, "				   Mod Fold Amt %.2f", state->fold_threshold_mod);
 	mvprintw(row+3, 2, "				   Car (In) Fold Amt %.2f", state->fold_threshold_car);
 	mvprintw(row+4, 2, "				   Blend Amt %.2f", state->blend);
+	mvprintw(row+5, 2, "Real-time keys: -/= (mod freq), _/+ (idx), [/]/{/} (fold), p/o [blend]");
+    mvprintw(row+6, 2, "Command mode: :1 [mod freq], :2 [idx], :3 [fold mod], :4 [fold car], 5 [blend]");
+
+	pthread_mutex_unlock(&state->lock);
 }
 
 static void clamp_params(WFFMMod *state) {
@@ -66,16 +73,16 @@ static void wf_fm_mod_handle_input(Module *m, int key) {
 
 	if (!state->entering_command) {
 		switch (key) {
-			case KEY_LEFT: state->modulator_freq -= 0.5f; break;
-			case KEY_RIGHT: state->modulator_freq += 0.5f; break;
-			case '+': state->fold_threshold_mod += 0.01f; break;
-            case '_': state->fold_threshold_mod -= 0.01f; break;
-			case '=': state->fold_threshold_car += 0.01f; break;
-			case '-': state->fold_threshold_car -= 0.01f; break;
-			case ']': state->blend += 0.01f; break;
-			case '[': state->blend -= 0.01f; break;
-            case KEY_UP: state->index += 0.01f; break;
-			case KEY_DOWN: state->index -= 0.01f; break;
+			case '=': state->modulator_freq += 0.5f; break;
+			case '-': state->modulator_freq -= 0.5f; break;	
+            case '+': state->index += 0.01f; break;
+			case '_': state->index -= 0.01f; break;
+			case ']': state->fold_threshold_mod += 0.01f; break;
+            case '[': state->fold_threshold_mod -= 0.01f; break;
+			case '}': state->fold_threshold_car += 0.01f; break;
+			case '{': state->fold_threshold_car -= 0.01f; break;
+			case 'p': state->blend += 0.01f; break;
+			case 'o': state->blend -= 0.01f; break;
 			case ':':
 				state->entering_command = true;
 				memset(state->command_buffer, 0, sizeof(state->command_buffer));
@@ -88,18 +95,18 @@ static void wf_fm_mod_handle_input(Module *m, int key) {
 			char type;
 			float val;
 			if (sscanf(state->command_buffer, "%c %f", &type, &val) == 2) {
-				if (type == 'f') state->modulator_freq = val;
-                else if (type == 'i') state->index = val;
-                else if (type == 'm') state->fold_threshold_mod = val;
-                else if (type == 'c') state->fold_threshold_car = val;
-				else if (type == 'b') state->blend = val;
+				if (type == '1') state->modulator_freq = val;
+                else if (type == '2') state->index = val;
+                else if (type == '3') state->fold_threshold_mod = val;
+                else if (type == '4') state->fold_threshold_car = val;
+				else if (type == '5') state->blend = val;
 			}
         } else if (key == 27) {
             state->entering_command = false;
         } else if ((key == KEY_BACKSPACE || key == 127) && state->command_index > 0) {
 			state->command_index--;
 			state->command_buffer[state->command_index] = '\0';
-		} else if (key >= 32 && key <127 && state->command_index < sizeof(state->command_buffer) - 1) {
+		} else if (key >= 32 && key < 127 && state->command_index < sizeof(state->command_buffer) - 1) {
 			state->command_buffer[state->command_index++] = (char)key;
 			state->command_buffer[state->command_index] = '\0';
 		}

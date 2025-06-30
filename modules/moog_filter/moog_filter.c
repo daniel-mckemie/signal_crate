@@ -41,9 +41,17 @@ static void moog_filter_process(Module *m, float* in, float* out, unsigned long 
 }
 
 static void moog_filter_draw_ui(Module *m, int row) {
-	MoogFilter *state = (MoogFilter*)m->state;
-	mvprintw(row, 2, "[Moog Filter] Cutoff: %.2f Hz", state->cutoff);	
-	mvprintw(row+1, 2, "            Resonance: %.2f Hz", state->resonance);	
+    MoogFilter *state = (MoogFilter*)m->state;
+
+    pthread_mutex_lock(&state->lock);
+
+    mvprintw(row,   2, "[Moog Filter]");
+    mvprintw(row+1, 2, "Cutoff: %.2f Hz", state->cutoff);
+    mvprintw(row+2, 2, "Resonance: %.2f", state->resonance);
+    mvprintw(row+3, 2, "Real-time keys: -/= (cutoff), _/+ (resonance)");
+    mvprintw(row+4, 2, "Command mode: :1 [cutoff], :2 [resonance]");
+
+    pthread_mutex_unlock(&state->lock);
 }
 
 static void clamp_params(MoogFilter *state) {
@@ -61,10 +69,10 @@ static void moog_filter_handle_input(Module *m, int key) {
 
     if (!state->entering_command) {
         switch (key) {
-            case 'p': state->cutoff += 0.5f; break;
-            case 'o': state->cutoff -= 0.5f; break;
-            case 'P': state->resonance += 0.01f; break;
-            case 'O': state->resonance -= 0.01f; break;
+            case '=': state->cutoff += 0.5f; break;
+            case '-': state->cutoff -= 0.5f; break;
+            case '+': state->resonance += 0.01f; break;
+            case '_': state->resonance -= 0.01f; break;
             case ':':
                 state->entering_command = true;
                 memset(state->command_buffer, 0, sizeof(state->command_buffer));
@@ -77,8 +85,8 @@ static void moog_filter_handle_input(Module *m, int key) {
             char type;
             float val;
             if (sscanf(state->command_buffer, "%c %f", &type, &val) == 2) {
-                if (type == 'c') state->cutoff = val;
-                else if (type == 'r') state->resonance = val;
+                if (type == '1') state->cutoff = val;
+                else if (type == '2') state->resonance = val;
             }
         } else if (key == 27) {
             state->entering_command = false;

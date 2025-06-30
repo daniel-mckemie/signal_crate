@@ -37,13 +37,15 @@ static void vco_process(Module *m, float* in, float* out, unsigned long frames) 
 static void vco_draw_ui(Module *m, int row) {
     VCO *state = (VCO*)m->state;
     const char *wave_names[] = {"Sine", "Saw", "Square", "Triangle"};
+
+	pthread_mutex_lock(&state->lock);
     mvprintw(row, 2,   "[VCO] Freq: %.2f Hz", state->frequency);
     mvprintw(row+1, 2, "      Amp : %.2f", state->amplitude);
     mvprintw(row+2, 2, "      Wave: %s", wave_names[state->waveform]);
-	if (state->entering_command) {
-	    mvprintw(row + 4, 2, ": %s", state->command_buffer);
-	}
+	mvprintw(row+3, 2, "Real-time keys: -/= (freq), _/+ (amp)");
+    mvprintw(row+4, 2, "Command mode: :1 [freq], :2 [amp], :w [waveform]");
 
+	pthread_mutex_unlock(&state->lock);
 }
 
 static void clamp_params(VCO *state) {
@@ -60,10 +62,10 @@ static void vco_handle_input(Module *m, int key) {
 
     if (!state->entering_command) {
         switch (key) {
-            case '0': state->frequency += 0.5f; break;
-            case '9': state->frequency -= 0.5f; break;
-            case ')': state->amplitude += 0.01f; break;
-            case '(': state->amplitude -= 0.01f; break;
+            case '=': state->frequency += 0.5f; break;
+            case '-': state->frequency -= 0.5f; break;
+            case '+': state->amplitude += 0.01f; break;
+            case '_': state->amplitude -= 0.01f; break;
             case 'w': state->waveform = (state->waveform + 1) % 4; break;
             case ':':
                 state->entering_command = true;
@@ -77,9 +79,9 @@ static void vco_handle_input(Module *m, int key) {
             char type;
             float val;
             if (sscanf(state->command_buffer, "%c %f", &type, &val) == 2) {
-                if (type == 'f') state->frequency = val;
-                else if (type == 'a') state->amplitude = val;
-                else if (type == 'w') state->waveform = ((int)val) % 4;
+                if (type == '1') state->frequency = val;
+                else if (type == '2') state->amplitude = val;
+                else if (type == '3') state->waveform = ((int)val) % 4;
             }
         } else if (key == 27) {
             state->entering_command = false;

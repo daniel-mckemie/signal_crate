@@ -1,6 +1,6 @@
-CC = gcc
-CFLAGS = -Wall -O2 -fPIC -I../.. -I../../.. -I/opt/homebrew/include
-LDFLAGS = -dynamiclib -L/opt/homebrew/lib -lportaudio -lpthread -lm -lncurses
+CC=gcc
+CFLAGS=-Wall -O2 -fPIC -I../.. -I../../.. -I/opt/homebrew/include
+LDFLAGS=-dynamiclib -L/opt/homebrew/lib -lportaudio -lpthread -lm -lncurses
 
 all: moog_filter.dylib
 

@@ -105,7 +105,7 @@ Module* create_module(float sample_rate) {
 	clamp_params(state);
 
 	Module *m = calloc(1, sizeof(Module));
-	m->name = "Moog Filter";
+	m->name = "moog_filter";
 	m->state = state;
 	m->process = moog_filter_process;
 	m->draw_ui = moog_filter_draw_ui;

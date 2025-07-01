@@ -43,14 +43,17 @@ static void moog_filter_process(Module *m, float* in, float* out, unsigned long 
 static void moog_filter_draw_ui(Module *m, int row) {
     MoogFilter *state = (MoogFilter*)m->state;
 
-    pthread_mutex_lock(&state->lock);
+    float co, res;
 
-    mvprintw(row, 2, "[Moog Filter] Cutoff: %.2f", state->cutoff);
-    mvprintw(row+1, 2, "		Resonance: %.2f", state->resonance);
+    pthread_mutex_lock(&state->lock);
+    co = state->cutoff;
+    res = state->resonance;
+    pthread_mutex_unlock(&state->lock);
+
+    mvprintw(row, 2, "[Moog Filter] Cutoff: %.2f", co);
+    mvprintw(row+1, 2, "		Resonance: %.2f", res);
     mvprintw(row+2, 2, "Real-time keys: -/= (cutoff), _/+ (resonance)");
     mvprintw(row+3, 2, "Command mode: :1 [cutoff], :2 [resonance]");
-
-    pthread_mutex_unlock(&state->lock);
 }
 
 static void clamp_params(MoogFilter *state) {
@@ -63,19 +66,21 @@ static void clamp_params(MoogFilter *state) {
 
 static void moog_filter_handle_input(Module *m, int key) {
     MoogFilter *state = (MoogFilter*)m->state;
+    int handled = 0;
 
     pthread_mutex_lock(&state->lock);
 
     if (!state->entering_command) {
         switch (key) {
-            case '=': state->cutoff += 0.5f; break;
-            case '-': state->cutoff -= 0.5f; break;
-            case '+': state->resonance += 0.01f; break;
-            case '_': state->resonance -= 0.01f; break;
+            case '=': state->cutoff += 0.5f; handled = 1; break;
+            case '-': state->cutoff -= 0.5f; handled = 1; break;
+            case '+': state->resonance += 0.01f; handled = 1; break;
+            case '_': state->resonance -= 0.01f; handled = 1; break;
             case ':':
                 state->entering_command = true;
                 memset(state->command_buffer, 0, sizeof(state->command_buffer));
                 state->command_index = 0;
+                handled = 1;
                 break;
         }
     } else {
@@ -87,17 +92,24 @@ static void moog_filter_handle_input(Module *m, int key) {
                 if (type == '1') state->cutoff = val;
                 else if (type == '2') state->resonance = val;
             }
+            handled = 1;
         } else if (key == 27) {
             state->entering_command = false;
+            handled = 1;
         } else if ((key == KEY_BACKSPACE || key == 127) && state->command_index > 0) {
             state->command_index--;
             state->command_buffer[state->command_index] = '\0';
+            handled = 1;
         } else if (key >= 32 && key < 127 && state->command_index < sizeof(state->command_buffer) - 1) {
             state->command_buffer[state->command_index++] = (char)key;
             state->command_buffer[state->command_index] = '\0';
+            handled = 1;
         }
     }
-	clamp_params(state);
+
+    if (handled)
+        clamp_params(state);
+
     pthread_mutex_unlock(&state->lock);
 }
 

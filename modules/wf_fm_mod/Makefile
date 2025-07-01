@@ -1,11 +1,18 @@
-CC=gcc
-CFLAGS=-Wall -O2 -fPIC -I../.. -I../../.. -I/opt/homebrew/include
-LDFLAGS=-dynamiclib -L/opt/homebrew/lib -lportaudio -lpthread -lm -lncurses
+CC        = gcc
+CFLAGS    = -Wall -O2 -fPIC -I../.. -I/opt/homebrew/include
+LDFLAGS   = -L/opt/homebrew/lib -dynamiclib -lportaudio -lpthread -lm -lncurses
 
-all: wf_fm_mod.dylib
+NAME      := $(notdir $(CURDIR))
+SRC       = $(NAME).c util.c
+OUT       = $(NAME).dylib
 
-wf_fm_mod.dylib: wf_fm_mod.c util.c
-	$(CC) $(CFLAGS) wf_fm_mod.c util.c -o wf_fm_mod.dylib $(LDFLAGS)
+all: $(OUT)
+
+$(OUT): $(SRC)
+	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
 clean:
-	rm -f wf_fm_mod.dylib
+	rm -f $(OUT)
+
+.PHONY: all clean
+

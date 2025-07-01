@@ -1,12 +1,18 @@
-CC = gcc
-CFLAGS = -Wall -O2 -fPIC -I../.. -I../../.. -I/opt/homebrew/include
-LDFLAGS = -dynamiclib -L/opt/homebrew/lib -lportaudio -lpthread -lm -lncurses
+CC        = gcc
+CFLAGS    = -Wall -O2 -fPIC -I../.. -I/opt/homebrew/include
+LDFLAGS   = -L/opt/homebrew/lib -dynamiclib -lportaudio -lpthread -lm -lncurses
 
-all: vco.dylib
+NAME      := $(notdir $(CURDIR))
+SRC       = $(NAME).c util.c
+OUT       = $(NAME).dylib
 
-vco.dylib: vco.c util.c
-	$(CC) $(CFLAGS) vco.c util.c -o vco.dylib $(LDFLAGS)
+all: $(OUT)
+
+$(OUT): $(SRC)
+	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
 clean:
-	rm -f vco.dylib
+	rm -f $(OUT)
+
+.PHONY: all clean
 

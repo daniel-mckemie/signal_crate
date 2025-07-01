@@ -1,23 +1,29 @@
 CC = gcc
 CFLAGS = -Wall -O2 -fPIC -I./modules -I/opt/homebrew/include
 LDFLAGS = -L/opt/homebrew/lib -ldl -lportaudio -lpthread -lm -lncurses
+SRC = main.c engine.c module_loader.c ui.c
+BIN = engine
 
-FlowControl: main.o engine.o module_loader.o engine_ui.o
-	$(CC) -o FlowControl main.o engine.o module_loader.o engine_ui.o $(LDFLAGS)
+MODULE_DIR = modules
+MODULES := $(shell find $(MODULE_DIR) -mindepth 1 -maxdepth 1 -type d)
 
-main.o: main.c engine.h module_loader.h ui.h
-	$(CC) $(CFLAGS) -c -o main.o main.c
+all: $(BIN) modules
 
-engine.o: engine.c engine.h module_loader.h
-	$(CC) $(CFLAGS) -c -o engine.o engine.c
+$(BIN): $(SRC)
+	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
-module_loader.o: module_loader.c module_loader.h engine.h
-	$(CC) $(CFLAGS) -c -o module_loader.o module_loader.c
-
-engine_ui.o: ui.c ui.h engine.h
-	$(CC) $(CFLAGS) -c -o engine_ui.o ui.c
+modules:
+	@for dir in $(MODULES); do \
+		echo "Building $$dir..."; \
+		$(MAKE) -C $$dir; \
+	done
 
 clean:
-	rm -f *.o FlowControl
+	rm -f $(BIN)
+	@for dir in $(MODULES); do \
+		echo "Cleaning $$dir..."; \
+		$(MAKE) -C $$dir clean; \
+	done
 
-.PHONY: clean
+.PHONY: all modules clean
+

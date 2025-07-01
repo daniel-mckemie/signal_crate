@@ -1,13 +1,18 @@
-CC=gcc
-CFLAGS=-Wall -O2 -fPIC -I../.. -I../../.. -I/opt/homebrew/include
-LDFLAGS=-dynamiclib -L/opt/homebrew/lib -lportaudio -lpthread -lm -lncurses
+CC        = gcc
+CFLAGS    = -Wall -O2 -fPIC -I../.. -I/opt/homebrew/include
+LDFLAGS   = -L/opt/homebrew/lib -dynamiclib -lportaudio -lpthread -lm -lncurses
 
-all: moog_filter.dylib
+NAME      := $(notdir $(CURDIR))
+SRC       = $(NAME).c util.c
+OUT       = $(NAME).dylib
 
-moog_filter.dylib: moog_filter.c util.c
-	$(CC) $(CFLAGS) moog_filter.c util.c -o moog_filter.dylib $(LDFLAGS)
+all: $(OUT)
+
+$(OUT): $(SRC)
+	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
 clean:
-	rm -f moog_filter.dylib
+	rm -f $(OUT)
 
+.PHONY: all clean
 

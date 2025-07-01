@@ -38,14 +38,20 @@ static void vco_draw_ui(Module *m, int row) {
     VCO *state = (VCO*)m->state;
     const char *wave_names[] = {"Sine", "Saw", "Square", "Triangle"};
 
-	pthread_mutex_lock(&state->lock);
-    mvprintw(row, 2,   "[VCO] Freq: %.2f Hz", state->frequency);
-    mvprintw(row+1, 2, "      Amp : %.2f", state->amplitude);
-    mvprintw(row+2, 2, "      Wave: %s", wave_names[state->waveform]);
-	mvprintw(row+3, 2, "Real-time keys: -/= (freq), _/+ (amp)");
-    mvprintw(row+4, 2, "Command mode: :1 [freq], :2 [amp], :w [waveform]");
+    float freq, amp;
+    Waveform waveform;
 
-	pthread_mutex_unlock(&state->lock);
+    pthread_mutex_lock(&state->lock);
+    freq = state->frequency;
+    amp = state->amplitude;
+    waveform = state->waveform;
+    pthread_mutex_unlock(&state->lock);
+
+    mvprintw(row, 2,   "[VCO] Freq: %.2f Hz", freq);
+    mvprintw(row+1, 2, "      Amp : %.2f", amp);
+    mvprintw(row+2, 2, "      Wave: %s", wave_names[waveform]);
+    mvprintw(row+3, 2, "Real-time keys: -/= (freq), _/+ (amp)");
+    mvprintw(row+4, 2, "Command mode: :1 [freq], :2 [amp], :w [waveform]");
 }
 
 static void clamp_params(VCO *state) {
@@ -57,20 +63,22 @@ static void clamp_params(VCO *state) {
 
 static void vco_handle_input(Module *m, int key) {
     VCO *state = (VCO*)m->state;
+    int handled = 0;
 
     pthread_mutex_lock(&state->lock);
 
     if (!state->entering_command) {
         switch (key) {
-            case '=': state->frequency += 0.5f; break;
-            case '-': state->frequency -= 0.5f; break;
-            case '+': state->amplitude += 0.01f; break;
-            case '_': state->amplitude -= 0.01f; break;
-            case 'w': state->waveform = (state->waveform + 1) % 4; break;
+            case '=': state->frequency += 0.5f; handled = 1; break;
+            case '-': state->frequency -= 0.5f; handled = 1; break;
+            case '+': state->amplitude += 0.01f; handled = 1; break;
+            case '_': state->amplitude -= 0.01f; handled = 1; break;
+            case 'w': state->waveform = (state->waveform + 1) % 4; handled = 1; break;
             case ':':
                 state->entering_command = true;
                 memset(state->command_buffer, 0, sizeof(state->command_buffer));
                 state->command_index = 0;
+                handled = 1;
                 break;
         }
     } else {
@@ -83,17 +91,24 @@ static void vco_handle_input(Module *m, int key) {
                 else if (type == '2') state->amplitude = val;
                 else if (type == '3') state->waveform = ((int)val) % 4;
             }
+            handled = 1;
         } else if (key == 27) {
             state->entering_command = false;
+            handled = 1;
         } else if ((key == KEY_BACKSPACE || key == 127) && state->command_index > 0) {
             state->command_index--;
             state->command_buffer[state->command_index] = '\0';
+            handled = 1;
         } else if (key >= 32 && key < 127 && state->command_index < sizeof(state->command_buffer) - 1) {
             state->command_buffer[state->command_index++] = (char)key;
             state->command_buffer[state->command_index] = '\0';
+            handled = 1;
         }
     }
-	clamp_params(state);
+
+    if (handled)
+        clamp_params(state);
+
     pthread_mutex_unlock(&state->lock);
 }
 
@@ -126,4 +141,3 @@ Module* create_module(float sample_rate) {
 	m->destroy = vco_destroy;
     return m;
 }
-

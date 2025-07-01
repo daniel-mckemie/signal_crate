@@ -42,10 +42,10 @@ static void wf_fm_mod_draw_ui(Module *m, int row) {
 	pthread_mutex_lock(&state->lock);
 
 	mvprintw(row, 2, "[Wavefolding FM Mod] Mod Freq %.2f Hz", state->modulator_freq);
-	mvprintw(row+1, 2,"					   Mod Index %.2f", state->index);
-	mvprintw(row+2, 2, "				   Mod Fold Amt %.2f", state->fold_threshold_mod);
-	mvprintw(row+3, 2, "				   Car (In) Fold Amt %.2f", state->fold_threshold_car);
-	mvprintw(row+4, 2, "				   Blend Amt %.2f", state->blend);
+	mvprintw(row+1, 2, "		   Mod Index %.2f", state->index);
+	mvprintw(row+2, 2, "		   Mod Fold Amt %.2f", state->fold_threshold_mod);
+	mvprintw(row+3, 2, "		   Car (In) Fold Amt %.2f", state->fold_threshold_car);
+	mvprintw(row+4, 2, "		   Blend Amt %.2f", state->blend);
 	mvprintw(row+5, 2, "Real-time keys: -/= (mod freq), _/+ (idx), [/]/{/} (fold), p/o [blend]");
     mvprintw(row+6, 2, "Command mode: :1 [mod freq], :2 [idx], :3 [fold mod], :4 [fold car], 5 [blend]");
 
@@ -115,6 +115,15 @@ static void wf_fm_mod_handle_input(Module *m, int key) {
 	pthread_mutex_unlock(&state->lock);
 }
 
+static void wf_fm_mod_destroy(Module* m) {
+    if (!m) return;
+    WFFMMod* state = (WFFMMod*)m->state;
+    if (state) {
+        pthread_mutex_destroy(&state->lock);
+        free(state);
+    }
+}
+
 Module* create_module(float sample_rate) {
 	WFFMMod *state = calloc(1, sizeof(WFFMMod));
 	state->modulator_freq = 440.0f;
@@ -137,5 +146,6 @@ Module* create_module(float sample_rate) {
 	m->process = wf_fm_mod_process;
 	m->draw_ui = wf_fm_mod_draw_ui;
 	m->handle_input = wf_fm_mod_handle_input;
+	m->destroy = wf_fm_mod_destroy;
 	return m;
 }

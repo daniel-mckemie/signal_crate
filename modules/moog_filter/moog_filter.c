@@ -45,11 +45,10 @@ static void moog_filter_draw_ui(Module *m, int row) {
 
     pthread_mutex_lock(&state->lock);
 
-    mvprintw(row,   2, "[Moog Filter]");
-    mvprintw(row+1, 2, "Cutoff: %.2f Hz", state->cutoff);
-    mvprintw(row+2, 2, "Resonance: %.2f", state->resonance);
-    mvprintw(row+3, 2, "Real-time keys: -/= (cutoff), _/+ (resonance)");
-    mvprintw(row+4, 2, "Command mode: :1 [cutoff], :2 [resonance]");
+    mvprintw(row, 2, "[Moog Filter] Cutoff: %.2f", state->cutoff);
+    mvprintw(row+1, 2, "		Resonance: %.2f", state->resonance);
+    mvprintw(row+2, 2, "Real-time keys: -/= (cutoff), _/+ (resonance)");
+    mvprintw(row+3, 2, "Command mode: :1 [cutoff], :2 [resonance]");
 
     pthread_mutex_unlock(&state->lock);
 }
@@ -102,6 +101,15 @@ static void moog_filter_handle_input(Module *m, int key) {
     pthread_mutex_unlock(&state->lock);
 }
 
+static void moog_filter_destroy(Module* m) {
+    if (!m) return;
+    MoogFilter* state = (MoogFilter*)m->state;
+    if (state) {
+        pthread_mutex_destroy(&state->lock);
+        free(state);
+    }
+}
+
 Module* create_module(float sample_rate) {
 	MoogFilter *state = calloc(1, sizeof(MoogFilter));
 	state->cutoff = 440.0f;
@@ -118,5 +126,6 @@ Module* create_module(float sample_rate) {
 	m->process = moog_filter_process;
 	m->draw_ui = moog_filter_draw_ui;
 	m->handle_input = moog_filter_handle_input;
+	m->destroy = moog_filter_destroy;
 	return m;
 }

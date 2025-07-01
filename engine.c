@@ -1,8 +1,9 @@
 #include <stdlib.h>
 #include <string.h>
+#include <pthread.h>
 
 #include "engine.h"
-
+#include "module.h"
 
 Module* chain[MAX_MODULES];
 int module_count = 0;
@@ -34,3 +35,14 @@ void process_chain(float* in, float* out, unsigned long frames) {
 	}
 
 }
+
+void free_module(Module *m) {
+    if (!m) return;
+    if (m->destroy) {
+        m->destroy(m);
+    } else {
+        if (m->state) free(m->state);  // fallback
+    }
+    free(m);
+}
+

@@ -45,10 +45,17 @@ int main() {
     Pa_OpenDefaultStream(&stream, 1, 1, paFloat32, sample_rate, FRAMES_PER_BUFFER, audio_callback, NULL);
     Pa_StartStream(stream);
 
-    ui_loop();
+	ui_loop();  // user exits via :q
 
-    Pa_StopStream(stream);
-    Pa_CloseStream(stream);
-    Pa_Terminate();
-    return 0;
+	Pa_StopStream(stream);
+	Pa_CloseStream(stream);
+	Pa_Terminate();
+
+	// FREE ALL MODULES
+	for (int i = 0; i < module_count; i++) {
+		free_module(chain[i]);
+	}
+
+	printf("Clean exit.\n");
+	return EXIT_SUCCESS;
 }

@@ -97,6 +97,15 @@ static void vco_handle_input(Module *m, int key) {
     pthread_mutex_unlock(&state->lock);
 }
 
+static void vco_destroy(Module* m) {
+    if (!m) return;
+    VCO* state = (VCO*)m->state;
+    if (state) {
+        pthread_mutex_destroy(&state->lock);
+        free(state);
+    }
+}
+
 Module* create_module(float sample_rate) {
     VCO *state = calloc(1, sizeof(VCO));
     state->frequency = 440.0f;
@@ -114,6 +123,7 @@ Module* create_module(float sample_rate) {
     m->process = vco_process;
     m->draw_ui = vco_draw_ui;
 	m->handle_input = vco_handle_input;
+	m->destroy = vco_destroy;
     return m;
 }
 

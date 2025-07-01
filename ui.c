@@ -22,11 +22,12 @@ void ui_loop() {
         clear();
         mvprintw(0, 2, "--- Modular Synth Engine ---");
 
+		int module_padding = 9;
         for (int i = 0; i < module_count; i++) {
             if (chain[i]->draw_ui) {
                 if (i == focused_module_index)
                     attron(A_REVERSE);
-                chain[i]->draw_ui(chain[i], 2 + i * 4);
+                chain[i]->draw_ui(chain[i], 2 + i * module_padding);
                 if (i == focused_module_index)
                     attroff(A_REVERSE);
             }

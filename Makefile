@@ -2,8 +2,8 @@ CC = gcc
 CFLAGS = -Wall -O2 -fPIC -I./modules -I/opt/homebrew/include
 LDFLAGS = -L/opt/homebrew/lib -ldl -lportaudio -lpthread -lm -lncurses
 
-engine: main.o engine.o module_loader.o engine_ui.o
-	$(CC) -o engine main.o engine.o module_loader.o engine_ui.o $(LDFLAGS)
+FlowControl: main.o engine.o module_loader.o engine_ui.o
+	$(CC) -o FlowControl main.o engine.o module_loader.o engine_ui.o $(LDFLAGS)
 
 main.o: main.c engine.h module_loader.h ui.h
 	$(CC) $(CFLAGS) -c -o main.o main.c
@@ -18,6 +18,6 @@ engine_ui.o: ui.c ui.h engine.h
 	$(CC) $(CFLAGS) -c -o engine_ui.o ui.c
 
 clean:
-	rm -f *.o engine
+	rm -f *.o FlowControl
 
 .PHONY: clean

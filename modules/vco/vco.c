@@ -8,7 +8,7 @@
 #include "module.h"
 #include "util.h"
 
-static void vco_process(Module *m, float* in, float* out, unsigned long frames) {
+static void vco_process(Module *m, float* restrict in, float* restrict out, unsigned long frames) {
     VCO *state = (VCO*)m->state;
     float freq, amp;
     Waveform waveform;

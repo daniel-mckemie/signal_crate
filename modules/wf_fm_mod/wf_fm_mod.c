@@ -8,7 +8,7 @@
 #include "module.h"
 #include "util.h"
 
-static void wf_fm_mod_process(Module *m, float* in, float* out, unsigned long frames) {
+static void wf_fm_mod_process(Module *m, float* restrict in, float* restrict out, unsigned long frames) {
     WFFMMod *state = (WFFMMod*)m->state;
 
     float mf, idx, ft_mod, ft_car, blend;

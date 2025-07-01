@@ -8,7 +8,7 @@
 #include "module.h"
 #include "util.h"
 
-static void moog_filter_process(Module *m, float* in, float* out, unsigned long frames) {
+static void moog_filter_process(Module *m, float* restrict in, float* restrict out, unsigned long frames) {
 	MoogFilter *state = (MoogFilter*)m->state;
 	float co, res;
 

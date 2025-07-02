@@ -1,29 +1,28 @@
-CC = gcc
-CFLAGS = -Wall -O2 -fPIC -I./modules -I/opt/homebrew/include
+APP = FlowControl
+SRCS = main.c engine.c ui.c module_loader.c util.c
+CFLAGS = -Wall -O2 -fPIC -I./modules -I. -I/opt/homebrew/include
 LDFLAGS = -L/opt/homebrew/lib -ldl -lportaudio -lpthread -lm -lncurses
-SRC = main.c engine.c module_loader.c ui.c
-BIN = FlowControl
 
-MODULE_DIR = modules
-MODULES := $(shell find $(MODULE_DIR) -mindepth 1 -maxdepth 1 -type d)
+# === Modules ===
+MODULE_DIRS = modules/vco modules/moog_filter modules/wf_fm_mod modules/ring_mod
 
-all: $(BIN) modules
+# === Targets ===
+.PHONY: all modules clean
 
-$(BIN): $(SRC)
-	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
+all: $(APP) modules
+
+$(APP): $(SRCS)
+	gcc $(CFLAGS) -o $(APP) $(SRCS) $(LDFLAGS)
 
 modules:
-	@for dir in $(MODULES); do \
+	@for dir in $(MODULE_DIRS); do \
 		echo "Building $$dir..."; \
-		$(MAKE) -C $$dir; \
+		$(MAKE) -C $$dir || exit 1; \
 	done
 
 clean:
-	rm -f $(BIN)
-	@for dir in $(MODULES); do \
-		echo "Cleaning $$dir..."; \
+	rm -f $(APP)
+	for dir in $(MODULE_DIRS); do \
 		$(MAKE) -C $$dir clean; \
 	done
-
-.PHONY: all modules clean
 

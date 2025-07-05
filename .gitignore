@@ -1,3 +1,16 @@
-.DS_Store
+#Ignore binary
+FlowControl
+
+
+#Ignore build artifacts
+*.dylib
+*.o
+*.so
+*.a
+*.dll
+*.exe
+
+#Ignore others
 *.swp
+.DS_Store
 todo.txt

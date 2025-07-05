@@ -4,7 +4,7 @@ CFLAGS = -Wall -O2 -fPIC -I./modules -I. -I/opt/homebrew/include
 LDFLAGS = -L/opt/homebrew/lib -ldl -lportaudio -lpthread -lm -lncurses
 
 # === Modules ===
-MODULE_DIRS = modules/vco modules/moog_filter modules/wf_fm_mod modules/ring_mod
+MODULE_DIRS = modules/vco modules/moog_filter modules/wf_fm_mod modules/ring_mod modules/noise_source
 
 # === Targets ===
 .PHONY: all modules clean

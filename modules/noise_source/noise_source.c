@@ -1,0 +1,131 @@
+#include <stdlib.h>
+#include <string.h>
+#include <math.h>
+#include <time.h>
+#include <pthread.h>
+#include <ncurses.h>
+
+#include "noise_source.h"
+#include "module.h"
+#include "util.h"
+
+static void noise_source_process(Module* m, float* restrict in, float* restrict out, unsigned long frames) {
+	NoiseSource *state = (NoiseSource*)m->state;
+
+	float amp;
+	NoiseType noise_type;
+
+	pthread_mutex_lock(&state->lock);
+	amp = process_smoother(&state->smooth_amp, state->amplitude);
+	noise_type = state->noise_type;
+	pthread_mutex_unlock(&state->lock);
+
+	for (unsigned long i=0; i<frames; i++) {
+		float value = 0.0f;
+		switch (noise_type) {
+			case WHITE_NOISE:	value = (float)rand() / RAND_MAX * 2.0 - 1.0; break;
+			case PINK_NOISE:	value = (float)rand() / RAND_MAX * 2.0 - 1.0; break; 
+			case BROWN_NOISE:	value = (float)rand() / RAND_MAX * 2.0 - 1.0; break; 
+		}
+		out[i] = amp * value;
+	}
+}
+
+static void noise_source_draw_ui(Module *m, int row) {
+	NoiseSource *state = (NoiseSource*)m->state;
+	const char *noise_names[] = {"White", "Pink", "Brown"};
+
+	float amp;
+	NoiseType noise_type;
+	
+	pthread_mutex_lock(&state->lock);
+	amp = process_smoother(&state->smooth_amp, state->amplitude);
+	noise_type = state->noise_type;
+	pthread_mutex_unlock(&state->lock);
+
+	mvprintw(row, 2,   "[Noise Source] Amp: %.2f Hz", amp);
+	mvprintw(row+1, 2, "		 Type: %s Hz", noise_names[noise_type]);
+	mvprintw(row+2, 2,   "Real-time keys: -/= (amp)");
+	mvprintw(row+3, 2,   "Command mode: :1 [amp], :n [noise type]");
+}
+
+static void clamp_params(NoiseSource *state) {
+	if (state->amplitude < 0.0f) state->amplitude = 0.0f;
+	if (state->amplitude > 1.0f) state->amplitude = 1.0f;
+}
+
+static void noise_source_handle_input(Module *m, int key) {
+	NoiseSource *state = (NoiseSource*)m->state;
+	int handled = 0;
+
+	pthread_mutex_lock(&state->lock);
+
+	if (!state->entering_command) {
+		switch (key) {
+			case '=': state->amplitude += 0.01f; handled = 1; break;
+			case '-': state->amplitude -= 0.01f; handled = 1; break;
+			case 'n': state->noise_type = (state->noise_type + 1) % 3; handled = 1; break;
+			case ':':
+				state->entering_command = true;
+				memset(state->command_buffer, 0, sizeof(state->command_buffer));
+				state->command_index = 0;
+				handled = 1;
+				break;
+		}
+    } else {
+        if (key == '\n') {
+            state->entering_command = false;
+            char type;
+            float val;
+            if (sscanf(state->command_buffer, "%c %f", &type, &val) == 2) {
+                if (type == '1') state->amplitude = val;
+                else if (type == '2') state->noise_type = ((int)val) % 3;
+            }
+            handled = 1;
+        } else if (key == 27) {
+            state->entering_command = false;
+            handled = 1;
+        } else if ((key == KEY_BACKSPACE || key == 127) && state->command_index > 0) {
+            state->command_index--;
+            state->command_buffer[state->command_index] = '\0';
+            handled = 1;
+        } else if (key >= 32 && key < 127 && state->command_index < sizeof(state->command_buffer) - 1) {
+            state->command_buffer[state->command_index++] = (char)key;
+            state->command_buffer[state->command_index] = '\0';
+            handled = 1;
+        }
+    }
+
+	if (handled)
+		clamp_params(state);
+
+	pthread_mutex_unlock(&state->lock);
+}
+
+static void noise_source_destroy(Module* m) {
+	if (!m) return;
+	NoiseSource* state = (NoiseSource*)m->state;
+	if (state) {
+		pthread_mutex_destroy(&state->lock);
+		free(state);
+	}
+}
+
+Module* create_module(float sample_rate) {
+	NoiseSource *state = calloc(1, sizeof(NoiseSource));
+	state->amplitude = 0.5f;
+	state->noise_type = WHITE_NOISE;
+	state->sample_rate = sample_rate;
+	pthread_mutex_init(&state->lock, NULL);
+	init_smoother(&state->smooth_amp, 0.75f);
+	clamp_params(state);
+
+	Module *m = calloc(1, sizeof(Module));
+	m->name = "noise_source";
+	m->state = state;
+	m->process = noise_source_process;
+	m->draw_ui = noise_source_draw_ui;
+	m->handle_input = noise_source_handle_input;
+	m->destroy = noise_source_destroy;
+	return m;
+}

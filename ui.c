@@ -20,7 +20,7 @@ void ui_loop() {
 
     while (running) {
         clear();
-        mvprintw(0, 2, "--- Modular Synth Engine ---");
+        mvprintw(0, 2, "--- Flow Control ---");
 
 		int module_padding = 9;
         for (int i = 0; i < module_count; i++) {

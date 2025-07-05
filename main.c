@@ -30,7 +30,7 @@ static int audio_callback(const void* input, void* output,
 
 int main() {
     char patch[256];
-    printf("Enter patch (e.g., vco moog_filter wf_fm_mod, ring_mod): ");
+    printf("Enter patch (e.g., vco, moog_filter, wf_fm_mod, ring_mod, noise_source): ");
     fgets(patch, sizeof(patch), stdin);
 
     char* token = strtok(patch, " \n");

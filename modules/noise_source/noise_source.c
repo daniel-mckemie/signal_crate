@@ -6,6 +6,7 @@
 #include <ncurses.h>
 
 #include "noise_source.h"
+#include "pink_filter.h"
 #include "module.h"
 #include "util.h"
 
@@ -21,10 +22,11 @@ static void noise_source_process(Module* m, float* restrict in, float* restrict 
 	pthread_mutex_unlock(&state->lock);
 
 	for (unsigned long i=0; i<frames; i++) {
+		float white = ((float)rand() / RAND_MAX) * 2.0 - 1.0;
 		float value = 0.0f;
 		switch (noise_type) {
-			case WHITE_NOISE:	value = (float)rand() / RAND_MAX * 2.0 - 1.0; break;
-			case PINK_NOISE:	value = (float)rand() / RAND_MAX * 2.0 - 1.0; break; 
+			case WHITE_NOISE:	value = white; break;
+			case PINK_NOISE:	value = pink_filter_process(&state->pink, white); break;
 			case BROWN_NOISE:	value = (float)rand() / RAND_MAX * 2.0 - 1.0; break; 
 		}
 		out[i] = amp * value;
@@ -116,6 +118,7 @@ Module* create_module(float sample_rate) {
 	state->amplitude = 0.5f;
 	state->noise_type = WHITE_NOISE;
 	state->sample_rate = sample_rate;
+	pink_filter_init(&state->pink, sample_rate);
 	pthread_mutex_init(&state->lock, NULL);
 	init_smoother(&state->smooth_amp, 0.75f);
 	clamp_params(state);

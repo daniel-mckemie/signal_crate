@@ -12,5 +12,5 @@ FlowControl
 
 #Ignore others
 *.swp
+*.txt
 .DS_Store
-todo.txt

@@ -28,13 +28,15 @@ static void ringmod_process(Module* m, float* in, float* out, unsigned long fram
     sr = state->sample_rate;
     pthread_mutex_unlock(&state->lock);
 
+	int idx;
     for (unsigned long i = 0; i < frames; i++) {
-        float mod = sinf(2.0f * M_PI * phase);
+		idx = (int)(phase / TWO_PI * SINE_TABLE_SIZE) % SINE_TABLE_SIZE;
+        float mod = sine_table[idx]; 
         float dry = in ? in[i] : 0.0f;
         out[i] = amp1 * dry * amp2 * mod;
-        phase += freq / sr;
-        if (phase >= 1.0f)
-            phase -= 1.0f;
+        phase += TWO_PI * freq / sr; 
+        if (phase >= TWO_PI)
+            phase -= TWO_PI;
     }
 
     pthread_mutex_lock(&state->lock);
@@ -136,6 +138,7 @@ Module* create_module(float sample_rate) {
     state->amp2 = 1.0f;
     state->sample_rate = sample_rate;
     pthread_mutex_init(&state->lock, NULL);
+	init_sine_table();
     init_smoother(&state->smooth_freq, 0.75f);
     init_smoother(&state->smooth_amp1, 0.75f);
     init_smoother(&state->smooth_amp2, 0.75f);

@@ -20,13 +20,38 @@ static void vco_process(Module *m, float* restrict in, float* restrict out, unsi
     pthread_mutex_unlock(&state->lock);
 
     static float phs = 0.0f;
+	int idx;
     for (unsigned long i = 0; i < frames; i++) {
         float value = 0.0f;
+		idx = (int)(phs / TWO_PI * SINE_TABLE_SIZE) % SINE_TABLE_SIZE;
         switch (waveform) {
-            case WAVE_SINE:     value = sinf(phs); break;
-            case WAVE_SAW:      value = 2.0f * (phs / TWO_PI) - 1.0f; break;
-            case WAVE_SQUARE:   value = (sinf(phs) >= 0.0f) ? 1.0f : -1.0f; break;
-            case WAVE_TRIANGLE: value = 2.0f * fabs(2.0f * (phs / TWO_PI) - 1.0f) - 1.0f; break;
+            case WAVE_SINE:     value = sine_table[idx]; break;
+            case WAVE_SAW: {
+							   float t = phs / TWO_PI;
+							   value = 2.0f * t - 1.0f;
+							   value -= poly_blep(t, freq / state->sample_rate); break;		   
+						   }
+            case WAVE_SQUARE: {
+								  float t = phs / TWO_PI;
+								  value = (t < 0.5f) ? 1.0f : -1.0f;
+								  float dt = freq / state->sample_rate;
+								  value += poly_blep(t,dt); // Falling edge
+								  value -= poly_blep(fmodf(t + 0.5f, 1.0f), dt); break; // Rising edge
+							  }
+            case WAVE_TRIANGLE: {
+									float t = phs / TWO_PI;
+									float dt = freq / state->sample_rate;
+									float sq = (t < 0.5f) ? 1.0f : -1.0f;
+									sq += poly_blep(t, dt);
+									sq -= poly_blep(fmodf(t + 0.5f, 1.0f), dt);
+									state->tri_state += 2.0f * freq / state->sample_rate * sq;
+									state->tri_state *= 0.999f;
+									if (state->tri_state > 1.0f) state->tri_state = 1.0f;
+									if (state->tri_state < -1.0f) state->tri_state = -1.0f;
+									value = state->tri_state;
+									break;
+								}
+
         }
         out[i] = amp * value;
         phs += TWO_PI * freq / state->sample_rate;
@@ -126,8 +151,11 @@ Module* create_module(float sample_rate) {
     state->frequency = 440.0f;
     state->amplitude = 0.5f;
     state->waveform = WAVE_SINE;
+	state->tri_state = 0.0f;
     state->sample_rate = sample_rate;
-    pthread_mutex_init(&state->lock, NULL);
+    
+	pthread_mutex_init(&state->lock, NULL);
+	init_sine_table();
     init_smoother(&state->smooth_freq, 0.75f);
     init_smoother(&state->smooth_amp, 0.75f);
     clamp_params(state);

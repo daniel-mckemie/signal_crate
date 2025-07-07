@@ -5,6 +5,7 @@
 #include "module.h"
 #include "util.h"
 #include "pink_filter.h"
+#include "brown_noise.h"
 
 typedef enum {
 	WHITE_NOISE,
@@ -20,6 +21,7 @@ typedef struct {
 	CParamSmooth smooth_amp;
 
 	PinkFilter pink;
+    BrownNoise brown;	
 
 	pthread_mutex_t lock;
 

@@ -11,13 +11,12 @@
 static void moog_filter_process(Module *m, float* restrict in, float* restrict out, unsigned long frames) {
 	MoogFilter *state = (MoogFilter*)m->state;
 	float co, res;
-	FilterType filt_type;
 
 	pthread_mutex_lock(&state->lock); // Lock thread
 	co = process_smoother(&state->smooth_co, state->cutoff);
 	res = process_smoother(&state->smooth_res, state->resonance);
-	filt_type = state->filt_type;
 	pthread_mutex_unlock(&state->lock); // Unlock thread
+
 
 	float wc = 2.0f * M_PI * co / state->sample_rate;	
 	float g = wc / (wc + 1.0f); // Scale to appropriate ladder behavior
@@ -35,20 +34,7 @@ static void moog_filter_process(Module *m, float* restrict in, float* restrict o
 		state->z[2] += g * (state->z[1] - state->z[2]);
 		state->z[3] += g * (state->z[2] - state->z[3]);
 
-		float y;
-		switch (filt_type) {
-			case LOWPASS:
-				y = tanhf(state->z[3]); break;	
-			case HIGHPASS:
-				y = tanhf(x - state->z[3]); break;
-			case BANDPASS:
-				y = tanhf(state->z[2] - state->z[3]); break;
-			case NOTCH:
-				y = tanhf(x - k * state->z[3]); break;		
-			case RESONANT:
-				y = tanhf(state->z[3] + k * (state->z[3] - state->z[2])); break;
-		}
-				
+		float y = tanhf(state->z[3]);				 // Output limiter
 		out[i] = fminf(fmaxf(y, -1.0f), 1.0f);		 // Output saturation
 
 	}
@@ -56,22 +42,18 @@ static void moog_filter_process(Module *m, float* restrict in, float* restrict o
 
 static void moog_filter_draw_ui(Module *m, int row) {
     MoogFilter *state = (MoogFilter*)m->state;
-	const char *filt_names[] = {"LP", "HP", "BP", "Notch", "Res"};
 
     float co, res;
-	FilterType filt_type;
 
     pthread_mutex_lock(&state->lock);
     co = state->cutoff;
     res = state->resonance;
-	filt_type = state->filt_type;
     pthread_mutex_unlock(&state->lock);
 
     mvprintw(row, 2, "[Moog Filter] Cutoff: %.2f", co);
     mvprintw(row+1, 2, "		Resonance: %.2f", res);
-    mvprintw(row+2, 2, "		Filter Type: %s", filt_names[filt_type]);
-    mvprintw(row+3, 2, "Real-time keys: -/= (cutoff), _/+ (resonance)");
-    mvprintw(row+4, 2, "Command mode: :1 [cutoff], :2 [resonance] f: [filter type]");
+    mvprintw(row+2, 2, "Real-time keys: -/= (cutoff), _/+ (resonance)");
+    mvprintw(row+3, 2, "Command mode: :1 [cutoff], :2 [resonance]");
 }
 
 static void clamp_params(MoogFilter *state) {
@@ -94,7 +76,6 @@ static void moog_filter_handle_input(Module *m, int key) {
             case '-': state->cutoff -= 0.5f; handled = 1; break;
             case '+': state->resonance += 0.01f; handled = 1; break;
             case '_': state->resonance -= 0.01f; handled = 1; break;
-			case 'f': state->filt_type = (state->filt_type + 1) % 5; handled = 1; break; 			  
             case ':':
                 state->entering_command = true;
                 memset(state->command_buffer, 0, sizeof(state->command_buffer));
@@ -110,7 +91,6 @@ static void moog_filter_handle_input(Module *m, int key) {
             if (sscanf(state->command_buffer, "%c %f", &type, &val) == 2) {
                 if (type == '1') state->cutoff = val;
                 else if (type == '2') state->resonance = val;
-                else if (type == '3') state->filt_type = ((int)val) % 5;
             }
             handled = 1;
         } else if (key == 27) {
@@ -146,7 +126,6 @@ Module* create_module(float sample_rate) {
 	MoogFilter *state = calloc(1, sizeof(MoogFilter));
 	state->cutoff = 440.0f;
 	state->resonance = 0.5f;
-	state->filt_type = LOWPASS;
 	state->sample_rate = sample_rate;
 	pthread_mutex_init(&state->lock, NULL);
 	init_smoother(&state->smooth_co, 0.75f);

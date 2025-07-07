@@ -4,22 +4,11 @@
 #include <pthread.h>
 #include "util.h"
 
-typedef enum {
-	LOWPASS,
-	HIGHPASS,
-	BANDPASS,
-	NOTCH,
-	RESONANT
-} FilterType;
-
 typedef struct {
 	float cutoff;
 	float resonance;
 	float z[4]; // filter stages
 	float sample_rate;
-
-	FilterType filt_type;
-
 	CParamSmooth smooth_co;
 	CParamSmooth smooth_res;
 	pthread_mutex_t lock;

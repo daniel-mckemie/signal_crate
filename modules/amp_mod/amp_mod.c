@@ -4,12 +4,12 @@
 #include <ncurses.h>
 #include <string.h>
 
-#include "ring_mod.h"
+#include "amp_mod.h"
 #include "module.h"
 #include "util.h"
 
-static void ringmod_process(Module* m, float* in, float* out, unsigned long frames) {
-    RingMod* state = (RingMod*)m->state;
+static void ampmod_process(Module* m, float* in, float* out, unsigned long frames) {
+    AmpMod* state = (AmpMod*)m->state;
 
     float phase, freq, amp1, amp2, sr;
     pthread_mutex_lock(&state->lock);
@@ -24,8 +24,9 @@ static void ringmod_process(Module* m, float* in, float* out, unsigned long fram
     for (unsigned long i = 0; i < frames; i++) {
 		idx = (int)(phase / TWO_PI * SINE_TABLE_SIZE) % SINE_TABLE_SIZE;
         float car = in ? in[i] : 0.0f;
-        float mod = sine_table[idx];
-        out[i] = (amp1 * car) * (amp2 * mod);
+        float mod = sine_table[idx]; 
+		float unipolar_mod = (amp2 * mod + 1.0f) * 0.5f; // Now [0, amp2]
+        out[i] = (amp1 * car) * unipolar_mod;
         phase += TWO_PI * freq / sr; 
         if (phase >= TWO_PI)
             phase -= TWO_PI;
@@ -36,19 +37,19 @@ static void ringmod_process(Module* m, float* in, float* out, unsigned long fram
     pthread_mutex_unlock(&state->lock);
 }
 
-static void clamp_params(RingMod *state) {
+static void clamp_params(AmpMod *state) {
     if (state->amp1 < 0.0f) state->amp1 = 0.0f;
     if (state->amp1 > 2.0f) state->amp1 = 2.0f;
 
     if (state->amp2 < 0.0f) state->amp2 = 0.0f;
     if (state->amp2 > 2.0f) state->amp2 = 2.0f;
 
-	if (state->freq < 1.0f) state->freq = 1.0f;
+    if (state->freq < 1.0f) state->freq = 1.0f;
     if (state->freq > 20000.0f) state->freq = 20000.0f;
 }
 
-static void ringmod_draw_ui(Module* m, int row) {
-    RingMod* state = (RingMod*)m->state;
+static void ampmod_draw_ui(Module* m, int row) {
+    AmpMod* state = (AmpMod*)m->state;
 
     float freq, amp1, amp2;
     char cmd[64] = "";
@@ -61,17 +62,17 @@ static void ringmod_draw_ui(Module* m, int row) {
         snprintf(cmd, sizeof(cmd), ":%s", state->command_buffer);
     pthread_mutex_unlock(&state->lock);
 
-    mvprintw(row,   2, "[RingMod] Mod Freq: %.2f Hz", freq);
-    mvprintw(row+1, 2, "          CarAmp: %.2f", amp1);
-    mvprintw(row+2, 2, "          ModAmp: %.2f", amp2);
-    mvprintw(row+3, 2, "Real-time keys: -/= (freq), _/+ (ModAmp), [/] (CarAmp)");
-    mvprintw(row+4, 2, "Command mode: :1 [freq], :2 [CarAmp], :3 [ModAmp]");
+    mvprintw(row,   2, "[AmpMod] Mod Freq: %.2f Hz", freq);
+    mvprintw(row+1, 2, "          Car Amp: %.2f", amp1);
+    mvprintw(row+2, 2, "          Depth: %.2f", amp2);
+    mvprintw(row+3, 2, "Real-time keys: -/= (freq), _/+ (Car Amp), [/] (Depth)");
+    mvprintw(row+4, 2, "Command mode: :1 [freq], :2 [Car Amp], :3 [Depth]");
     if (state->entering_command)
         mvprintw(row+5, 2, "%s", cmd);
 }
 
-static void ringmod_handle_input(Module* m, int key) {
-    RingMod* state = (RingMod*)m->state;
+static void ampmod_handle_input(Module* m, int key) {
+    AmpMod* state = (AmpMod*)m->state;
 
     pthread_mutex_lock(&state->lock);
 
@@ -114,9 +115,9 @@ static void ringmod_handle_input(Module* m, int key) {
     pthread_mutex_unlock(&state->lock);
 }
 
-static void ringmod_destroy(Module* m) {
+static void ampmod_destroy(Module* m) {
     if (!m) return;
-    RingMod* state = (RingMod*)m->state;
+    AmpMod* state = (AmpMod*)m->state;
     if (state) {
         pthread_mutex_destroy(&state->lock);
         free(state);
@@ -124,7 +125,7 @@ static void ringmod_destroy(Module* m) {
 }
 
 Module* create_module(float sample_rate) {
-    RingMod* state = calloc(1, sizeof(RingMod));
+    AmpMod* state = calloc(1, sizeof(AmpMod));
     state->freq = 440.0f;
     state->amp1 = 1.0f;
     state->amp2 = 1.0f;
@@ -137,11 +138,11 @@ Module* create_module(float sample_rate) {
     clamp_params(state);
 
     Module* m = calloc(1, sizeof(Module));
-    m->name = "ring_mod";
+    m->name = "amp_mod";
     m->state = state;
-    m->process = ringmod_process;
-    m->draw_ui = ringmod_draw_ui;
-    m->handle_input = ringmod_handle_input;
-    m->destroy = ringmod_destroy;
+    m->process = ampmod_process;
+    m->draw_ui = ampmod_draw_ui;
+    m->handle_input = ampmod_handle_input;
+    m->destroy = ampmod_destroy;
     return m;
 }

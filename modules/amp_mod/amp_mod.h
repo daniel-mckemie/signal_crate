@@ -1,12 +1,12 @@
-#ifndef RING_MOD_H
-#define RING_MOD_H
+#ifndef AMP_MOD_H
+#define AMP_MOD_H
 
 #include <pthread.h>
 #include "module.h"
 #include "util.h"
 
 typedef struct {
-    float sample_rate;
+	float sample_rate;
 	float phase;
 	float freq;
 	float amp1;
@@ -16,13 +16,13 @@ typedef struct {
 	CParamSmooth smooth_amp1;
 	CParamSmooth smooth_amp2;
 
-    pthread_mutex_t lock;
+	pthread_mutex_t lock;
 
 	// For command mode input
 	bool entering_command;
 	char command_buffer[64];
 	int command_index;
-} RingMod;
+} AmpMod;
 
 Module* create_module(float sample_rate);
 

@@ -52,7 +52,7 @@ int main() {
 
     // Ask user for patch
     char patch[256];
-    printf("Enter patch (e.g., vco, moog_filter, wf_fm_mod, ring_mod, noise_source): ");
+    printf("Enter patch (e.g., vco, moog_filter, wf_fm_mod, ring_mod, noise_source, amp_mod): ");
     fgets(patch, sizeof(patch), stdin);
 
     char* token = strtok(patch, " \n");

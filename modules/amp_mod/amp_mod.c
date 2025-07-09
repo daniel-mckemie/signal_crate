@@ -39,10 +39,10 @@ static void ampmod_process(Module* m, float* in, float* out, unsigned long frame
 
 static void clamp_params(AmpMod *state) {
     if (state->amp1 < 0.0f) state->amp1 = 0.0f;
-    if (state->amp1 > 2.0f) state->amp1 = 2.0f;
+    if (state->amp1 > 1.0f) state->amp1 = 1.0f;
 
     if (state->amp2 < 0.0f) state->amp2 = 0.0f;
-    if (state->amp2 > 2.0f) state->amp2 = 2.0f;
+    if (state->amp2 > 1.0f) state->amp2 = 1.0f;
 
     if (state->freq < 1.0f) state->freq = 1.0f;
     if (state->freq > 20000.0f) state->freq = 20000.0f;
@@ -73,13 +73,14 @@ static void ampmod_draw_ui(Module* m, int row) {
 
 static void ampmod_handle_input(Module* m, int key) {
     AmpMod* state = (AmpMod*)m->state;
+	int handled = 0;
 
     pthread_mutex_lock(&state->lock);
 
     if (!state->entering_command) {
         switch (key) {
-            case '=': state->freq += 1.0f; break;
-            case '-': state->freq -= 1.0f; break;
+            case '=': state->freq += 0.05f; break;
+            case '-': state->freq -= 0.05f; break;
             case '+': state->amp1 += 0.05f; break;
             case '_': state->amp1 -= 0.05f; break;
             case ']': state->amp2 += 0.05f; break;
@@ -88,6 +89,7 @@ static void ampmod_handle_input(Module* m, int key) {
                 state->entering_command = true;
                 memset(state->command_buffer, 0, sizeof(state->command_buffer));
                 state->command_index = 0;
+				handled = 1;
                 break;
         }
     } else {
@@ -100,18 +102,23 @@ static void ampmod_handle_input(Module* m, int key) {
                 else if (type == '2') state->amp1 = val;
                 else if (type == '3') state->amp2 = val;
             }
+			handled = 1;
         } else if (key == 27) {
             state->entering_command = false;
+			handled = 1;
         } else if ((key == KEY_BACKSPACE || key == 127) && state->command_index > 0) {
             state->command_index--;
             state->command_buffer[state->command_index] = '\0';
+			handled = 1;
         } else if (key >= 32 && key < 127 && state->command_index < sizeof(state->command_buffer) - 1) {
             state->command_buffer[state->command_index++] = (char)key;
             state->command_buffer[state->command_index] = '\0';
+			handled = 1; 
         }
     }
 
-    clamp_params(state);
+	if (handled)
+		clamp_params(state);
     pthread_mutex_unlock(&state->lock);
 }
 

@@ -78,12 +78,12 @@ static void ringmod_handle_input(Module* m, int key) {
 
     if (!state->entering_command) {
         switch (key) {
-            case '=': state->freq += 0.05f; break;
-            case '-': state->freq -= 0.05f; break;
-            case '+': state->amp1 += 0.05f; break;
-            case '_': state->amp1 -= 0.05f; break;
-            case ']': state->amp2 += 0.05f; break;
-			case '[': state->amp2 -= 0.05f; break;
+            case '=': state->freq += 0.05f; handled = 1; break;
+            case '-': state->freq -= 0.05f; handled = 1; break;
+            case '+': state->amp1 += 0.05f; handled = 1; break;
+            case '_': state->amp1 -= 0.05f; handled = 1; break;
+            case ']': state->amp2 += 0.05f; handled = 1; break;
+			case '[': state->amp2 -= 0.05f; handled = 1; break;
             case ':':
                 state->entering_command = true;
                 memset(state->command_buffer, 0, sizeof(state->command_buffer));

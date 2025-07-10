@@ -8,7 +8,7 @@
 #include "module.h"
 #include "util.h"
 
-static void wf_fm_mod_process(Module *m, float* restrict in, float* restrict out, unsigned long frames) {
+static void wf_fm_mod_process(Module *m, float* in, unsigned long frames) {
     WFFMMod *state = (WFFMMod*)m->state;
 
     float mf, idx, ft_mod, ft_car, blend;
@@ -28,7 +28,7 @@ static void wf_fm_mod_process(Module *m, float* restrict in, float* restrict out
         float carrier = (in != NULL) ? in[i] : 0.0f;
         float carrier_mix = (1.0f - blend) * carrier + blend * fold(carrier, ft_car);
 
-        out[i] = modulator * carrier_mix;
+        m->output_buffer[i] = modulator * carrier_mix;
 
         state->modulator_phase += mf / state->sample_rate;
         if (state->modulator_phase >= 1.0f)
@@ -158,6 +158,7 @@ Module* create_module(float sample_rate) {
 	Module *m = calloc(1, sizeof(Module));
 	m->name = "wf_fm_mod";
 	m->state = state;
+	m->output_buffer = calloc(FRAMES_PER_BUFFER, sizeof(float));
 	m->process = wf_fm_mod_process;
 	m->draw_ui = wf_fm_mod_draw_ui;
 	m->handle_input = wf_fm_mod_handle_input;

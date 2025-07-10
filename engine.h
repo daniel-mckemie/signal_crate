@@ -10,6 +10,7 @@ extern int module_count;
 extern float sample_rate;
 
 void process_chain(float* in, float* out, unsigned long frames);
+void connect(Module* src, Module* dst);
 void free_module(Module *m);
 
 #endif

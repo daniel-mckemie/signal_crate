@@ -8,7 +8,7 @@
 #include "module.h"
 #include "util.h"
 
-static void moog_filter_process(Module *m, float* restrict in, float* restrict out, unsigned long frames) {
+static void moog_filter_process(Module *m, float* in, unsigned long frames) {
 	MoogFilter *state = (MoogFilter*)m->state;
 	float co, res;
 	FilterType filt_type;
@@ -23,7 +23,7 @@ static void moog_filter_process(Module *m, float* restrict in, float* restrict o
 	float g = wc / (wc + 1.0f); // Scale to appropriate ladder behavior
 	float k = res;
 	for (unsigned long i=0; i<frames; i++) {
-		float input_sample = (in != NULL) ? in[i] : 0.0f; // prevent NULL deref
+		float input_sample = (in != NULL) ? in[i] : 0.0f;
 		if (!isfinite(input_sample)) input_sample = 0.0f;
 		float x = tanhf(input_sample);                       // Input limiter
 
@@ -49,8 +49,7 @@ static void moog_filter_process(Module *m, float* restrict in, float* restrict o
 				y = tanhf(state->z[3] + k * (state->z[3] - state->z[2])); break;
 		}
 				
-		out[i] = fminf(fmaxf(y, -1.0f), 1.0f);		 // Output saturation
-
+		m->output_buffer[i] = fminf(fmaxf(y, -1.0f), 1.0f);
 	}
 }
 
@@ -156,6 +155,7 @@ Module* create_module(float sample_rate) {
 	Module *m = calloc(1, sizeof(Module));
 	m->name = "moog_filter";
 	m->state = state;
+	m->output_buffer = calloc(FRAMES_PER_BUFFER, sizeof(float));
 	m->process = moog_filter_process;
 	m->draw_ui = moog_filter_draw_ui;
 	m->handle_input = moog_filter_handle_input;

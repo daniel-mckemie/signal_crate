@@ -8,7 +8,7 @@
 #include "module.h"
 #include "util.h"
 
-static void ampmod_process(Module* m, float* in, float* out, unsigned long frames) {
+static void ampmod_process(Module* m, float* in, unsigned long frames) {
     AmpMod* state = (AmpMod*)m->state;
 
     float phase, freq, amp1, amp2, sr;
@@ -26,7 +26,7 @@ static void ampmod_process(Module* m, float* in, float* out, unsigned long frame
         float car = in ? in[i] : 0.0f;
         float mod = sine_table[idx]; 
 		float unipolar_mod = (amp2 * mod + 1.0f) * 0.5f; // Now [0, amp2]
-        out[i] = (amp1 * car) * unipolar_mod;
+        m->output_buffer[i] = (amp1 * car) * unipolar_mod;
         phase += TWO_PI * freq / sr; 
         if (phase >= TWO_PI)
             phase -= TWO_PI;
@@ -147,6 +147,7 @@ Module* create_module(float sample_rate) {
     Module* m = calloc(1, sizeof(Module));
     m->name = "amp_mod";
     m->state = state;
+	m->output_buffer = calloc(FRAMES_PER_BUFFER, sizeof(float));
     m->process = ampmod_process;
     m->draw_ui = ampmod_draw_ui;
     m->handle_input = ampmod_handle_input;

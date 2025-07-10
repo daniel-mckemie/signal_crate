@@ -10,7 +10,7 @@
 #include "module.h"
 #include "util.h"
 
-static void noise_source_process(Module* m, float* restrict in, float* restrict out, unsigned long frames) {
+static void noise_source_process(Module* m, float* in, unsigned long frames) {
 	NoiseSource *state = (NoiseSource*)m->state;
 
 	float amp;
@@ -30,7 +30,7 @@ static void noise_source_process(Module* m, float* restrict in, float* restrict 
 			case BROWN_NOISE:	value = brown_noise_process(&state->brown, white); break;
 
 		}
-		out[i] = amp * value;
+		m->output_buffer[i] = amp * value;
 	}
 }
 
@@ -128,6 +128,7 @@ Module* create_module(float sample_rate) {
 	Module *m = calloc(1, sizeof(Module));
 	m->name = "noise_source";
 	m->state = state;
+	m->output_buffer = calloc(FRAMES_PER_BUFFER, sizeof(float));
 	m->process = noise_source_process;
 	m->draw_ui = noise_source_draw_ui;
 	m->handle_input = noise_source_handle_input;

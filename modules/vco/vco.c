@@ -8,7 +8,7 @@
 #include "module.h"
 #include "util.h"
 
-static void vco_process(Module *m, float* restrict in, float* restrict out, unsigned long frames) {
+static void vco_process(Module *m, float* in, unsigned long frames) {
     VCO *state = (VCO*)m->state;
     float freq, amp;
     Waveform waveform;
@@ -53,7 +53,7 @@ static void vco_process(Module *m, float* restrict in, float* restrict out, unsi
 								}
 
         }
-        out[i] = amp * value;
+        m->output_buffer[i] = amp * value;
         phs += TWO_PI * freq / state->sample_rate;
         if (phs >= TWO_PI) phs -= TWO_PI;
     }
@@ -163,6 +163,7 @@ Module* create_module(float sample_rate) {
     Module *m = calloc(1, sizeof(Module));
     m->name = "vco";
     m->state = state;
+	m->output_buffer = calloc(FRAMES_PER_BUFFER, sizeof(float));
     m->process = vco_process;
     m->draw_ui = vco_draw_ui;
 	m->handle_input = vco_handle_input;

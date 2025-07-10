@@ -24,10 +24,9 @@ static int audio_callback(const void* input, void* output,
         allocated_input = 1;
     }
 
-    float* buffer = calloc(framesPerBuffer, sizeof(float));
-    process_chain(in, buffer, framesPerBuffer);
+    process_chain(in, out, framesPerBuffer);
+    float* buffer = chain[module_count - 1]->output_buffer; // Final modules output 
     memcpy(out, buffer, framesPerBuffer * sizeof(float));
-    free(buffer);
     if (allocated_input) free(in);
     return paContinue;
 }
@@ -56,11 +55,24 @@ int main() {
     fgets(patch, sizeof(patch), stdin);
 
     char* token = strtok(patch, " \n");
-    while (token && module_count < MAX_MODULES) {
-        Module* m = load_module(token, sample_rate);
-        if (m) chain[module_count++] = m;
-        token = strtok(NULL, " \n");
-    }
+	while (token && module_count < MAX_MODULES) {
+		Module* m = load_module(token, sample_rate);
+		if (m) {
+			m->output_buffer = calloc(FRAMES_PER_BUFFER, sizeof(float));  // <-- ADD THIS
+			chain[module_count++] = m;
+		}
+		token = strtok(NULL, " \n");
+	}
+
+	// === Connect all non-final modules to the last one ===
+	// This assumes you want all earlier modules to route into the last one (e.g., vco vco moog_filter)
+	if (module_count > 1) {
+		Module* dst = chain[module_count - 1];
+		for (int i = 0; i < module_count - 1; i++) {
+			connect(chain[i], dst);
+		}
+	}
+
 
     // Set up PortAudio parameters
     PaStreamParameters inputParams = {

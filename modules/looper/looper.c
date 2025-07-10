@@ -8,7 +8,7 @@
 #include "module.h"
 #include "util.h"
 
-static void looper_process(Module* m, float* in, float* out, unsigned long frames) {
+static void looper_process(Module* m, float* in, unsigned long frames) {
     Looper* state = (Looper*)m->state;
 
     pthread_mutex_lock(&state->lock);
@@ -68,7 +68,7 @@ static void looper_process(Module* m, float* in, float* out, unsigned long frame
                 break;
         }
 
-        out[i] = output;
+        m->output_buffer[i] = output;
     }
 
     pthread_mutex_lock(&state->lock);
@@ -207,6 +207,7 @@ Module* create_module(float sample_rate) {
     Module* m = calloc(1, sizeof(Module));
     m->name = "looper";
     m->state = state;
+	m->output_buffer = calloc(FRAMES_PER_BUFFER, sizeof(float));
     m->process = looper_process;
     m->draw_ui = looper_draw_ui;
     m->handle_input = looper_handle_input;

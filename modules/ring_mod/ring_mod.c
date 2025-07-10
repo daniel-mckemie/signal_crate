@@ -8,7 +8,7 @@
 #include "module.h"
 #include "util.h"
 
-static void ringmod_process(Module* m, float* in, float* out, unsigned long frames) {
+static void ringmod_process(Module* m, float* in, unsigned long frames) {
     RingMod* state = (RingMod*)m->state;
 
     float phase, freq, amp1, amp2, sr;
@@ -25,7 +25,7 @@ static void ringmod_process(Module* m, float* in, float* out, unsigned long fram
 		idx = (int)(phase / TWO_PI * SINE_TABLE_SIZE) % SINE_TABLE_SIZE;
         float car = in ? in[i] : 0.0f;
         float mod = sine_table[idx];
-        out[i] = (amp1 * car) * (amp2 * mod);
+        m->output_buffer[i] = (amp1 * car) * (amp2 * mod);
         phase += TWO_PI * freq / sr; 
         if (phase >= TWO_PI)
             phase -= TWO_PI;
@@ -146,6 +146,7 @@ Module* create_module(float sample_rate) {
     Module* m = calloc(1, sizeof(Module));
     m->name = "ring_mod";
     m->state = state;
+	m->output_buffer = calloc(FRAMES_PER_BUFFER, sizeof(float));
     m->process = ringmod_process;
     m->draw_ui = ringmod_draw_ui;
     m->handle_input = ringmod_handle_input;

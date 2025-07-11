@@ -128,8 +128,9 @@ static void looper_draw_ui(Module* m, int row) {
     mvprintw(row,     2, "[Looper] State: %s | Speed: %.2fx", state_names[lstate], speed);
     mvprintw(row + 1, 2, "         Loop Range: [%.2f -> %.2f] sec", start_sec, end_sec);
     mvprintw(row + 2, 2, "         Current Position: %.2f sec", pos_sec);
-    mvprintw(row + 3, 2, "Keys: r(record), p(play), o(overdub), s(stop)");
-    mvprintw(row + 4, 2, "Cmd: :1=start :2=end :3=speed");
+    mvprintw(row + 3, 2, "Function keys: -/= (start pt), _/+ (end pt), [/] (speed)");
+    mvprintw(row + 4, 2, "State keys: r(record), p(play), o(overdub), s(stop)");
+    mvprintw(row + 5, 2, "Cmd: :1=start :2=end :3=speed");
 }
 
 static void looper_handle_input(Module* m, int ch) {
@@ -165,16 +166,22 @@ static void looper_handle_input(Module* m, int ch) {
         }
     } else {
         switch (ch) {
+			case '=': state->loop_start += (unsigned long)(0.1 * state->sample_rate); handled=1; break;
+			case '-': state->loop_start -= (unsigned long)(0.1 * state->sample_rate); handled=1; break;
+			case '+': state->loop_end += (unsigned long)(0.1 * state->sample_rate); handled=1; break;
+			case '_': state->loop_end -= (unsigned long)(0.1 * state->sample_rate); handled=1; break;
+			case ']': state->playback_speed += 0.05; handled=1; break;
+			case '[': state->playback_speed -= 0.05; handled=1; break;
             case ':':
                 state->entering_command = true;
                 state->command_index = 0;
                 state->command_buffer[0] = '\0';
                 handled = 1;
                 break;
-            case 'r': state->looper_state = RECORDING; handled = 1; break;
-            case 'p': state->looper_state = PLAYING; handled = 1; break;
-            case 'o': state->looper_state = OVERDUBBING; handled = 1; break;
-            case 's': state->looper_state = STOPPED; handled = 1; break;
+            case 'r': state->looper_state = RECORDING; handled=1; break;
+            case 'p': state->looper_state = PLAYING; handled=1; break;
+            case 'o': state->looper_state = OVERDUBBING; handled=1; break;
+            case 's': state->looper_state = STOPPED; handled=1; break;
         }
     }
 

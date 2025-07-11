@@ -23,7 +23,12 @@ static void moog_filter_process(Module *m, float* in, unsigned long frames) {
 	float g = wc / (wc + 1.0f); // Scale to appropriate ladder behavior
 	float k = res;
 	for (unsigned long i=0; i<frames; i++) {
-		float input_sample = (in != NULL) ? in[i] : 0.0f;
+		float input_sample = 0.0f;
+		for (int j = 0; j < MAX_INPUTS; j++) {
+			if (m->inputs[j])
+				input_sample += m->inputs[j][i];
+		}
+
 		if (!isfinite(input_sample)) input_sample = 0.0f;
 		float x = tanhf(input_sample);                       // Input limiter
 

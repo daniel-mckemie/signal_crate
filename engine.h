@@ -3,14 +3,19 @@
 
 #include "module.h"
 
-#define MAX_MODULES 16
+#define MAX_INPUTS 8
 
-extern Module* chain[MAX_MODULES];
-extern int module_count;
-extern float sample_rate;
+typedef struct {
+    char name[32];
+    Module* module;
+} NamedModule;
 
-void process_chain(float* in, float* out, unsigned long frames);
-void connect(Module* src, Module* dst);
-void free_module(Module *m);
+// DAG patching API
+void initialize_engine(const char* patch_text);
+void shutdown_engine(void);
+void process_audio(float* input, float* output, unsigned long frames);
+
+Module* get_module(int index);
+int get_module_count(void);
 
 #endif

@@ -23,7 +23,11 @@ static void ringmod_process(Module* m, float* in, unsigned long frames) {
 	int idx;
     for (unsigned long i = 0; i < frames; i++) {
 		idx = (int)(phase / TWO_PI * SINE_TABLE_SIZE) % SINE_TABLE_SIZE;
-        float car = in ? in[i] : 0.0f;
+		float car = 0.0f;
+		for (int j = 0; j < MAX_INPUTS; j++) {
+			if (m->inputs[j])
+				car += m->inputs[j][i];
+		}
         float mod = sine_table[idx];
         m->output_buffer[i] = (amp1 * car) * (amp2 * mod);
         phase += TWO_PI * freq / sr; 

@@ -25,7 +25,12 @@ static void wf_fm_mod_process(Module *m, float* in, unsigned long frames) {
         float fm = sinf(2.0f * M_PI * idx * mod_raw);
         float modulator = (1.0f - blend) * fm + blend * fold(fm, ft_mod);
 
-        float carrier = (in != NULL) ? in[i] : 0.0f;
+		float carrier = 0.0f;
+		for (int j = 0; j < MAX_INPUTS; j++) {
+			if (m->inputs[j])
+				carrier += m->inputs[j][i];
+		}
+
         float carrier_mix = (1.0f - blend) * carrier + blend * fold(carrier, ft_car);
 
         m->output_buffer[i] = modulator * carrier_mix;

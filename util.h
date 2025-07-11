@@ -46,4 +46,6 @@ typedef struct {
 void init_smoother(CParamSmooth *s, float a);
 float process_smoother(CParamSmooth *s, float in);
 
+char* trim_whitespace(char* str);
+
 #endif

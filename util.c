@@ -1,3 +1,6 @@
+#include <ctype.h>
+#include <string.h>
+
 #include "util.h"
 
 float fold(float x, float threshold) {
@@ -22,3 +25,12 @@ float process_smoother(CParamSmooth *s, float in) {
     return s->z;
 }
 
+char* trim_whitespace(char* str) {
+    while (isspace((unsigned char)*str)) str++;
+    if (*str == 0) return str;
+
+    char* end = str + strlen(str) - 1;
+    while (end > str && isspace((unsigned char)*end)) end--;
+    end[1] = '\0';
+    return str;
+}

@@ -3,9 +3,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include "module.h"
-
-extern Module* chain[MAX_MODULES];
-extern int module_count;
+#include "engine.h"
 
 void ui_loop() {
     initscr(); cbreak(); noecho();
@@ -22,12 +20,14 @@ void ui_loop() {
         clear();
         mvprintw(0, 2, "--- Flow Control ---");
 
-		int module_padding = 9;
+        int module_padding = 9;
+        int module_count = get_module_count();  // NEW
         for (int i = 0; i < module_count; i++) {
-            if (chain[i]->draw_ui) {
+            Module* m = get_module(i);  // NEW
+            if (m && m->draw_ui) {
                 if (i == focused_module_index)
                     attron(A_REVERSE);
-                chain[i]->draw_ui(chain[i], 2 + i * module_padding);
+                m->draw_ui(m, 2 + i * module_padding);
                 if (i == focused_module_index)
                     attroff(A_REVERSE);
             }
@@ -47,6 +47,8 @@ void ui_loop() {
             continue;
         }
 
+        Module* focused = get_module(focused_module_index);
+
         if (in_command_mode) {
             if (ch == '\n') {
                 command[cmd_index] = '\0';
@@ -56,11 +58,11 @@ void ui_loop() {
                     break;
                 }
 
-                if (chain[focused_module_index]->handle_input) {
+                if (focused && focused->handle_input) {
                     for (int j = 0; j < (int)strlen(command); j++) {
-                        chain[focused_module_index]->handle_input(chain[focused_module_index], command[j]);
+                        focused->handle_input(focused, command[j]);
                     }
-                    chain[focused_module_index]->handle_input(chain[focused_module_index], '\n');
+                    focused->handle_input(focused, '\n');
                 }
 
                 cmd_index = 0;
@@ -84,12 +86,11 @@ void ui_loop() {
                 in_command_mode = 1;
                 cmd_index = 0;
                 command[0] = '\0';
-                // optional: forward ':' to module to trigger entering_command mode
-                if (chain[focused_module_index]->handle_input)
-                    chain[focused_module_index]->handle_input(chain[focused_module_index], ch);
+                if (focused && focused->handle_input)
+                    focused->handle_input(focused, ch);
             } else {
-                if (chain[focused_module_index]->handle_input)
-                    chain[focused_module_index]->handle_input(chain[focused_module_index], ch);
+                if (focused && focused->handle_input)
+                    focused->handle_input(focused, ch);
             }
         }
     }

@@ -3,12 +3,11 @@
 #include <string.h>
 #include <portaudio.h>
 #include "engine.h"
-#include "module_loader.h"
 #include "ui.h"
 
 #define FRAMES_PER_BUFFER 512
 
-extern float sample_rate;
+float sample_rate = 44100.0f;
 
 static int audio_callback(const void* input, void* output,
                           unsigned long framesPerBuffer,
@@ -24,9 +23,8 @@ static int audio_callback(const void* input, void* output,
         allocated_input = 1;
     }
 
-    process_chain(in, out, framesPerBuffer);
-    float* buffer = chain[module_count - 1]->output_buffer; // Final modules output 
-    memcpy(out, buffer, framesPerBuffer * sizeof(float));
+    process_audio(in, out, framesPerBuffer);  // NEW DAG ENGINE CALL
+
     if (allocated_input) free(in);
     return paContinue;
 }
@@ -46,35 +44,21 @@ int main() {
 
     const PaDeviceInfo* outputInfo = Pa_GetDeviceInfo(outputDevice);
     const PaDeviceInfo* inputInfo  = Pa_GetDeviceInfo(inputDevice);
-
     sample_rate = outputInfo->defaultSampleRate;
 
     // Ask user for patch
-    char patch[256];
-    printf("Enter patch (e.g., vco, moog_filter, wf_fm_mod, ring_mod, noise_source, amp_mod, looper): ");
-    fgets(patch, sizeof(patch), stdin);
+    char patch[4096] = {0};
+    char line[256];
+    printf("Enter patch (end with an empty line):\n");
 
-    char* token = strtok(patch, " \n");
-	while (token && module_count < MAX_MODULES) {
-		Module* m = load_module(token, sample_rate);
-		if (m) {
-			m->output_buffer = calloc(FRAMES_PER_BUFFER, sizeof(float));  // <-- ADD THIS
-			chain[module_count++] = m;
-		}
-		token = strtok(NULL, " \n");
-	}
+    while (fgets(line, sizeof(line), stdin)) {
+        if (strcmp(line, "\n") == 0) break;
+        strcat(patch, line);
+    }
 
-	// === Connect all non-final modules to the last one ===
-	// This assumes you want all earlier modules to route into the last one (e.g., vco vco moog_filter)
-	if (module_count > 1) {
-		Module* dst = chain[module_count - 1];
-		for (int i = 0; i < module_count - 1; i++) {
-			connect(chain[i], dst);
-		}
-	}
+    initialize_engine(patch);  // NEW DAG PATCH PARSER
 
-
-    // Set up PortAudio parameters
+    // Set up PortAudio stream params
     PaStreamParameters inputParams = {
         .device = inputDevice,
         .channelCount = 1,
@@ -91,7 +75,7 @@ int main() {
         .hostApiSpecificStreamInfo = NULL
     };
 
-    // Open the stream
+    // Open stream
     PaError err = Pa_OpenStream(&stream,
                                 (inputDevice != paNoDevice) ? &inputParams : NULL,
                                 &outputParams,
@@ -111,7 +95,6 @@ int main() {
         return 1;
     }
 
-    // Get actual running rate
     const PaStreamInfo* info = Pa_GetStreamInfo(stream);
     if (info) {
         sample_rate = info->sampleRate;
@@ -121,7 +104,7 @@ int main() {
         return 1;
     }
 
-    // Run the UI
+    // Run the ncurses UI loop
     ui_loop();
 
     // Cleanup
@@ -129,9 +112,7 @@ int main() {
     Pa_CloseStream(stream);
     Pa_Terminate();
 
-    for (int i = 0; i < module_count; i++) {
-        free_module(chain[i]);
-    }
+    shutdown_engine();  // NEW DAG CLEANUP
 
     printf("Clean exit.\n");
     return EXIT_SUCCESS;

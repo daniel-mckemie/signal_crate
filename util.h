@@ -33,9 +33,6 @@ static inline float poly_blep(float t, float dt) {
     }
 }
 
-// Soft wavefolder for simple nonlinearity
-float fold(float x, float threshold);
-
 // One-pole smoothing filter
 typedef struct {
     float a;

@@ -1,4 +1,4 @@
-MODULE_NAME = wf_fm_mod
+MODULE_NAME = wavefolder
 MODULE_DIR = ../..
 
 SRC = $(MODULE_NAME).c
@@ -13,5 +13,7 @@ $(MODULE_NAME).dylib: $(SRC) $(UTIL)
 
 clean:
 	rm -f *.dylib
+
+
 
 

@@ -32,6 +32,7 @@ static void looper_process(Module* m, float* in, unsigned long frames) {
         switch (current_state) {
             case RECORDING:
                 buffer[state->write_pos % state->buffer_len] = input;
+				output = input; // monitor input
                 state->write_pos++;
                 if (state->write_pos >= loop_end) state->write_pos = loop_start;
                 break;

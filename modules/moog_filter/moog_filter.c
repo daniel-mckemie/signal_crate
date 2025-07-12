@@ -23,11 +23,7 @@ static void moog_filter_process(Module *m, float* in, unsigned long frames) {
 	float g = wc / (wc + 1.0f); // Scale to appropriate ladder behavior
 	float k = res;
 	for (unsigned long i=0; i<frames; i++) {
-		float input_sample = 0.0f;
-		for (int j = 0; j < MAX_INPUTS; j++) {
-			if (m->inputs[j])
-				input_sample += m->inputs[j][i];
-		}
+		float input_sample = in[i];
 
 		if (!isfinite(input_sample)) input_sample = 0.0f;
 		float x = tanhf(input_sample);                       // Input limiter
@@ -58,7 +54,7 @@ static void moog_filter_process(Module *m, float* in, unsigned long frames) {
 	}
 }
 
-static void moog_filter_draw_ui(Module *m, int row) {
+static void moog_filter_draw_ui(Module *m, int y, int x) {
     MoogFilter *state = (MoogFilter*)m->state;
 	const char *filt_names[] = {"LP", "HP", "BP", "Notch", "Res"};
 
@@ -71,11 +67,11 @@ static void moog_filter_draw_ui(Module *m, int row) {
 	filt_type = state->filt_type;
     pthread_mutex_unlock(&state->lock);
 
-    mvprintw(row, 2, "[Moog Filter] Cutoff: %.2f", co);
-    mvprintw(row+1, 2, "		Resonance: %.2f", res);
-    mvprintw(row+2, 2, "		Filter Type: %s", filt_names[filt_type]);
-    mvprintw(row+3, 2, "Real-time keys: -/= (cutoff), _/+ (resonance)");
-    mvprintw(row+4, 2, "Command mode: :1 [cutoff], :2 [resonance] f: [filter type]");
+    mvprintw(y, x, "[Moog Filter] Cutoff: %.2f", co);
+    mvprintw(y+1, x, "		Resonance: %.2f", res);
+    mvprintw(y+2, x, "		Filter Type: %s", filt_names[filt_type]);
+    mvprintw(y+3, x, "Real-time keys: -/= (cutoff), _/+ (resonance)");
+    mvprintw(y+4, x, "Command mode: :1 [cutoff], :2 [resonance] f: [filter type]");
 }
 
 static void clamp_params(MoogFilter *state) {

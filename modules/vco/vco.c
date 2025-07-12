@@ -59,7 +59,7 @@ static void vco_process(Module *m, float* in, unsigned long frames) {
     }
 }
 
-static void vco_draw_ui(Module *m, int row) {
+static void vco_draw_ui(Module *m, int y, int x) {
     VCO *state = (VCO*)m->state;
     const char *wave_names[] = {"Sine", "Saw", "Square", "Triangle"};
 
@@ -72,11 +72,11 @@ static void vco_draw_ui(Module *m, int row) {
     waveform = state->waveform;
     pthread_mutex_unlock(&state->lock);
 
-    mvprintw(row, 2,   "[VCO] Freq: %.2f Hz", freq);
-    mvprintw(row+1, 2, "      Amp : %.2f", amp);
-    mvprintw(row+2, 2, "      Wave: %s", wave_names[waveform]);
-    mvprintw(row+3, 2, "Real-time keys: -/= (freq), _/+ (amp)");
-    mvprintw(row+4, 2, "Command mode: :1 [freq], :2 [amp], :w [waveform]");
+    mvprintw(y, x,   "[VCO] Freq: %.2f Hz", freq);
+    mvprintw(y+1, x, "      Amp : %.2f", amp);
+    mvprintw(y+2, x, "      Wave: %s", wave_names[waveform]);
+    mvprintw(y+3, x, "Real-time keys: -/= (freq), _/+ (amp)");
+    mvprintw(y+4, x, "Command mode: :1 [freq], :2 [amp], :w [waveform]");
 }
 
 static void clamp_params(VCO *state) {

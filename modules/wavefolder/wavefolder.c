@@ -44,7 +44,7 @@ static void wavefolder_process(Module *m, float* in, unsigned long frames) {
     }
 }
 
-static void wavefolder_draw_ui(Module *m, int row) {
+static void wavefolder_draw_ui(Module *m, int y, int x) {
     Wavefolder *state = (Wavefolder*)m->state;
 
     float fold_amt, blend, drive;
@@ -55,11 +55,11 @@ static void wavefolder_draw_ui(Module *m, int row) {
     drive = state->drive;
     pthread_mutex_unlock(&state->lock);
 
-    mvprintw(row, 2, "[Wavefolder] Fold Amt %.2f", fold_amt);
-    mvprintw(row+1, 2, "            Blend Amt %.2f", blend);
-    mvprintw(row+2, 2, "            Drive %.2f", drive);
-    mvprintw(row+3, 2, "Real-time keys: -/= (fold amt), _/+ (blend), [/] (drive)");
-    mvprintw(row+4, 2, "Command mode: :1 [fold amt], :2 [blend], :3 [drive]");
+    mvprintw(y, x, "[Wavefolder] Fold Amt %.2f", fold_amt);
+    mvprintw(y+1, x, "            Blend Amt %.2f", blend);
+    mvprintw(y+2, x, "            Drive %.2f", drive);
+    mvprintw(y+3, x, "Real-time keys: -/= (fold amt), _/+ (blend), [/] (drive)");
+    mvprintw(y+4, x, "Command mode: :1 [fold amt], :2 [blend], :3 [drive]");
 }
 
 static void clamp_params(Wavefolder *state) {

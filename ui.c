@@ -5,6 +5,8 @@
 #include "module.h"
 #include "engine.h"
 
+#define COLUMN_WIDTH 64
+
 void ui_loop() {
     initscr(); cbreak(); noecho();
     keypad(stdscr, TRUE);
@@ -20,14 +22,26 @@ void ui_loop() {
         clear();
         mvprintw(0, 2, "--- Flow Control ---");
 
+		int rows, cols;
+		getmaxyx(stdscr, rows, cols);
+
         int module_padding = 9;
-        int module_count = get_module_count();  // NEW
+        int module_count = get_module_count();
+		int modules_per_col = (rows - 4) / module_padding;
+		if (modules_per_col < 1) modules_per_col = 1;
+		
         for (int i = 0; i < module_count; i++) {
-            Module* m = get_module(i);  // NEW
+            Module* m = get_module(i);
             if (m && m->draw_ui) {
+				int col = i / modules_per_col;
+				int row = i % modules_per_col;
+				int y = 2 + row * module_padding;
+				int x = 2 + col * COLUMN_WIDTH;
+
                 if (i == focused_module_index)
                     attron(A_REVERSE);
-                m->draw_ui(m, 2 + i * module_padding);
+				move(y,x);
+                m->draw_ui(m,y,x);
                 if (i == focused_module_index)
                     attroff(A_REVERSE);
             }

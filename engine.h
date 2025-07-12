@@ -3,8 +3,6 @@
 
 #include "module.h"
 
-#define MAX_INPUTS 8
-
 typedef struct {
     char name[32];
     Module* module;

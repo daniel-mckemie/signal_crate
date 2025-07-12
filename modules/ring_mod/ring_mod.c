@@ -23,11 +23,7 @@ static void ringmod_process(Module* m, float* in, unsigned long frames) {
 	int idx;
     for (unsigned long i = 0; i < frames; i++) {
 		idx = (int)(phase / TWO_PI * SINE_TABLE_SIZE) % SINE_TABLE_SIZE;
-		float car = 0.0f;
-		for (int j = 0; j < MAX_INPUTS; j++) {
-			if (m->inputs[j])
-				car += m->inputs[j][i];
-		}
+		float car = in[i];
         float mod = sine_table[idx];
         m->output_buffer[i] = (amp1 * car) * (amp2 * mod);
         phase += TWO_PI * freq / sr; 
@@ -51,7 +47,7 @@ static void clamp_params(RingMod *state) {
     if (state->freq > 20000.0f) state->freq = 20000.0f;
 }
 
-static void ringmod_draw_ui(Module* m, int row) {
+static void ringmod_draw_ui(Module* m, int y, int x) {
     RingMod* state = (RingMod*)m->state;
 
     float freq, amp1, amp2;
@@ -65,13 +61,13 @@ static void ringmod_draw_ui(Module* m, int row) {
         snprintf(cmd, sizeof(cmd), ":%s", state->command_buffer);
     pthread_mutex_unlock(&state->lock);
 
-    mvprintw(row,   2, "[RingMod] Mod Freq: %.2f Hz", freq);
-    mvprintw(row+1, 2, "          CarAmp: %.2f", amp1);
-    mvprintw(row+2, 2, "          ModAmp: %.2f", amp2);
-    mvprintw(row+3, 2, "Real-time keys: -/= (freq), _/+ (ModAmp), [/] (CarAmp)");
-    mvprintw(row+4, 2, "Command mode: :1 [freq], :2 [CarAmp], :3 [ModAmp]");
+    mvprintw(y,   x, "[RingMod] Mod Freq: %.2f Hz", freq);
+    mvprintw(y+1, x, "          CarAmp: %.2f", amp1);
+    mvprintw(y+2, x, "          ModAmp: %.2f", amp2);
+    mvprintw(y+3, x, "Real-time keys: -/= (freq), _/+ (ModAmp), [/] (CarAmp)");
+    mvprintw(y+4, x, "Command mode: :1 [freq], :2 [CarAmp], :3 [ModAmp]");
     if (state->entering_command)
-        mvprintw(row+5, 2, "%s", cmd);
+        mvprintw(y+5, x, "%s", cmd);
 }
 
 static void ringmod_handle_input(Module* m, int key) {

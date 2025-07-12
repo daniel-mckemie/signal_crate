@@ -91,7 +91,7 @@ static void clamp_params(Looper *state) {
     if (state->playback_speed > 4.0f) state->playback_speed = 4.0f;
 }
 
-static void looper_draw_ui(Module* m, int row) {
+static void looper_draw_ui(Module* m, int y, int x) {
     Looper* state = (Looper*)m->state;
 
     static const char* state_names[] = {
@@ -126,12 +126,12 @@ static void looper_draw_ui(Module* m, int row) {
 
     pthread_mutex_unlock(&state->lock);
 
-    mvprintw(row,     2, "[Looper] State: %s | Speed: %.2fx", state_names[lstate], speed);
-    mvprintw(row + 1, 2, "         Loop Range: [%.2f -> %.2f] sec", start_sec, end_sec);
-    mvprintw(row + 2, 2, "         Current Position: %.2f sec", pos_sec);
-    mvprintw(row + 3, 2, "Function keys: -/= (start pt), _/+ (end pt), [/] (speed)");
-    mvprintw(row + 4, 2, "State keys: r(record), p(play), o(overdub), s(stop)");
-    mvprintw(row + 5, 2, "Cmd: :1=start :2=end :3=speed");
+    mvprintw(y,     x, "[Looper] State: %s | Speed: %.2fx", state_names[lstate], speed);
+    mvprintw(y + 1, x, "         Loop Range: [%.2f -> %.2f] sec", start_sec, end_sec);
+    mvprintw(y + 2, x, "         Current Position: %.2f sec", pos_sec);
+    mvprintw(y + 3, x, "Function keys: -/= (start pt), _/+ (end pt), [/] (speed)");
+    mvprintw(y + 4, x, "State keys: r(record), p(play), o(overdub), s(stop)");
+    mvprintw(y + 5, x, "Cmd: :1=start :2=end :3=speed");
 }
 
 static void looper_handle_input(Module* m, int ch) {

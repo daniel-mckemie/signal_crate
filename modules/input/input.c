@@ -23,7 +23,7 @@ static void input_process(Module* m, float* in, unsigned long frames) {
     }
 }
 
-static void input_draw_ui(Module* m, int row) {
+static void input_draw_ui(Module* m, int y, int x) {
     InputState* state = (InputState*)m->state;
     float amp;
     char cmd[128] = "";
@@ -34,12 +34,12 @@ static void input_draw_ui(Module* m, int row) {
         snprintf(cmd, sizeof(cmd), ":%s", state->command_buffer);
     pthread_mutex_unlock(&state->lock);
 
-    mvprintw(row,   2, "[Input] System Audio Input");
-    mvprintw(row+1, 2, "        Amplitude: %.2f", amp);
-    mvprintw(row+2, 2, "Real-time keys: _/+ (Amp)");
-    mvprintw(row+3, 2, "Command mode: :1 [Amp]");
+    mvprintw(y,   x, "[Input] System Audio Input");
+    mvprintw(y+1, x, "        Amplitude: %.2f", amp);
+    mvprintw(y+2, x, "Real-time keys: _/+ (Amp)");
+    mvprintw(y+3, x, "Command mode: :1 [Amp]");
     if (state->entering_command)
-        mvprintw(row+4, 2, "%s", cmd);
+        mvprintw(y+4, x, "%s", cmd);
 }
 
 static void input_handle_input(Module* m, int key) {

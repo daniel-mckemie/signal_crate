@@ -1,4 +1,4 @@
-APP = FlowControl
+APP = SignalCrate
 SRCS = main.c engine.c ui.c module_loader.c util.c
 CFLAGS = -Wall -O2 -fPIC -I./modules -I. -I/opt/homebrew/include
 LDFLAGS = -L/opt/homebrew/lib -ldl -lportaudio -lpthread -lm -lncurses

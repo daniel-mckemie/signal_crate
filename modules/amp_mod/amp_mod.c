@@ -23,11 +23,7 @@ static void ampmod_process(Module* m, float* in, unsigned long frames) {
 	int idx;
     for (unsigned long i = 0; i < frames; i++) {
 		idx = (int)(phase / TWO_PI * SINE_TABLE_SIZE) % SINE_TABLE_SIZE;
-		float car = 0.0f;
-		for (int j = 0; j < MAX_INPUTS; j++) {
-			if (m->inputs[j])
-				car += m->inputs[j][i];
-		}
+		float car = in[i]; 
         float mod = sine_table[idx]; 
 		float unipolar_mod = (amp2 * mod + 1.0f) * 0.5f; // Now [0, amp2]
         m->output_buffer[i] = (amp1 * car) * unipolar_mod;

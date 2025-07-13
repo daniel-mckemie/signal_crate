@@ -18,10 +18,7 @@ static void fm_mod_process(Module *m, float* in, unsigned long frames) {
     pthread_mutex_unlock(&state->lock);
 
     for (unsigned long i=0; i<frames; i++) {
-		float input = 0.0f;
-		for (int j = 0; j < MAX_INPUTS; j++) {
-			if (m->inputs[j]) input += m->inputs[j][i];
-		}
+		float input = in[i];
         float mod = sinf(2.0f * M_PI * state->modulator_phase);
         float fm = sinf(2.0f * M_PI * idx * mod);
 		m->output_buffer[i] = input * fm;

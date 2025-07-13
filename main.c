@@ -4,6 +4,7 @@
 #include <portaudio.h>
 #include "engine.h"
 #include "ui.h"
+#include "util.h"
 
 #define FRAMES_PER_BUFFER 512
 

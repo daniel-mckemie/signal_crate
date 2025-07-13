@@ -2,15 +2,48 @@
 #include <pthread.h>
 #include <string.h>
 #include <stdlib.h>
+#include <sys/resource.h>
+#include <time.h>
+
 #include "module.h"
 #include "engine.h"
 
 #define COLUMN_WIDTH 64
 
+static struct timespec last_time = {0};
+static struct rusage last_usage = {0};
+
+float get_cpu_percent() {
+	struct rusage usage_now;
+	struct timespec time_now;
+
+	getrusage(RUSAGE_SELF, &usage_now);
+	clock_gettime(CLOCK_MONOTONIC, &time_now);
+
+	double delta_user = (usage_now.ru_utime.tv_sec - last_usage.ru_utime.tv_sec) +
+	                    (usage_now.ru_utime.tv_usec - last_usage.ru_utime.tv_usec) / 1e6;
+	double delta_sys = (usage_now.ru_stime.tv_sec - last_usage.ru_stime.tv_sec) +
+	                   (usage_now.ru_stime.tv_usec - last_usage.ru_stime.tv_usec) / 1e6;
+	double delta_cpu = delta_user + delta_sys;
+
+	double delta_time = (time_now.tv_sec - last_time.tv_sec) +
+	                    (time_now.tv_nsec - last_time.tv_nsec) / 1e9;
+
+	last_usage = usage_now;
+	last_time = time_now;
+
+	if (delta_time <= 0.0) return 0.0f;
+
+	return (float)(100.0 * delta_cpu / delta_time);
+}
+
 void ui_loop() {
     initscr(); cbreak(); noecho();
     keypad(stdscr, TRUE);
     nodelay(stdscr, TRUE);
+
+	int cpu_refresh_counter = 0;
+	float cpu = 0.0f;
 
     int focused_module_index = 0;
     int in_command_mode = 0;
@@ -20,7 +53,15 @@ void ui_loop() {
 
     while (running) {
         clear();
-        mvprintw(0, 2, "--- Flow Control ---");
+        mvprintw(0, 2, "--- Signal Crate ---");
+
+		// CPU Usage
+		cpu_refresh_counter++;
+		if (cpu_refresh_counter >= 20) {
+			cpu = get_cpu_percent();
+			cpu_refresh_counter = 0;
+		}
+		mvprintw(0, COLS - 18, "[CPU] %.1f%%", cpu);
 
 		int rows, cols;
 		getmaxyx(stdscr, rows, cols);

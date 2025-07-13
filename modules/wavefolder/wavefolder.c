@@ -34,10 +34,7 @@ static void wavefolder_process(Module *m, float* in, unsigned long frames) {
     pthread_mutex_unlock(&state->lock);
 
     for (unsigned long i=0; i<frames; i++) {
-        float input = 0.0f;
-        for (int j=0; j<MAX_INPUTS; j++) {
-            if (m->inputs[j]) input += m->inputs[j][i];
-        }
+		float input = in[i];
         float warped = input * drive;
         float f = fold(warped, fa);
         m->output_buffer[i] = (1.0f - blend) * input + blend * f;

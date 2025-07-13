@@ -122,21 +122,25 @@ void process_audio(float* input, float* output, unsigned long frames) {
     for (int i = 0; i < module_count; i++) {
         Module* m = modules[i].module;
 
-        float mixed_input[frames];
-        memset(mixed_input, 0, sizeof(float) * frames);
+		if (strcmp(m->name, "input") == 0) {
+			m->process(m, input, frames); // Feed raw audio input
+		} else {
+			float mixed_input[frames];
+			memset(mixed_input, 0, sizeof(float) * frames);
 
-        for (int j = 0; j < m->num_inputs; j++) {
-            float* in_buf = m->inputs[j];
-            if (!in_buf) continue;
-            for (unsigned long k = 0; k < frames; k++) {
-                mixed_input[k] += in_buf[k];
-            }
-        }
+			for (int j = 0; j < m->num_inputs; j++) {
+				float* in_buf = m->inputs[j];
+				if (!in_buf) continue;
+				for (unsigned long k = 0; k < frames; k++) {
+					mixed_input[k] += in_buf[k];
+				}
+			}
 
-        for (unsigned long k = 0; k < frames; k++) {
-            mixed_input[k] = tanhf(mixed_input[k]);
-        }
-        m->process(m, mixed_input, frames);
+			for (unsigned long k = 0; k < frames; k++) {
+				mixed_input[k] = tanhf(mixed_input[k]);
+			}
+			m->process(m, mixed_input, frames);
+		}
     }
 
     for (int i = 0; i < module_count; i++) {

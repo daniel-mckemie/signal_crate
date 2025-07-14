@@ -6,7 +6,9 @@
 #define TWO_PI (2.0f * M_PI)
 #define SINE_TABLE_SIZE 2048
 
+#ifndef FRAMES_PER_BUFFER
 #define FRAMES_PER_BUFFER 512
+#endif
 
 // Sine table for VCO, ring mod, etc.
 static float sine_table[SINE_TABLE_SIZE];

@@ -10,7 +10,7 @@ static inline void brown_noise_init(BrownNoise* b) {
 }
 
 static inline float brown_noise_process(BrownNoise* b, float white) {
-    b->last += 0.02f * white;
+	b->last = 0.98f * b->last + 0.02f * white;
 
     // Clamp to prevent runaway accumulation
     if (b->last > 1.0f) b->last = 1.0f;

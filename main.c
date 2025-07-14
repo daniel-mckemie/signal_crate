@@ -6,8 +6,6 @@
 #include "ui.h"
 #include "util.h"
 
-#define FRAMES_PER_BUFFER 512
-
 float sample_rate = 44100.0f;
 
 static int audio_callback(const void* input, void* output,

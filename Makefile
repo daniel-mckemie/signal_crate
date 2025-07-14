@@ -26,3 +26,4 @@ clean:
 		$(MAKE) -C $$dir clean; \
 	done
 
+it: clean all

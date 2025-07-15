@@ -36,12 +36,9 @@ static void input_draw_ui(Module* m, int y, int x) {
         snprintf(cmd, sizeof(cmd), ":%s", state->command_buffer);
     pthread_mutex_unlock(&state->lock);
 
-    mvprintw(y,   x, "[Input] System Audio Input");
-    mvprintw(y+1, x, "        Amplitude: %.2f", amp);
-    mvprintw(y+2, x, "Real-time keys: _/+ (Amp)");
-    mvprintw(y+3, x, "Command mode: :1 [Amp]");
-    if (state->entering_command)
-        mvprintw(y+4, x, "%s", cmd);
+    mvprintw(y,   x, "[Input] Amp: %.2f", amp);
+    mvprintw(y+1, x, "Real-time keys: _/+ (Amp)");
+    mvprintw(y+2, x, "Command mode: :1 [Amp]");
 }
 
 static void input_handle_input(Module* m, int key) {

@@ -67,11 +67,9 @@ static void moog_filter_draw_ui(Module *m, int y, int x) {
 	filt_type = state->filt_type;
     pthread_mutex_unlock(&state->lock);
 
-    mvprintw(y, x, "[Moog Filter] Cutoff: %.2f", co);
-    mvprintw(y+1, x, "		Resonance: %.2f", res);
-    mvprintw(y+2, x, "		Filter Type: %s", filt_names[filt_type]);
-    mvprintw(y+3, x, "Real-time keys: -/= (cutoff), _/+ (resonance)");
-    mvprintw(y+4, x, "Command mode: :1 [cutoff], :2 [resonance] f: [filter type]");
+    mvprintw(y, x, "[Moog Filter] Cutoff: %.2f, Res: %.2f, Type: %s", co, res, filt_names[filt_type]);
+    mvprintw(y+1, x, "Real-time keys: -/= (cutoff), _/+ (resonance)");
+    mvprintw(y+2, x, "Command mode: :1 [cutoff], :2 [resonance] f: [filter type]");
 }
 
 static void clamp_params(MoogFilter *state) {

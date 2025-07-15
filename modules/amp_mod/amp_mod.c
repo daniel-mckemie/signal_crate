@@ -62,13 +62,9 @@ static void ampmod_draw_ui(Module* m, int y, int x) {
         snprintf(cmd, sizeof(cmd), ":%s", state->command_buffer);
     pthread_mutex_unlock(&state->lock);
 
-    mvprintw(y,   x, "[AmpMod] Mod Freq: %.2f Hz", freq);
-    mvprintw(y+1, x, "          Car Amp: %.2f", amp1);
-    mvprintw(y+2, x, "          Depth: %.2f", amp2);
-    mvprintw(y+3, x, "Real-time keys: -/= (freq), _/+ (Car Amp), [/] (Depth)");
-    mvprintw(y+4, x, "Command mode: :1 [freq], :2 [Car Amp], :3 [Depth]");
-    if (state->entering_command)
-        mvprintw(y+5, x, "%s", cmd);
+    mvprintw(y,   x, "[AmpMod] Freq: %.2f Hz, Car Amp: %.2f, Depth: %.2f", freq, amp1, amp2);
+    mvprintw(y+1, x, "Real-time keys: -/= (freq), _/+ (Car Amp), [/] (Depth)");
+    mvprintw(y+2, x, "Command mode: :1 [freq], :2 [Car Amp], :3 [Depth]");
 }
 
 static void ampmod_handle_input(Module* m, int key) {

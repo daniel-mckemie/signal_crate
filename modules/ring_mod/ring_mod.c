@@ -61,13 +61,9 @@ static void ringmod_draw_ui(Module* m, int y, int x) {
         snprintf(cmd, sizeof(cmd), ":%s", state->command_buffer);
     pthread_mutex_unlock(&state->lock);
 
-    mvprintw(y,   x, "[RingMod] Mod Freq: %.2f Hz", freq);
-    mvprintw(y+1, x, "          CarAmp: %.2f", amp1);
-    mvprintw(y+2, x, "          ModAmp: %.2f", amp2);
-    mvprintw(y+3, x, "Real-time keys: -/= (freq), _/+ (ModAmp), [/] (CarAmp)");
-    mvprintw(y+4, x, "Command mode: :1 [freq], :2 [CarAmp], :3 [ModAmp]");
-    if (state->entering_command)
-        mvprintw(y+5, x, "%s", cmd);
+    mvprintw(y,   x, "[RingMod] Freq: %.2f Hz, CarAmp: %.2f, ModAmp: %.2f", freq, amp1, amp2);
+    mvprintw(y+1, x, "Real-time keys: -/= (freq), _/+ (ModAmp), [/] (CarAmp)");
+    mvprintw(y+2, x, "Command mode: :1 [freq], :2 [CarAmp], :3 [ModAmp]");
 }
 
 static void ringmod_handle_input(Module* m, int key) {

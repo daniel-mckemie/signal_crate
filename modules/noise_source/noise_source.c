@@ -46,10 +46,9 @@ static void noise_source_draw_ui(Module *m, int y, int x) {
 	noise_type = state->noise_type;
 	pthread_mutex_unlock(&state->lock);
 
-	mvprintw(y, x,   "[Noise Source] Amp: %.2f Hz", amp);
-	mvprintw(y+1, x, "		 Type: %s Hz", noise_names[noise_type]);
-	mvprintw(y+2, x,   "Real-time keys: -/= (amp)");
-	mvprintw(y+3, x,   "Command mode: :1 [amp], :n [noise type]");
+	mvprintw(y, x, "[Noise Source] Amp: %.2f Hz, Type: %s", amp, noise_names[noise_type]);
+	mvprintw(y+1, x,   "Real-time keys: -/= (amp), n: (type)");
+	mvprintw(y+2, x,   "Command mode: :1 [amp], :n [noise type]");
 }
 
 static void clamp_params(NoiseSource *state) {

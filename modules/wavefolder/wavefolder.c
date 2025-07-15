@@ -52,11 +52,9 @@ static void wavefolder_draw_ui(Module *m, int y, int x) {
     drive = state->drive;
     pthread_mutex_unlock(&state->lock);
 
-    mvprintw(y, x, "[Wavefolder] Fold Amt %.2f", fold_amt);
-    mvprintw(y+1, x, "            Blend Amt %.2f", blend);
-    mvprintw(y+2, x, "            Drive %.2f", drive);
-    mvprintw(y+3, x, "Real-time keys: -/= (fold amt), _/+ (blend), [/] (drive)");
-    mvprintw(y+4, x, "Command mode: :1 [fold amt], :2 [blend], :3 [drive]");
+    mvprintw(y, x, "[Wavefolder] Fold: %.2f, Blend: %.2f, Drive: %.2f", fold_amt, blend, drive);
+    mvprintw(y+1, x, "Real-time keys: -/= (fold amt), _/+ (blend), [/] (drive)");
+    mvprintw(y+2, x, "Command mode: :1 [fold amt], :2 [blend], :3 [drive]");
 }
 
 static void clamp_params(Wavefolder *state) {

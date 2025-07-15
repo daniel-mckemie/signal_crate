@@ -66,17 +66,21 @@ void ui_loop() {
 		int rows, cols;
 		getmaxyx(stdscr, rows, cols);
 
-        int module_padding = 9;
+        int base_module_height = 3;
+		int module_spacing = 1; // padding b/w modules
         int module_count = get_module_count();
-		int modules_per_col = (rows - 4) / module_padding;
+		int modules_per_col = (rows - 4) / (base_module_height + module_spacing);
 		if (modules_per_col < 1) modules_per_col = 1;
 		
+		int col_heights[64] = {0}; // vertical offset per col
+
         for (int i = 0; i < module_count; i++) {
             Module* m = get_module(i);
             if (m && m->draw_ui) {
 				int col = i / modules_per_col;
-				int row = i % modules_per_col;
-				int y = 2 + row * module_padding;
+				int module_height = base_module_height;
+				if (strcmp(m->name, "looper") == 0) module_height = 6; // add exceptions here
+				int y = 2 + col_heights[col]; 
 				int x = 2 + col * COLUMN_WIDTH;
 
                 if (i == focused_module_index)
@@ -85,6 +89,7 @@ void ui_loop() {
                 m->draw_ui(m,y,x);
                 if (i == focused_module_index)
                     attroff(A_REVERSE);
+				col_heights[col] += module_height + module_spacing;
             }
         }
 

@@ -39,10 +39,9 @@ static void fm_mod_draw_ui(Module *m, int y, int x) {
     idx = state->index;
     pthread_mutex_unlock(&state->lock);
 
-    mvprintw(y, x, "[FM Mod] Mod Freq %.2f Hz", freq);
-    mvprintw(y+1, x, "		   Mod Index %.2f", idx);
-    mvprintw(y+2, x, "Real-time keys: -/= (mod freq), _/+ (idx)");
-    mvprintw(y+3, x, "Command mode: :1 [mod freq], :2 [idx]"); 
+    mvprintw(y, x, "[FM Mod] Freq %.2f Hz, Index %.2f", freq, idx);
+    mvprintw(y+1, x, "Real-time keys: -/= (mod freq), _/+ (idx)");
+    mvprintw(y+2, x, "Command mode: :1 [mod freq], :2 [idx]"); 
 }
 
 static void clamp_params(FMMod *state) {

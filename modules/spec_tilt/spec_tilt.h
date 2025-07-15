@@ -9,8 +9,10 @@
 typedef struct {
 	float sample_rate;
 	float tilt; // -1.0 to +1.0 (negative = dark, positive = light)
+	float pivot_hz; // point of tilt
 
 	CParamSmooth smooth_tilt;
+	CParamSmooth smooth_pivot_hz;
 
 	pthread_mutex_t lock;
 

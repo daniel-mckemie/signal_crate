@@ -23,6 +23,9 @@ static void init_hann_window() {
 static void clamp_params(SpecTilt* state) {
 	if (state->tilt < -1.0f) state->tilt = -1.0f;
 	if (state->tilt >  1.0f) state->tilt = 1.0f;
+	
+	if (state->pivot_hz < 1.0f) state->pivot_hz = 1.0f;
+	if (state->pivot_hz > 20000.0f) state->pivot_hz = 20000.0f;
 }
 
 static void spec_tilt_process(Module* m, float* in, unsigned long frames) {
@@ -50,13 +53,14 @@ static void spec_tilt_process(Module* m, float* in, unsigned long frames) {
 
 			pthread_mutex_lock(&state->lock);
 			float tilt = process_smoother(&state->smooth_tilt, state->tilt);
+			float pivot_hz = process_smoother(&state->smooth_pivot_hz, state->pivot_hz);
 			pthread_mutex_unlock(&state->lock);
 
 			for (int j = 0; j < bins; j++) {
 				if (fabsf(tilt) < 1e-4f) continue;  // skip gain adjustment when flat
 				float bin_hz = ((float)j / (float)bins) * nyquist;
 				bin_hz = fmaxf(bin_hz, 1.0f);  // avoid log(0) or near-zero
-				float gain_db = tilt * 3.0f * log2f(bin_hz / 1000.0f);  // pivot at 1kHz
+				float gain_db = tilt * 3.0f * log2f(bin_hz / pivot_hz);
 				float gain = powf(10.0f, gain_db / 20.0f);
 
 				float mag = hypotf(state->freq_buffer[j][0], state->freq_buffer[j][1]);
@@ -94,17 +98,21 @@ static void spec_tilt_draw_ui(Module* m, int y, int x) {
     SpecTilt* state = (SpecTilt*)m->state;
 
     float tilt;
+	float pivot_hz;
     char cmd[64] = "";
 
     pthread_mutex_lock(&state->lock);
     tilt = state->tilt;
+	pivot_hz = state->pivot_hz;
     if (state->entering_command)
         snprintf(cmd, sizeof(cmd), ":%s", state->command_buffer);
     pthread_mutex_unlock(&state->lock);
 
     mvprintw(y,   x, "[SpecTilt] Tilt: %.2f", tilt);
-    mvprintw(y+1, x, "Keys: < / > to tilt low/high");
-    mvprintw(y+2, x, "Cmd: :1 [tilt -1.0 to 1.0]");
+    mvprintw(y+1, x, "	   Pivot (Hz): %.2f", pivot_hz);
+    mvprintw(y+2, x, "Keys: - / = to tilt low/high");
+    mvprintw(y+3, x, "Keys: _ / + to pivot_hz");
+    mvprintw(y+4, x, "Cmd: :1 [tilt], :2 [pivot_hz]");
     if (state->entering_command)
         mvprintw(y+3, x, "%s", cmd);
 }
@@ -117,8 +125,10 @@ static void spec_tilt_handle_input(Module* m, int key) {
 
     if (!state->entering_command) {
         switch (key) {
-            case '>': state->tilt += 0.05f; handled = 1; break;
-            case '<': state->tilt -= 0.05f; handled = 1; break;
+            case '=': state->tilt += 0.01f; handled = 1; break;
+            case '-': state->tilt -= 0.01f; handled = 1; break;
+            case '+': state->pivot_hz += 1.0f; handled = 1; break;
+            case '_': state->pivot_hz -= 1.0f; handled = 1; break;
             case ':':
                 state->entering_command = true;
                 memset(state->command_buffer, 0, sizeof(state->command_buffer));
@@ -132,7 +142,8 @@ static void spec_tilt_handle_input(Module* m, int key) {
             char type;
             float val;
             if (sscanf(state->command_buffer, "%c %f", &type, &val) == 2) {
-                if (type == '1') state->tilt = val;
+                if (type == '1') {state->tilt = val;}
+				else if (type == '2') {state->pivot_hz = val;}
             }
             handled = 1;
         } else if (key == 27) {
@@ -172,9 +183,11 @@ Module* create_module(float sample_rate) {
     SpecTilt* state = calloc(1, sizeof(SpecTilt));
     state->sample_rate = sample_rate;
     state->tilt = 0.0f;
+	state->pivot_hz = 1000.0f;
     pthread_mutex_init(&state->lock, NULL);
 
     init_smoother(&state->smooth_tilt, 0.75f);
+    init_smoother(&state->smooth_pivot_hz, 0.75f);
     clamp_params(state);
 
     init_hann_window();
@@ -200,3 +213,4 @@ Module* create_module(float sample_rate) {
     m->destroy = spec_tilt_destroy;
     return m;
 }
+

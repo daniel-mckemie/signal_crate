@@ -1,4 +1,4 @@
-MODULE_NAME = spec_tilt
+MODULE_NAME = spec_hold
 MODULE_DIR = ../..
 
 SRC = $(MODULE_NAME).c

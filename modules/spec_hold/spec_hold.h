@@ -1,5 +1,5 @@
-#ifndef SPEC_TILT
-#define SPEC_TILT
+#ifndef SPEC_HOLD
+#define SPEC_HOLD
 
 #include <pthread.h>
 #include <fftw3.h>
@@ -10,6 +10,10 @@ typedef struct {
 	float sample_rate;
 	float tilt; // -1.0 to +1.0 (negative = dark, positive = light)
 	float pivot_hz; // point of tilt
+
+	bool freeze;
+	float* frozen_mag;
+	float* frozen_phase;
 
 	CParamSmooth smooth_tilt;
 	CParamSmooth smooth_pivot_hz;
@@ -32,7 +36,7 @@ typedef struct {
 	bool entering_command;
 	char command_buffer[64];
 	int command_index;
-} SpecTilt;
+} SpecHold;
 
 Module* create_module(float sample_rate);
 

@@ -143,12 +143,12 @@ void process_audio(float* input, float* output, unsigned long frames) {
 		}
     }
 
-    for (int i = 0; i < module_count; i++) {
-        if (strcmp(modules[i].name, "out") == 0) {
-            memcpy(output, modules[i].module->output_buffer, sizeof(float) * frames);
-            return;
-        }
-    }
+	for (int i = 0; i < module_count; i++) {
+	    if (strcmp(modules[i].name, "out") == 0) {
+		    memcpy(output, modules[i].module->output_buffer, sizeof(float) * frames);
+			return;
+		}
+	}
 
     if (module_count > 0) {
         memcpy(output, modules[module_count - 1].module->output_buffer, sizeof(float) * frames);

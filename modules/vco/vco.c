@@ -140,12 +140,21 @@ static void vco_set_osc_param(Module* m, const char* param, float value) {
     VCO* state = (VCO*)m->state;
     pthread_mutex_lock(&state->lock);
 
+	// The "param" name should always match the UI for easy programming
+	// The state param name may differ, as with freq_mod
     if (strcmp(param, "freq") == 0) {
-        state->frequency = value;
+		// Expect 0.0–1.0 from slider, map to 20 Hz – 20000 Hz
+		float min_hz = 20.0f;
+		float max_hz = 20000.0f;
+		float norm = fminf(fmaxf(value, 0.0f), 1.0f); // clamp 0–1
+		float hz = min_hz * powf(max_hz / min_hz, norm);  // exponential mapping
+        state->frequency = hz;
     } else if (strcmp(param, "amp") == 0) {
         state->amplitude = value;
-    } else if (strcmp(param, "waveform") == 0 && value > 0.5f) {
-        state->waveform = (Waveform)((state->waveform + 1) % 4);
+    } else if (strcmp(param, "wave") == 0) {
+		if (value > 0.5f) {
+			state->waveform = (Waveform)((state->waveform + 1) % 4);
+		}
     } else {
         fprintf(stderr, "[vco] Unknown OSC param: %s\n", param);
     }

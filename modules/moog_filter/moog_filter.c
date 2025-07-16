@@ -136,11 +136,18 @@ static void moog_filter_set_osc_param(Module* m, const char* param, float value)
     pthread_mutex_lock(&state->lock);
 
     if (strcmp(param, "cutoff") == 0) {
-        state->cutoff = value;
-    } else if (strcmp(param, "amp") == 0) {
+		// Expect 0.0–1.0 from slider, map to 20 Hz – 20000 Hz
+		float min_hz = 20.0f;
+		float max_hz = 20000.0f;
+		float norm = fminf(fmaxf(value, 0.0f), 1.0f); // clamp 0–1
+		float hz = min_hz * powf(max_hz / min_hz, norm);  // exponential mapping
+        state->cutoff = hz;
+    } else if (strcmp(param, "res") == 0) {
         state->resonance = value;
-    } else if (strcmp(param, "filt_type") == 0 && value > 0.5f) {
-        state->filt_type = (FilterType)((state->filt_type + 1) % 5);
+    } else if (strcmp(param, "type") == 0) {
+		if (value > 0.5f) {
+			state->filt_type = (FilterType)((state->filt_type + 1) % 5);
+		}
     } else {
         fprintf(stderr, "[moog_filter] Unknown OSC param: %s\n", param);
     }

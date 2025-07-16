@@ -131,6 +131,23 @@ static void moog_filter_handle_input(Module *m, int key) {
     pthread_mutex_unlock(&state->lock);
 }
 
+static void moog_filter_set_osc_param(Module* m, const char* param, float value) {
+    MoogFilter* state = (MoogFilter*)m->state;
+    pthread_mutex_lock(&state->lock);
+
+    if (strcmp(param, "cutoff") == 0) {
+        state->cutoff = value;
+    } else if (strcmp(param, "amp") == 0) {
+        state->resonance = value;
+    } else if (strcmp(param, "filt_type") == 0 && value > 0.5f) {
+        state->filt_type = (FilterType)((state->filt_type + 1) % 5);
+    } else {
+        fprintf(stderr, "[moog_filter] Unknown OSC param: %s\n", param);
+    }
+
+    pthread_mutex_unlock(&state->lock);
+}
+
 static void moog_filter_destroy(Module* m) {
     if (!m) return;
     MoogFilter* state = (MoogFilter*)m->state;
@@ -158,6 +175,7 @@ Module* create_module(float sample_rate) {
 	m->process = moog_filter_process;
 	m->draw_ui = moog_filter_draw_ui;
 	m->handle_input = moog_filter_handle_input;
+	m->set_param = moog_filter_set_osc_param;
 	m->destroy = moog_filter_destroy;
 	return m;
 }

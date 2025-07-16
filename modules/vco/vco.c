@@ -144,14 +144,15 @@ static void vco_set_osc_param(Module* m, const char* param, float value) {
         state->frequency = value;
     } else if (strcmp(param, "amp") == 0) {
         state->amplitude = value;
-    } else if (strcmp(param, "waveform") == 0) {
-        state->waveform = (Waveform)((int)value % 4);
-    } else if (strcmp(param, "waveform_next") == 0 && value > 0.5f) {
+    } else if (strcmp(param, "waveform") == 0 && value > 0.5f) {
         state->waveform = (Waveform)((state->waveform + 1) % 4);
+    } else {
+        fprintf(stderr, "[vco] Unknown OSC param: %s\n", param);
     }
 
     pthread_mutex_unlock(&state->lock);
 }
+
 
 static void vco_destroy(Module* m) {
     if (!m) return;

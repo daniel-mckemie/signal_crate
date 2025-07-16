@@ -166,3 +166,9 @@ int get_module_count(void) {
     return module_count;
 }
 
+const char* get_module_alias(int index) {
+    if (index < 0 || index >= module_count) return NULL;
+    return modules[index].name;
+}
+
+

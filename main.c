@@ -5,6 +5,7 @@
 #include "engine.h"
 #include "ui.h"
 #include "util.h"
+#include "osc.h"
 
 float sample_rate = 44100.0f;
 
@@ -56,7 +57,11 @@ int main() {
     }
 
     initialize_engine(patch);  // NEW DAG PATCH PARSER
-
+	if (get_module_count() > 0) {
+		start_osc_server();
+	} else {
+		fprintf(stderr, "No modules loaded. Skipping OSC server start.");
+	}
     // Set up PortAudio stream params
     PaStreamParameters inputParams = {
         .device = inputDevice,

@@ -9,6 +9,7 @@ typedef struct Module {
     void (*process)(struct Module*, float* input, unsigned long frames);
     void (*draw_ui)(struct Module*, int y, int x);
     void (*handle_input)(struct Module*, int key);
+	void (*set_param)(struct Module*, const char* param, float value);
 	void (*destroy)(struct Module*);
     void* state;
     void* handle;

@@ -3,6 +3,7 @@
 
 #include <pthread.h>
 #include "util.h"
+#include "module.h"
 
 typedef enum {
     WAVE_SINE,

@@ -1,7 +1,9 @@
 #include <ctype.h>
 #include <string.h>
+#include <stdio.h>
 
 #include "util.h"
+#include "module.h"
 
 void init_smoother(CParamSmooth *s, float a) {
     s->a = a;
@@ -23,3 +25,4 @@ char* trim_whitespace(char* str) {
     end[1] = '\0';
     return str;
 }
+

@@ -1,7 +1,7 @@
 APP = SignalCrate
-SRCS = main.c engine.c ui.c module_loader.c util.c
+SRCS = main.c engine.c ui.c module_loader.c util.c osc.c
 CFLAGS = -Wall -O2 -fPIC -I./modules -I. -I/opt/homebrew/include
-LDFLAGS = -L/opt/homebrew/lib -ldl -lportaudio -lpthread -lm -lncurses
+LDFLAGS = -L/opt/homebrew/lib -ldl -lportaudio -lpthread -lm -lncurses -llo
 
 # === Modules ===
 MODULE_DIRS := $(shell find modules -type f -name Makefile -exec dirname {} \;)

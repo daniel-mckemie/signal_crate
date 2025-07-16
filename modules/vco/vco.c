@@ -135,6 +135,24 @@ static void vco_handle_input(Module *m, int key) {
     pthread_mutex_unlock(&state->lock);
 }
 
+
+static void vco_set_osc_param(Module* m, const char* param, float value) {
+    VCO* state = (VCO*)m->state;
+    pthread_mutex_lock(&state->lock);
+
+    if (strcmp(param, "freq") == 0) {
+        state->frequency = value;
+    } else if (strcmp(param, "amp") == 0) {
+        state->amplitude = value;
+    } else if (strcmp(param, "waveform") == 0) {
+        state->waveform = (Waveform)((int)value % 4);
+    } else if (strcmp(param, "waveform_next") == 0 && value > 0.5f) {
+        state->waveform = (Waveform)((state->waveform + 1) % 4);
+    }
+
+    pthread_mutex_unlock(&state->lock);
+}
+
 static void vco_destroy(Module* m) {
     if (!m) return;
     VCO* state = (VCO*)m->state;
@@ -165,6 +183,8 @@ Module* create_module(float sample_rate) {
     m->process = vco_process;
     m->draw_ui = vco_draw_ui;
 	m->handle_input = vco_handle_input;
+	m->set_param = vco_set_osc_param;
 	m->destroy = vco_destroy;
     return m;
 }
+

@@ -29,15 +29,57 @@ static NamedModule* find_module_by_name(const char* name) {
 }
 
 static void connect_module_inputs(Module* m, char** input_names, int input_count) {
+    m->num_inputs = 0;
+    m->num_control_inputs = 0;
+
     for (int i = 0; i < input_count && i < MAX_INPUTS; i++) {
-        NamedModule* src = find_module_by_name(input_names[i]);
-        if (src) {
-            m->inputs[i] = src->module->output_buffer;
+        char* name = input_names[i];
+        char* equals = strchr(name, '=');
+
+        if (equals) {
+            *equals = '\0';
+            char* source_name = equals + 1;
+
+            NamedModule* src = find_module_by_name(source_name);
+            if (src && strncmp(src->name, "c_", 2) == 0 && src->module->control_output) {
+                if (m->num_control_inputs < MAX_CONTROL_INPUTS) {
+                    m->control_inputs[m->num_control_inputs++] = src->module->control_output;
+                } else {
+                    fprintf(stderr, "Too many control inputs\n");
+                }
+            } else if (src && src->module->output_buffer) {
+                if (m->num_inputs < MAX_INPUTS) {
+                    m->inputs[m->num_inputs++] = src->module->output_buffer;
+                } else {
+                    fprintf(stderr, "Too many audio inputs\n");
+                }
+            } else {
+                fprintf(stderr, "Unknown or invalid input module: %s\n", source_name);
+            }
         } else {
-            fprintf(stderr, "Error: unknown input module '%s'\n", input_names[i]);
+            NamedModule* src = find_module_by_name(name);
+            if (src && src->module->output_buffer) {
+                if (m->num_inputs < MAX_INPUTS) {
+                    m->inputs[m->num_inputs++] = src->module->output_buffer;
+                } else {
+                    fprintf(stderr, "Too many audio inputs\n");
+                }
+            } else {
+                fprintf(stderr, "Error: unknown input module '%s'\n", name);
+            }
         }
     }
-    m->num_inputs = input_count;
+}
+
+static void connect_control_inputs(Module* m, char** param_names, char** source_names, int count) {
+    for (int i = 0; i < count && i < MAX_CONTROL_INPUTS; i++) {
+        NamedModule* src = find_module_by_name(source_names[i]);
+        if (src && src->module && src->module->control_output) {
+            m->control_inputs[m->num_control_inputs++] = src->module->control_output;
+        } else {
+            fprintf(stderr, "Error: invalid control source '%s'\n", source_names[i]);
+        }
+    }
 }
 
 static void parse_patch_line(const char* line) {
@@ -96,15 +138,37 @@ void initialize_engine(const char* patch_text) {
         char input_buf[128];
         strncpy(input_buf, patch_lines[i].input_str, sizeof(input_buf));
 
-        char* inputs[MAX_INPUTS];
-        int input_count = 0;
+        char* audio_inputs[MAX_INPUTS];
+        int audio_input_count = 0;
+		
+		char* control_param_names[MAX_CONTROL_INPUTS];
+		char* control_source_names[MAX_CONTROL_INPUTS];
+		int control_input_count = 0;
+
         token = strtok(input_buf, ",");
-        while (token && input_count < MAX_INPUTS) {
-            inputs[input_count++] = strdup(trim_whitespace(token));
-            token = strtok(NULL, ",");
-        }
-        connect_module_inputs(nm->module, inputs, input_count);
-        for (int j = 0; j < input_count; j++) free(inputs[j]);
+        while (token) {
+			char* trimmed = trim_whitespace(token);
+			char* eq = strchr(trimmed, '=');
+
+			if (eq) {
+				*eq = '\0';
+				control_param_names[control_input_count] = strdup(trim_whitespace(trimmed));
+				control_source_names[control_input_count] = strdup(trim_whitespace(eq+1));
+				control_input_count++;
+			} else {
+				audio_inputs[audio_input_count++] = strdup(trimmed);
+			}
+			token = strtok(NULL, ",");
+		}
+		connect_module_inputs(nm->module, audio_inputs, audio_input_count);
+		connect_control_inputs(nm->module, control_param_names, control_source_names, control_input_count);
+
+        for (int j=0; j<audio_input_count; j++) free(audio_inputs[j]);
+        for (int j=0; j<control_input_count; j++) {
+			free(control_param_names[j]);
+			free(control_source_names[j]);
+		}
+
     }
 
     printf("=== Final module count: %d ===\n", module_count);
@@ -119,11 +183,20 @@ void shutdown_engine(void) {
 }
 
 void process_audio(float* input, float* output, unsigned long frames) {
-    for (int i = 0; i < module_count; i++) {
+	// Control logic
+	for (int i=0; i<module_count; i++) {
+		Module* m = modules[i].module;
+		if (m->process_control) {
+			m->process_control(m);
+		}
+	}
+    for (int i=0; i<module_count; i++) {
         Module* m = modules[i].module;
 
 		if (strcmp(m->name, "input") == 0) {
-			m->process(m, input, frames); // Feed raw audio input
+			if (m->process) {
+				m->process(m, input, frames); // Feed raw audio input
+			}
 		} else {
 			float mixed_input[frames];
 			memset(mixed_input, 0, sizeof(float) * frames);
@@ -142,7 +215,9 @@ void process_audio(float* input, float* output, unsigned long frames) {
 					mixed_input[k] *= norm;
 			 }
 		}
-			m->process(m, mixed_input, frames);
+			if (m->process) {
+				m->process(m, mixed_input, frames);
+			}
 		}
     }
 

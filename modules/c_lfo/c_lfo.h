@@ -1,0 +1,35 @@
+#ifndef C_LFO_H
+#define C_LFO_H
+
+#include <pthread.h>
+#include "util.h"
+#include "module.h"
+
+typedef enum {
+    LFO_SINE,
+    LFO_SAW,
+    LFO_SQUARE,
+    LFO_TRIANGLE
+} LFOWaveform;
+
+typedef struct {
+    float frequency;
+    float amplitude;
+    float phase;
+    float tri_state;
+    float sample_rate;
+    LFOWaveform waveform;
+
+    CParamSmooth smooth_freq;
+    CParamSmooth smooth_amp;
+
+    pthread_mutex_t lock;
+
+    // Command mode
+    bool entering_command;
+    char command_buffer[64];
+    int command_index;
+} CLFO;
+
+#endif
+

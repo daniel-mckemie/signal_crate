@@ -3,10 +3,12 @@
 
 #define MAX_MODULES 64
 #define MAX_INPUTS 128
+#define MAX_CONTROL_INPUTS 32
 
 typedef struct Module {
     const char* name;
     void (*process)(struct Module*, float* input, unsigned long frames);
+	void (*process_control)(struct Module*);
     void (*draw_ui)(struct Module*, int y, int x);
     void (*handle_input)(struct Module*, int key);
 	void (*set_param)(struct Module*, const char* param, float value);
@@ -17,9 +19,14 @@ typedef struct Module {
 	// Audio routing
 	float* inputs[MAX_INPUTS];
 	int num_inputs;
-
 	float* output_buffer;
+
+	// Control routing
+	float* control_inputs[MAX_CONTROL_INPUTS];
+	int num_control_inputs;
+	float* control_output;
 } Module;
+
 
 #endif
 

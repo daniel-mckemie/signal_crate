@@ -7,6 +7,7 @@
 
 #include "module.h"
 #include "engine.h"
+#include "osc.h"
 
 #define COLUMN_WIDTH 64
 
@@ -61,7 +62,10 @@ void ui_loop() {
 			cpu = get_cpu_percent();
 			cpu_refresh_counter = 0;
 		}
-		mvprintw(0, COLS - 18, "[CPU] %.1f%%", cpu);
+
+		// Show CPU and OSC port
+		const char* osc_port = get_current_osc_port();
+		mvprintw(0, COLS - 30, "[CPU] %.1f%%  [OSC:%s]", cpu, osc_port);
 
 		int rows, cols;
 		getmaxyx(stdscr, rows, cols);

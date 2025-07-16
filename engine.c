@@ -136,9 +136,12 @@ void process_audio(float* input, float* output, unsigned long frames) {
 				}
 			}
 
-			for (unsigned long k = 0; k < frames; k++) {
-				mixed_input[k] = tanhf(mixed_input[k]);
-			}
+			if (m->num_inputs > 0) {
+				float norm = 1.0f / (float)m->num_inputs;
+				for (unsigned long k = 0; k < frames; k++) {
+					mixed_input[k] *= norm;
+			 }
+		}
 			m->process(m, mixed_input, frames);
 		}
     }

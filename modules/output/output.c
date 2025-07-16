@@ -41,8 +41,8 @@ static void output_handle_input(Module* m, int key) {
 
     if (!state->entering_command) {
         switch (key) {
-            case '-': state->gain -= 0.05f; handled = 1; break;
-            case '=': state->gain += 0.05f; handled = 1; break;
+            case '-': state->gain -= 0.01f; handled = 1; break;
+            case '=': state->gain += 0.01f; handled = 1; break;
             case ':':
                 state->entering_command = true;
                 memset(state->command_buffer, 0, sizeof(state->command_buffer));

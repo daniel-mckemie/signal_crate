@@ -16,6 +16,7 @@ typedef struct {
     float frequency;
     float amplitude;
     Waveform waveform;
+	float phase;
     float sample_rate;
 	float tri_state;
     CParamSmooth smooth_freq;

@@ -19,7 +19,7 @@ static void vco_process(Module *m, float* in, unsigned long frames) {
     waveform = state->waveform;
     pthread_mutex_unlock(&state->lock);
 
-    static float phs = 0.0f;
+    float phs = state->phase;
 	int idx;
     for (unsigned long i = 0; i < frames; i++) {
         float value = 0.0f;
@@ -54,8 +54,9 @@ static void vco_process(Module *m, float* in, unsigned long frames) {
 
         }
         m->output_buffer[i] = amp * value;
-        phs += TWO_PI * freq / state->sample_rate;
-        if (phs >= TWO_PI) phs -= TWO_PI;
+		phs += TWO_PI * freq / state->sample_rate;
+		if (phs >= TWO_PI) phs -= TWO_PI;
+		state->phase = phs;  // store back in state
     }
 }
 
@@ -177,6 +178,7 @@ Module* create_module(float sample_rate) {
     state->frequency = 440.0f;
     state->amplitude = 0.5f;
     state->waveform = WAVE_SINE;
+	state->phase = 0.0f;
 	state->tri_state = 0.0f;
     state->sample_rate = sample_rate;
     

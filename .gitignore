@@ -1,6 +1,5 @@
 #Ignore binary
-FlowControl
-
+SignalCrate
 
 #Ignore build artifacts
 *.dylib

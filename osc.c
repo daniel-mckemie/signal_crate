@@ -40,7 +40,7 @@ static int module_param_handler(const char *path, const char *types,
 }
 
 lo_server_thread start_osc_server(void) {
-    const int base_port = 61234;
+    const int base_port = 61245;
     const int max_attempts = 100;
     lo_server_thread st = NULL;
     char port_str[16];

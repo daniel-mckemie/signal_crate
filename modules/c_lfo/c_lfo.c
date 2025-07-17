@@ -127,15 +127,6 @@ static void c_lfo_handle_input(Module* m, int key) {
     pthread_mutex_unlock(&s->lock);
 }
 
-static void c_lfo_destroy(Module* m) {
-    CLFO* s = (CLFO*)m->state;
-    if (s) {
-        pthread_mutex_destroy(&s->lock);
-        free(s);
-    }
-	if (m->control_output) free(m->control_output);
-}
-
 static void c_lfo_set_osc_param(Module* m, const char* param, float value) {
     CLFO* s = (CLFO*)m->state;
     pthread_mutex_lock(&s->lock);
@@ -143,13 +134,22 @@ static void c_lfo_set_osc_param(Module* m, const char* param, float value) {
     if (strcmp(param, "freq") == 0) {
         float norm = fminf(fmaxf(value, 0.0f), 1.0f);
         s->frequency = 0.1f * powf(100.0f / 0.1f, norm);  // exponential map
-    } else if (strcmp(param, "amp") == 0 || strcmp(param, "depth") == 0) {
+    } else if (strcmp(param, "depth") == 0) {
         s->amplitude = value;
     } else if (strcmp(param, "wave") == 0) {
         if (value > 0.5f) s->waveform = (s->waveform + 1) % 4;
     }
 
     pthread_mutex_unlock(&s->lock);
+}
+
+static void c_lfo_destroy(Module* m) {
+    CLFO* s = (CLFO*)m->state;
+    if (s) {
+        pthread_mutex_destroy(&s->lock);
+        free(s);
+    }
+	if (m->control_output) free(m->control_output);
 }
 
 Module* create_module(float sample_rate) {

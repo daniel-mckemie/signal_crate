@@ -85,6 +85,19 @@ static void input_handle_input(Module* m, int key) {
     pthread_mutex_unlock(&state->lock);
 }
 
+static void input_set_osc_param(Module* m, const char* param, float value) {
+    InputState* state = (InputState*)m->state;
+    pthread_mutex_lock(&state->lock);
+
+    if (strcmp(param, "amp") == 0) {
+        state->amp = fminf(fmaxf(value, 0.0f), 1.0f);
+    } else {
+        fprintf(stderr, "[input] Unknown OSC param: %s\n", param);
+    }
+
+    pthread_mutex_unlock(&state->lock);
+}
+
 static void input_destroy(Module* m) {
     if (!m) return;
     InputState* state = (InputState*)m->state;
@@ -109,6 +122,7 @@ Module* create_module(float sample_rate) {
     m->process = input_process;
     m->draw_ui = input_draw_ui;
     m->handle_input = input_handle_input;
+	m->set_param = input_set_osc_param;
     m->destroy = input_destroy;
     return m;
 }

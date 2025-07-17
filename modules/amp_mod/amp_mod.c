@@ -81,7 +81,7 @@ static void ampmod_draw_ui(Module* m, int y, int x) {
 
     mvprintw(y,   x, "[AmpMod] Freq: %.2f Hz, Car_Amp: %.2f, Depth: %.2f", freq, car_amp, depth);
     mvprintw(y+1, x, "Real-time keys: -/= (freq), _/+ (Car_Amp), [/] (Depth)");
-    mvprintw(y+2, x, "Command mode: :1 [freq], :2 [Car_Amp], :3 [Depth]");
+    mvprintw(y+2, x, "Command mode: :1 [freq], :2 [car_amp], :3 [depth]");
 }
 
 static void ampmod_handle_input(Module* m, int key) {
@@ -135,6 +135,28 @@ static void ampmod_handle_input(Module* m, int key) {
     pthread_mutex_unlock(&state->lock);
 }
 
+static void amp_mod_set_osc_param(Module* m, const char* param, float value) {
+    AmpMod* state = (AmpMod*)m->state;
+    pthread_mutex_lock(&state->lock);
+
+    if (strcmp(param, "freq") == 0) {
+        // Expect 0.0–1.0 mapped to 0.1 Hz – 20 Hz for modulation rate
+        float min_hz = 0.1f;
+        float max_hz = 20000.0f;
+        float norm = fminf(fmaxf(value, 0.0f), 1.0f);
+        float hz = min_hz * powf(max_hz / min_hz, norm);
+        state->freq = hz;
+    } else if (strcmp(param, "car_amp") == 0) {
+        state->car_amp = fminf(fmaxf(value, 0.0f), 1.0f);
+    } else if (strcmp(param, "depth") == 0) {
+        state->depth = fminf(fmaxf(value, 0.0f), 1.0f);
+    } else {
+        fprintf(stderr, "[amp_mod] Unknown OSC param: %s\n", param);
+    }
+
+    pthread_mutex_unlock(&state->lock);
+}
+
 static void ampmod_destroy(Module* m) {
     if (!m) return;
     AmpMod* state = (AmpMod*)m->state;
@@ -164,6 +186,7 @@ Module* create_module(float sample_rate) {
     m->process = ampmod_process;
     m->draw_ui = ampmod_draw_ui;
     m->handle_input = ampmod_handle_input;
+	m->set_param = amp_mod_set_osc_param;
     m->destroy = ampmod_destroy;
     return m;
 }

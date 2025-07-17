@@ -114,6 +114,25 @@ static void fm_mod_handle_input(Module *m, int key) {
     pthread_mutex_unlock(&state->lock);
 }
 
+static void fm_mod_set_osc_param(Module* m, const char* param, float value) {
+    FMMod* state = (FMMod*)m->state;
+    pthread_mutex_lock(&state->lock);
+
+    if (strcmp(param, "mod_freq") == 0) {
+        float min_hz = 1.0f;
+        float max_hz = 20000.0f;
+        float norm = fminf(fmaxf(value, 0.0f), 1.0f); // clamp
+        float hz = min_hz * powf(max_hz / min_hz, norm);
+        state->mod_freq = hz;
+    } else if (strcmp(param, "index") == 0) {
+        state->index = fmaxf(value, 0.0f);
+    } else {
+        fprintf(stderr, "[fm_mod] Unknown OSC param: %s\n", param);
+    }
+
+    pthread_mutex_unlock(&state->lock);
+}
+
 static void fm_mod_destroy(Module* m) {
     if (!m) return;
     FMMod* state = (FMMod*)m->state;
@@ -140,6 +159,7 @@ Module* create_module(float sample_rate) {
 	m->process = fm_mod_process;
 	m->draw_ui = fm_mod_draw_ui;
 	m->handle_input = fm_mod_handle_input;
+	m->set_param = fm_mod_set_osc_param;
 	m->destroy = fm_mod_destroy;
 	return m;
 }

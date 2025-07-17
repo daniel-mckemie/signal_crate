@@ -201,6 +201,34 @@ static void looper_handle_input(Module* m, int ch) {
     pthread_mutex_unlock(&state->lock);
 }
 
+static void looper_set_osc_param(Module* m, const char* param, float value) {
+    Looper* state = (Looper*)m->state;
+    pthread_mutex_lock(&state->lock);
+
+    if (strcmp(param, "speed") == 0) {
+        float min = 0.1f, max = 4.0f;
+        float norm = fminf(fmaxf(value, 0.0f), 1.0f);
+        state->playback_speed = min * powf(max / min, norm);
+    } else if (strcmp(param, "start") == 0) {
+        state->loop_start = (unsigned long)(value * state->sample_rate);
+    } else if (strcmp(param, "end") == 0) {
+        state->loop_end = (unsigned long)(value * state->sample_rate);
+    } else if (strcmp(param, "record") == 0 && value > 0.5f) {
+        state->looper_state = RECORDING;
+    } else if (strcmp(param, "play") == 0 && value > 0.5f) {
+        state->looper_state = PLAYING;
+    } else if (strcmp(param, "overdub") == 0 && value > 0.5f) {
+        state->looper_state = OVERDUBBING;
+    } else if (strcmp(param, "stop") == 0 && value > 0.5f) {
+        state->looper_state = STOPPED;
+    } else {
+        fprintf(stderr, "[looper] Unknown OSC param: %s\n", param);
+    }
+
+    clamp_params(state);
+    pthread_mutex_unlock(&state->lock);
+}
+
 static void looper_destroy(Module* m) {
     if (!m) return;
     Looper* state = (Looper*)m->state;
@@ -233,6 +261,7 @@ Module* create_module(float sample_rate) {
     m->process = looper_process;
     m->draw_ui = looper_draw_ui;
     m->handle_input = looper_handle_input;
+	m->set_param = looper_set_osc_param;
     m->destroy = looper_destroy;
     return m;
 }

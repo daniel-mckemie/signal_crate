@@ -135,6 +135,24 @@ static void wavefolder_handle_input(Module *m, int key) {
     pthread_mutex_unlock(&state->lock);
 }
 
+static void wavefolder_set_osc_param(Module* m, const char* param, float value) {
+    Wavefolder* state = (Wavefolder*)m->state;
+    pthread_mutex_lock(&state->lock);
+
+    if (strcmp(param, "fold_amt") == 0) {
+        state->fold_amt = fminf(fmaxf(value * 5.0f, 0.01f), 5.0f);  // map [0–1] → [0.01–5]
+    } else if (strcmp(param, "blend") == 0) {
+        state->blend = fminf(fmaxf(value, 0.01f), 1.0f);
+    } else if (strcmp(param, "drive") == 0) {
+        state->drive = fminf(fmaxf(value * 10.0f, 0.01f), 10.0f);  // map [0–1] → [0.01–10]
+    } else {
+        fprintf(stderr, "[wavefolder] Unknown OSC param: %s\n", param);
+    }
+
+    clamp_params(state);
+    pthread_mutex_unlock(&state->lock);
+}
+
 static void wavefolder_destroy(Module* m) {
     if (!m) return;
     Wavefolder* state = (Wavefolder*)m->state;
@@ -163,6 +181,7 @@ Module* create_module(float sample_rate) {
     m->process = wavefolder_process;
     m->draw_ui = wavefolder_draw_ui;
     m->handle_input = wavefolder_handle_input;
+	m->set_param = wavefolder_set_osc_param;
     m->destroy = wavefolder_destroy;
     return m;
 }

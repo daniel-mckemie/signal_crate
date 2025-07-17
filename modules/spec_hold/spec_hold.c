@@ -65,7 +65,7 @@ static void spec_hold_process(Module* m, float* in, unsigned long frames) {
 
 				if (strcmp(param, "tilt") == 0) {
 					tilt_target = control * 2.0f - 1.0f;  // range [-1, 1]
-				} else if (strcmp(param, "pivot_hz") == 0) {
+				} else if (strcmp(param, "pivot") == 0) {
 					float min_hz = 20.0f;
 					float max_hz = 20000.0f;
 					pivot_hz_target = min_hz * powf(max_hz / min_hz, control);
@@ -139,7 +139,7 @@ static void spec_hold_draw_ui(Module* m, int y, int x) {
     pthread_mutex_unlock(&state->lock);
 
     mvprintw(y,   x, "[SpecTilt] Tilt: %.2f, Pivot: %.2f (Hz), Freeze: %s", tilt, pivot_hz, state->freeze ? "ON" : "OFF");
-    mvprintw(y+1, x, "Real-time Keys: -/= tilt; _/+ pivot (hz); [f] freeze");
+    mvprintw(y+1, x, "Real-time Keys: -/= tilt; _/+ pivot; [f] freeze");
     mvprintw(y+2, x, "Cmd: :1 [tilt], :2 [pivot_hz]");
 }
 
@@ -188,6 +188,27 @@ static void spec_hold_handle_input(Module* m, int key) {
     }
 
     if (handled) clamp_params(state);
+    pthread_mutex_unlock(&state->lock);
+}
+
+static void spec_hold_set_osc_param(Module* m, const char* param, float value) {
+    SpecHold* state = (SpecHold*)m->state;
+    pthread_mutex_lock(&state->lock);
+
+    if (strcmp(param, "tilt") == 0) {
+        state->tilt = fminf(fmaxf(value * 2.0f - 1.0f, -1.0f), 1.0f);  // map [0,1] → [-1,1]
+    } else if (strcmp(param, "pivot") == 0) {
+        float min_hz = 20.0f;
+        float max_hz = 20000.0f;
+        float norm = fminf(fmaxf(value, 0.0f), 1.0f);
+        state->pivot_hz = min_hz * powf(max_hz / min_hz, norm);
+    } else if (strcmp(param, "freeze") == 0) {
+        if (value > 0.5f) state->freeze = !state->freeze;
+    } else {
+        fprintf(stderr, "[spec_hold] Unknown OSC param: %s\n", param);
+    }
+
+    clamp_params(state);
     pthread_mutex_unlock(&state->lock);
 }
 
@@ -242,6 +263,7 @@ Module* create_module(float sample_rate) {
     m->process = spec_hold_process;
     m->draw_ui = spec_hold_draw_ui;
     m->handle_input = spec_hold_handle_input;
+	m->set_param = spec_hold_set_osc_param;
     m->destroy = spec_hold_destroy;
     return m;
 }

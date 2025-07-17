@@ -78,7 +78,7 @@ static void ringmod_draw_ui(Module* m, int y, int x) {
         snprintf(cmd, sizeof(cmd), ":%s", state->command_buffer);
     pthread_mutex_unlock(&state->lock);
 
-    mvprintw(y,   x, "[RingMod] mod_freq: %.2f Hz, CarAmp: %.2f, ModAmp: %.2f", mod_freq, car_amp, mod_amp);
+    mvprintw(y,   x, "[RingMod] mod_freq: %.2f Hz, car_amp: %.2f, mod_amp: %.2f", mod_freq, car_amp, mod_amp);
     mvprintw(y+1, x, "Real-time keys: -/= (mod_freq), _/+ (ModAmp), [/] (CarAmp)");
     mvprintw(y+2, x, "Command mode: :1 [mod_freq], :2 [CarAmp], :3 [ModAmp]");
 }
@@ -134,6 +134,27 @@ static void ringmod_handle_input(Module* m, int key) {
     pthread_mutex_unlock(&state->lock);
 }
 
+static void ring_mod_set_osc_param(Module* m, const char* param, float value) {
+    RingMod* state = (RingMod*)m->state;
+    pthread_mutex_lock(&state->lock);
+
+    if (strcmp(param, "mod_freq") == 0) {
+        float min_hz = 1.0f;
+        float max_hz = 20000.0f;
+        float norm = fminf(fmaxf(value, 0.0f), 1.0f);  // clamp
+        state->mod_freq = min_hz * powf(max_hz / min_hz, norm);
+    } else if (strcmp(param, "car_amp") == 0) {
+        state->car_amp = fminf(fmaxf(value, 0.0f), 1.0f);
+    } else if (strcmp(param, "mod_amp") == 0) {
+        state->mod_amp = fminf(fmaxf(value, 0.0f), 1.0f);
+    } else {
+        fprintf(stderr, "[ring_mod] Unknown OSC param: %s\n", param);
+    }
+
+    clamp_params(state);
+    pthread_mutex_unlock(&state->lock);
+}
+
 static void ringmod_destroy(Module* m) {
     if (!m) return;
     RingMod* state = (RingMod*)m->state;
@@ -163,6 +184,7 @@ Module* create_module(float sample_rate) {
     m->process = ringmod_process;
     m->draw_ui = ringmod_draw_ui;
     m->handle_input = ringmod_handle_input;
+	m->set_param = ring_mod_set_osc_param;
     m->destroy = ringmod_destroy;
     return m;
 }

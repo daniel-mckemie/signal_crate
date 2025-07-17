@@ -116,6 +116,23 @@ static void noise_source_handle_input(Module *m, int key) {
 	pthread_mutex_unlock(&state->lock);
 }
 
+static void noise_source_set_osc_param(Module* m, const char* param, float value) {
+    NoiseSource* state = (NoiseSource*)m->state;
+    pthread_mutex_lock(&state->lock);
+
+    if (strcmp(param, "amp") == 0) {
+        state->amplitude = fminf(fmaxf(value, 0.0f), 1.0f);
+    } else if (strcmp(param, "type") == 0) {
+        if (value > 0.5f) {
+            state->noise_type = (NoiseType)((state->noise_type + 1) % 3);
+        }
+    } else {
+        fprintf(stderr, "[noise_source] Unknown OSC param: %s\n", param);
+    }
+
+    pthread_mutex_unlock(&state->lock);
+}
+
 static void noise_source_destroy(Module* m) {
 	if (!m) return;
 	NoiseSource* state = (NoiseSource*)m->state;
@@ -143,6 +160,7 @@ Module* create_module(float sample_rate) {
 	m->process = noise_source_process;
 	m->draw_ui = noise_source_draw_ui;
 	m->handle_input = noise_source_handle_input;
+	m->set_param = noise_source_set_osc_param;
 	m->destroy = noise_source_destroy;
 	return m;
 }

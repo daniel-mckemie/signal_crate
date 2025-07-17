@@ -82,7 +82,7 @@ static void output_handle_input(Module* m, int key) {
     pthread_mutex_unlock(&state->lock);
 }
 
-static void output_set_param(Module* m, const char* param, float value) {
+static void output_set_osc_param(Module* m, const char* param, float value) {
     OutputState* state = (OutputState*)m->state;
     pthread_mutex_lock(&state->lock);
 
@@ -113,7 +113,7 @@ Module* create_module(float sample_rate) {
     m->process = output_process;
     m->draw_ui = output_draw_ui;
     m->handle_input = output_handle_input;
-    m->set_param = output_set_param;
+    m->set_param = output_set_osc_param;
     m->destroy = output_destroy;
     return m;
 }

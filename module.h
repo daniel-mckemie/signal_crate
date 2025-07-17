@@ -25,6 +25,7 @@ typedef struct Module {
 	float* control_inputs[MAX_CONTROL_INPUTS];
 	int num_control_inputs;
 	float* control_output;
+	const char* control_input_params[MAX_CONTROL_INPUTS];
 } Module;
 
 

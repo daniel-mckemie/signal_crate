@@ -51,10 +51,29 @@ static void spec_hold_process(Module* m, float* in, unsigned long frames) {
 			int bins = FFT_SIZE / 2 + 1;
 			float nyquist = state->sample_rate / 2.0f;
 
+			float tilt_target, pivot_hz_target;
 			pthread_mutex_lock(&state->lock);
-			float tilt = process_smoother(&state->smooth_tilt, state->tilt);
-			float pivot_hz = process_smoother(&state->smooth_pivot_hz, state->pivot_hz);
+			tilt_target = state->tilt;
+			pivot_hz_target = state->pivot_hz;
 			pthread_mutex_unlock(&state->lock);
+
+			for (int i = 0; i < m->num_control_inputs; i++) {
+				if (!m->control_inputs[i] || !m->control_input_params[i]) continue;
+
+				const char* param = m->control_input_params[i];
+				float control = *(m->control_inputs[i]);
+
+				if (strcmp(param, "tilt") == 0) {
+					tilt_target = control * 2.0f - 1.0f;  // range [-1, 1]
+				} else if (strcmp(param, "pivot_hz") == 0) {
+					float min_hz = 20.0f;
+					float max_hz = 20000.0f;
+					pivot_hz_target = min_hz * powf(max_hz / min_hz, control);
+				}
+			}
+
+			float tilt = process_smoother(&state->smooth_tilt, tilt_target);
+			float pivot_hz = process_smoother(&state->smooth_pivot_hz, pivot_hz_target);
 
 
 			for (int j = 0; j < bins; j++) {

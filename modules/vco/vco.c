@@ -18,23 +18,25 @@ static void vco_process(Module *m, float* in, unsigned long frames) {
 	amp = process_smoother(&state->smooth_amp, state->amplitude);
 	waveform = state->waveform;
 	pthread_mutex_unlock(&state->lock);
+	
+	freq = base_freq;  // default fallback
+	for (int i = 0; i < m->num_control_inputs; i++) {
+		if (!m->control_inputs[i] || !m->control_input_params[i]) continue;
 
-	// If a control input is present, use it to modulate frequency
-	float control = 0.0f;
-	if (m->num_control_inputs >= 1 && m->control_inputs[0]) {
-		control = *(m->control_inputs[0]);
-		if (fabsf(control - 0.5f) < 0.0001f) {
-			freq = base_freq;
-		} else {
+		const char* param = m->control_input_params[i];
+		float control = *(m->control_inputs[i]);
+
+		if (strcmp(param, "freq") == 0) {
 			float min_hz = 20.0f;
 			float max_hz = 20000.0f;
-			freq = min_hz * powf(max_hz / min_hz, control);  // exponential mapping
+			freq = min_hz * powf(max_hz / min_hz, control);
+		} else if (strcmp(param, "amp") == 0) {
+			amp *= control;
 		}
-	} else {
-		freq = base_freq;
-	}	
-
+	}
+	
 	state->current_freq_display = freq;
+	state->current_amp_display = amp;
 
     float phs = state->phase;
 	int idx;
@@ -87,20 +89,13 @@ static void vco_draw_ui(Module *m, int y, int x) {
     pthread_mutex_lock(&state->lock);
     // freq = state->frequency;
     freq = state->current_freq_display;
-    amp = state->amplitude;
+    amp = state->current_amp_display;
     waveform = state->waveform;
     pthread_mutex_unlock(&state->lock);
 
     mvprintw(y, x,   "[VCO] Freq: %.2f Hz, Amp: %.2f, Wave: %s", freq, amp, wave_names[waveform]);
     mvprintw(y+1, x, "Real-time keys: -/= (freq), _/+ (amp)");
     mvprintw(y+2, x, "Command mode: :1 [freq], :2 [amp], :w [waveform]");
-	for (int i = 0; i < m->num_inputs; i++) {
-		mvprintw(y + 1 + i, x + 2, "Audio in[%d]: %s", i, m->input_aliases[i]);
-	}
-	for (int i = 0; i < m->num_control_inputs; i++) {
-		mvprintw(y + 1 + m->num_inputs + i, x + 2, "Control in[%d]: %s", i, m->control_input_aliases[i]);
-	}
-
 }
 
 static void clamp_params(VCO *state) {

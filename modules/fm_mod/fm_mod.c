@@ -13,10 +13,26 @@ static void fm_mod_process(Module *m, float* in, unsigned long frames) {
 
     float mf, idx;
     pthread_mutex_lock(&state->lock);
-    mf = process_smoother(&state->smooth_freq, state->modulator_freq);
+    mf = process_smoother(&state->smooth_freq, state->mod_freq);
     idx = process_smoother(&state->smooth_index, state->index);
     pthread_mutex_unlock(&state->lock);
 
+	// --- Control Modulation Block ---
+    for (int i = 0; i < m->num_control_inputs; i++) {
+        if (!m->control_inputs[i] || !m->control_input_params[i]) continue;
+
+        const char* param = m->control_input_params[i];
+        float control = *(m->control_inputs[i]);
+
+        if (strcmp(param, "mod_freq") == 0) {
+            float min_hz = 1.0f;
+            float max_hz = 20000.0f;
+            mf = min_hz * powf(max_hz / min_hz, control);
+        } else if (strcmp(param, "index") == 0) {
+            idx *= control;
+        }
+    }
+	
     for (unsigned long i=0; i<frames; i++) {
 		float input = in[i];
         float mod = sinf(2.0f * M_PI * state->modulator_phase);
@@ -35,7 +51,7 @@ static void fm_mod_draw_ui(Module *m, int y, int x) {
     float freq, idx;
 
     pthread_mutex_lock(&state->lock);
-    freq = state->modulator_freq;
+    freq = state->mod_freq;
     idx = state->index;
     pthread_mutex_unlock(&state->lock);
 
@@ -57,8 +73,8 @@ static void fm_mod_handle_input(Module *m, int key) {
 
     if (!state->entering_command) {
         switch (key) {
-            case '=': state->modulator_freq += 0.5f; handled = 1; break;
-            case '-': state->modulator_freq -= 0.5f; handled = 1; break;	
+            case '=': state->mod_freq += 0.5f; handled = 1; break;
+            case '-': state->mod_freq -= 0.5f; handled = 1; break;	
             case '+': state->index += 0.01f; handled = 1; break;
             case '_': state->index -= 0.01f; handled = 1; break;
             case ':':
@@ -74,7 +90,7 @@ static void fm_mod_handle_input(Module *m, int key) {
             char type;
             float val;
             if (sscanf(state->command_buffer, "%c %f", &type, &val) == 2) {
-                if (type == '1') state->modulator_freq = val;
+                if (type == '1') state->mod_freq = val;
                 else if (type == '2') state->index = val;
             }
             handled = 1;
@@ -109,7 +125,7 @@ static void fm_mod_destroy(Module* m) {
 
 Module* create_module(float sample_rate) {
 	FMMod *state = calloc(1, sizeof(FMMod));
-	state->modulator_freq = 440.0f;
+	state->mod_freq = 440.0f;
 	state->index = 1.0f;
 	state->sample_rate = sample_rate;
 	pthread_mutex_init(&state->lock, NULL);

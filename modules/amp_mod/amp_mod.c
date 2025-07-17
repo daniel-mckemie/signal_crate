@@ -11,22 +11,39 @@
 static void ampmod_process(Module* m, float* in, unsigned long frames) {
     AmpMod* state = (AmpMod*)m->state;
 
-    float phase, freq, amp1, amp2, sr;
+    float phase, freq, car_amp, depth, sr;
     pthread_mutex_lock(&state->lock);
     phase = state->phase;
     freq = process_smoother(&state->smooth_freq, state->freq);
-    amp1 = process_smoother(&state->smooth_amp1, state->amp1);
-    amp2 = process_smoother(&state->smooth_amp2, state->amp2);
+    car_amp = process_smoother(&state->smooth_car_amp, state->car_amp);
+    depth = process_smoother(&state->smooth_depth, state->depth);
     sr = state->sample_rate;
     pthread_mutex_unlock(&state->lock);
+
+	for (int i = 0; i < m->num_control_inputs; i++) {
+		if (!m->control_inputs[i] || !m->control_input_params[i]) continue;
+
+		const char* param = m->control_input_params[i];
+		float control = *(m->control_inputs[i]);
+
+		if (strcmp(param, "freq") == 0) {
+			float min_hz = 1.0f;
+			float max_hz = 20000.0f;
+			freq = min_hz * powf(max_hz / min_hz, control);  // exponential mapping
+		} else if (strcmp(param, "car_amp") == 0) {
+			car_amp *= control;
+		} else if (strcmp(param, "depth") == 0) {
+			depth *= control;
+		}
+	}
 
 	int idx;
     for (unsigned long i = 0; i < frames; i++) {
 		idx = (int)(phase / TWO_PI * SINE_TABLE_SIZE) % SINE_TABLE_SIZE;
 		float car = in[i]; 
         float mod = sine_table[idx]; 
-		float unipolar_mod = (amp2 * mod + 1.0f) * 0.5f; // Now [0, amp2]
-        m->output_buffer[i] = (amp1 * car) * unipolar_mod;
+		float unipolar_mod = (depth * mod + 1.0f) * 0.5f; // Now [0, depth]
+        m->output_buffer[i] = (car_amp * car) * unipolar_mod;
         phase += TWO_PI * freq / sr; 
         if (phase >= TWO_PI)
             phase -= TWO_PI;
@@ -38,11 +55,11 @@ static void ampmod_process(Module* m, float* in, unsigned long frames) {
 }
 
 static void clamp_params(AmpMod *state) {
-    if (state->amp1 < 0.0f) state->amp1 = 0.0f;
-    if (state->amp1 > 1.0f) state->amp1 = 1.0f;
+    if (state->car_amp < 0.0f) state->car_amp = 0.0f;
+    if (state->car_amp > 1.0f) state->car_amp = 1.0f;
 
-    if (state->amp2 < 0.0f) state->amp2 = 0.0f;
-    if (state->amp2 > 1.0f) state->amp2 = 1.0f;
+    if (state->depth < 0.0f) state->depth = 0.0f;
+    if (state->depth > 1.0f) state->depth = 1.0f;
 
     if (state->freq < 1.0f) state->freq = 1.0f;
     if (state->freq > 20000.0f) state->freq = 20000.0f;
@@ -51,20 +68,20 @@ static void clamp_params(AmpMod *state) {
 static void ampmod_draw_ui(Module* m, int y, int x) {
     AmpMod* state = (AmpMod*)m->state;
 
-    float freq, amp1, amp2;
+    float freq, car_amp, depth;
     char cmd[64] = "";
 
     pthread_mutex_lock(&state->lock);
     freq = state->freq;
-    amp1 = state->amp1;
-    amp2 = state->amp2;
+    car_amp = state->car_amp;
+    depth = state->depth;
     if (state->entering_command)
         snprintf(cmd, sizeof(cmd), ":%s", state->command_buffer);
     pthread_mutex_unlock(&state->lock);
 
-    mvprintw(y,   x, "[AmpMod] Freq: %.2f Hz, Car Amp: %.2f, Depth: %.2f", freq, amp1, amp2);
-    mvprintw(y+1, x, "Real-time keys: -/= (freq), _/+ (Car Amp), [/] (Depth)");
-    mvprintw(y+2, x, "Command mode: :1 [freq], :2 [Car Amp], :3 [Depth]");
+    mvprintw(y,   x, "[AmpMod] Freq: %.2f Hz, Car_Amp: %.2f, Depth: %.2f", freq, car_amp, depth);
+    mvprintw(y+1, x, "Real-time keys: -/= (freq), _/+ (Car_Amp), [/] (Depth)");
+    mvprintw(y+2, x, "Command mode: :1 [freq], :2 [Car_Amp], :3 [Depth]");
 }
 
 static void ampmod_handle_input(Module* m, int key) {
@@ -77,10 +94,10 @@ static void ampmod_handle_input(Module* m, int key) {
         switch (key) {
             case '=': state->freq += 0.05f; handled = 1; break;
             case '-': state->freq -= 0.05f; handled = 1; break;
-            case '+': state->amp1 += 0.05f; handled = 1; break;
-            case '_': state->amp1 -= 0.05f; handled = 1; break;
-            case ']': state->amp2 += 0.05f; handled = 1; break;
-			case '[': state->amp2 -= 0.05f; handled = 1; break;
+            case '+': state->car_amp += 0.05f; handled = 1; break;
+            case '_': state->car_amp -= 0.05f; handled = 1; break;
+            case ']': state->depth += 0.05f; handled = 1; break;
+			case '[': state->depth -= 0.05f; handled = 1; break;
             case ':':
                 state->entering_command = true;
                 memset(state->command_buffer, 0, sizeof(state->command_buffer));
@@ -95,8 +112,8 @@ static void ampmod_handle_input(Module* m, int key) {
             float val;
             if (sscanf(state->command_buffer, "%c %f", &type, &val) == 2) {
                 if (type == '1') state->freq = val;
-                else if (type == '2') state->amp1 = val;
-                else if (type == '3') state->amp2 = val;
+                else if (type == '2') state->car_amp = val;
+                else if (type == '3') state->depth = val;
             }
 			handled = 1;
         } else if (key == 27) {
@@ -130,14 +147,14 @@ static void ampmod_destroy(Module* m) {
 Module* create_module(float sample_rate) {
     AmpMod* state = calloc(1, sizeof(AmpMod));
     state->freq = 440.0f;
-    state->amp1 = 1.0f;
-    state->amp2 = 1.0f;
+    state->car_amp = 1.0f;
+    state->depth = 1.0f;
     state->sample_rate = sample_rate;
     pthread_mutex_init(&state->lock, NULL);
 	init_sine_table();
     init_smoother(&state->smooth_freq, 0.75f);
-    init_smoother(&state->smooth_amp1, 0.75f);
-    init_smoother(&state->smooth_amp2, 0.75f);
+    init_smoother(&state->smooth_car_amp, 0.75f);
+    init_smoother(&state->smooth_depth, 0.75f);
     clamp_params(state);
 
     Module* m = calloc(1, sizeof(Module));

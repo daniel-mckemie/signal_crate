@@ -20,6 +20,18 @@ static void noise_source_process(Module* m, float* in, unsigned long frames) {
 	amp = process_smoother(&state->smooth_amp, state->amplitude);
 	noise_type = state->noise_type;
 	pthread_mutex_unlock(&state->lock);
+
+	for (int i = 0; i < m->num_control_inputs; i++) {
+		if (!m->control_inputs[i] || !m->control_input_params[i]) continue;
+
+		const char* param = m->control_input_params[i];
+		float control = *(m->control_inputs[i]);
+
+		if (strcmp(param, "amp") == 0) {
+			amp *= control;
+		}
+	}
+
 	
 	for (unsigned long i=0; i<frames; i++) {
 		float white = ((float)rand() / RAND_MAX) * 2.0 - 1.0;

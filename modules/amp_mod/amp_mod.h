@@ -9,12 +9,12 @@ typedef struct {
 	float sample_rate;
 	float phase;
 	float freq;
-	float amp1;
-	float amp2;
+	float car_amp;
+	float depth;
 
 	CParamSmooth smooth_freq;
-	CParamSmooth smooth_amp1;
-	CParamSmooth smooth_amp2;
+	CParamSmooth smooth_car_amp;
+	CParamSmooth smooth_depth;
 
 	pthread_mutex_t lock;
 

@@ -33,6 +33,21 @@ static void wavefolder_process(Module *m, float* in, unsigned long frames) {
     drive = process_smoother(&state->smooth_drive, state->drive);
     pthread_mutex_unlock(&state->lock);
 
+	for (int i = 0; i < m->num_control_inputs; i++) {
+		if (!m->control_inputs[i] || !m->control_input_params[i]) continue;
+
+		const char* param = m->control_input_params[i];
+		float control = *(m->control_inputs[i]);
+
+		if (strcmp(param, "fold_amt") == 0) {
+			fa = control * 5.0f;  // range [0, 5]
+		} else if (strcmp(param, "blend") == 0) {
+			blend = control;  // range [0, 1]
+		} else if (strcmp(param, "drive") == 0) {
+			drive = control * 10.0f;  // range [0, 10]
+		}
+	}
+
     for (unsigned long i=0; i<frames; i++) {
 		float input = in[i];
         float warped = input * drive;
@@ -52,8 +67,8 @@ static void wavefolder_draw_ui(Module *m, int y, int x) {
     drive = state->drive;
     pthread_mutex_unlock(&state->lock);
 
-    mvprintw(y, x, "[Wavefolder] Fold: %.2f, Blend: %.2f, Drive: %.2f", fold_amt, blend, drive);
-    mvprintw(y+1, x, "Real-time keys: -/= (fold amt), _/+ (blend), [/] (drive)");
+    mvprintw(y, x, "[Wavefolder] Fold_Amt: %.2f, Blend: %.2f, Drive: %.2f", fold_amt, blend, drive);
+    mvprintw(y+1, x, "Real-time keys: -/= (fold_amt), _/+ (blend), [/] (drive)");
     mvprintw(y+2, x, "Command mode: :1 [fold amt], :2 [blend], :3 [drive]");
 }
 

@@ -8,13 +8,13 @@
 typedef struct {
     float sample_rate;
 	float phase;
-	float freq;
-	float amp1;
-	float amp2;
+	float mod_freq;
+	float car_amp;
+	float mod_amp;
 
-	CParamSmooth smooth_freq;
-	CParamSmooth smooth_amp1;
-	CParamSmooth smooth_amp2;
+	CParamSmooth smooth_mod_freq;
+	CParamSmooth smooth_car_amp;
+	CParamSmooth smooth_mod_amp;
 
     pthread_mutex_t lock;
 

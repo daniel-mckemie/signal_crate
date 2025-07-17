@@ -11,22 +11,39 @@
 static void ringmod_process(Module* m, float* in, unsigned long frames) {
     RingMod* state = (RingMod*)m->state;
 
-    float phase, freq, amp1, amp2, sr;
+    float phase, mod_freq, car_amp, mod_amp, sr;
     pthread_mutex_lock(&state->lock);
     phase = state->phase;
-    freq = process_smoother(&state->smooth_freq, state->freq);
-    amp1 = process_smoother(&state->smooth_amp1, state->amp1);
-    amp2 = process_smoother(&state->smooth_amp2, state->amp2);
+    mod_freq = process_smoother(&state->smooth_mod_freq, state->mod_freq);
+    car_amp = process_smoother(&state->smooth_car_amp, state->car_amp);
+    mod_amp = process_smoother(&state->smooth_mod_amp, state->mod_amp);
     sr = state->sample_rate;
     pthread_mutex_unlock(&state->lock);
+
+	for (int i = 0; i < m->num_control_inputs; i++) {
+		if (!m->control_inputs[i] || !m->control_input_params[i]) continue;
+
+		const char* param = m->control_input_params[i];
+		float control = *(m->control_inputs[i]);
+
+		if (strcmp(param, "mod_freq") == 0) {
+			float min_hz = 1.0f;
+			float max_hz = 20000.0f;
+			mod_freq = min_hz * powf(max_hz / min_hz, control);
+		} else if (strcmp(param, "car_amp") == 0) {
+			car_amp *= control;
+		} else if (strcmp(param, "mod_amp") == 0) {
+			mod_amp *= control;
+		}
+	}
 
 	int idx;
     for (unsigned long i = 0; i < frames; i++) {
 		idx = (int)(phase / TWO_PI * SINE_TABLE_SIZE) % SINE_TABLE_SIZE;
 		float car = in[i];
         float mod = sine_table[idx];
-        m->output_buffer[i] = (amp1 * car) * (amp2 * mod);
-        phase += TWO_PI * freq / sr; 
+        m->output_buffer[i] = (car_amp * car) * (mod_amp * mod);
+        phase += TWO_PI * mod_freq / sr; 
         if (phase >= TWO_PI)
             phase -= TWO_PI;
     }
@@ -37,33 +54,33 @@ static void ringmod_process(Module* m, float* in, unsigned long frames) {
 }
 
 static void clamp_params(RingMod *state) {
-    if (state->amp1 < 0.0f) state->amp1 = 0.0f;
-    if (state->amp1 > 1.0f) state->amp1 = 1.0f;
+    if (state->car_amp < 0.0f) state->car_amp = 0.0f;
+    if (state->car_amp > 1.0f) state->car_amp = 1.0f;
 
-    if (state->amp2 < 0.0f) state->amp2 = 0.0f;
-    if (state->amp2 > 1.0f) state->amp2 = 1.0f;
+    if (state->mod_amp < 0.0f) state->mod_amp = 0.0f;
+    if (state->mod_amp > 1.0f) state->mod_amp = 1.0f;
 
-	if (state->freq < 1.0f) state->freq = 1.0f;
-    if (state->freq > 20000.0f) state->freq = 20000.0f;
+	if (state->mod_freq < 1.0f) state->mod_freq = 1.0f;
+    if (state->mod_freq > 20000.0f) state->mod_freq = 20000.0f;
 }
 
 static void ringmod_draw_ui(Module* m, int y, int x) {
     RingMod* state = (RingMod*)m->state;
 
-    float freq, amp1, amp2;
+    float mod_freq, car_amp, mod_amp;
     char cmd[64] = "";
 
     pthread_mutex_lock(&state->lock);
-    freq = state->freq;
-    amp1 = state->amp1;
-    amp2 = state->amp2;
+    mod_freq = state->mod_freq;
+    car_amp = state->car_amp;
+    mod_amp = state->mod_amp;
     if (state->entering_command)
         snprintf(cmd, sizeof(cmd), ":%s", state->command_buffer);
     pthread_mutex_unlock(&state->lock);
 
-    mvprintw(y,   x, "[RingMod] Freq: %.2f Hz, CarAmp: %.2f, ModAmp: %.2f", freq, amp1, amp2);
-    mvprintw(y+1, x, "Real-time keys: -/= (freq), _/+ (ModAmp), [/] (CarAmp)");
-    mvprintw(y+2, x, "Command mode: :1 [freq], :2 [CarAmp], :3 [ModAmp]");
+    mvprintw(y,   x, "[RingMod] mod_freq: %.2f Hz, CarAmp: %.2f, ModAmp: %.2f", mod_freq, car_amp, mod_amp);
+    mvprintw(y+1, x, "Real-time keys: -/= (mod_freq), _/+ (ModAmp), [/] (CarAmp)");
+    mvprintw(y+2, x, "Command mode: :1 [mod_freq], :2 [CarAmp], :3 [ModAmp]");
 }
 
 static void ringmod_handle_input(Module* m, int key) {
@@ -74,12 +91,12 @@ static void ringmod_handle_input(Module* m, int key) {
 
     if (!state->entering_command) {
         switch (key) {
-            case '=': state->freq += 0.05f; handled = 1; break;
-            case '-': state->freq -= 0.05f; handled = 1; break;
-            case '+': state->amp1 += 0.05f; handled = 1; break;
-            case '_': state->amp1 -= 0.05f; handled = 1; break;
-            case ']': state->amp2 += 0.05f; handled = 1; break;
-			case '[': state->amp2 -= 0.05f; handled = 1; break;
+            case '=': state->mod_freq += 0.05f; handled = 1; break;
+            case '-': state->mod_freq -= 0.05f; handled = 1; break;
+            case '+': state->car_amp += 0.05f; handled = 1; break;
+            case '_': state->car_amp -= 0.05f; handled = 1; break;
+            case ']': state->mod_amp += 0.05f; handled = 1; break;
+			case '[': state->mod_amp -= 0.05f; handled = 1; break;
             case ':':
                 state->entering_command = true;
                 memset(state->command_buffer, 0, sizeof(state->command_buffer));
@@ -93,9 +110,9 @@ static void ringmod_handle_input(Module* m, int key) {
             char type;
             float val;
             if (sscanf(state->command_buffer, "%c %f", &type, &val) == 2) {
-                if (type == '1') state->freq = val;
-                else if (type == '2') state->amp1 = val;
-                else if (type == '3') state->amp2 = val;
+                if (type == '1') state->mod_freq = val;
+                else if (type == '2') state->car_amp = val;
+                else if (type == '3') state->mod_amp = val;
             }
 			handled = 1;
         } else if (key == 27) {
@@ -128,15 +145,15 @@ static void ringmod_destroy(Module* m) {
 
 Module* create_module(float sample_rate) {
     RingMod* state = calloc(1, sizeof(RingMod));
-    state->freq = 440.0f;
-    state->amp1 = 1.0f;
-    state->amp2 = 1.0f;
+    state->mod_freq = 440.0f;
+    state->car_amp = 1.0f;
+    state->mod_amp = 1.0f;
     state->sample_rate = sample_rate;
     pthread_mutex_init(&state->lock, NULL);
 	init_sine_table();
-    init_smoother(&state->smooth_freq, 0.75f);
-    init_smoother(&state->smooth_amp1, 0.75f);
-    init_smoother(&state->smooth_amp2, 0.75f);
+    init_smoother(&state->smooth_mod_freq, 0.75f);
+    init_smoother(&state->smooth_car_amp, 0.75f);
+    init_smoother(&state->smooth_mod_amp, 0.75f);
     clamp_params(state);
 
     Module* m = calloc(1, sizeof(Module));

@@ -75,7 +75,9 @@ static void connect_control_inputs(Module* m, char** param_names, char** source_
     for (int i = 0; i < count && i < MAX_CONTROL_INPUTS; i++) {
         NamedModule* src = find_module_by_name(source_names[i]);
         if (src && src->module && src->module->control_output) {
-            m->control_inputs[m->num_control_inputs++] = src->module->control_output;
+            m->control_inputs[m->num_control_inputs] = src->module->control_output;
+            m->control_input_params[m->num_control_inputs] = strdup(param_names[i]);
+            m->num_control_inputs++;
         } else {
             fprintf(stderr, "Error: invalid control source '%s'\n", source_names[i]);
         }

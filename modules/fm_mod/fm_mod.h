@@ -6,7 +6,7 @@
 
 typedef struct {
 	float modulator_phase;
-	float modulator_freq;
+	float mod_freq;
 	float index;
 	float sample_rate;
 	CParamSmooth smooth_freq;

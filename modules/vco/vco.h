@@ -19,7 +19,10 @@ typedef struct {
 	float phase;
     float sample_rate;
 	float tri_state;
+
+	// For modulation UI display
 	float current_freq_display;
+	float current_amp_display;
     CParamSmooth smooth_freq;
     CParamSmooth smooth_amp;
     pthread_mutex_t lock;

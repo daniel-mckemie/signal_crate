@@ -37,6 +37,10 @@ static void ringmod_process(Module* m, float* in, unsigned long frames) {
 		}
 	}
 
+	state->display_mod_freq = mod_freq;
+	state->display_car_amp = car_amp;
+	state->display_mod_amp = mod_amp;
+
 	int idx;
     for (unsigned long i = 0; i < frames; i++) {
 		idx = (int)(phase / TWO_PI * SINE_TABLE_SIZE) % SINE_TABLE_SIZE;
@@ -71,9 +75,9 @@ static void ringmod_draw_ui(Module* m, int y, int x) {
     char cmd[64] = "";
 
     pthread_mutex_lock(&state->lock);
-    mod_freq = state->mod_freq;
-    car_amp = state->car_amp;
-    mod_amp = state->mod_amp;
+    mod_freq = state->display_mod_freq;
+    car_amp = state->display_car_amp;
+    mod_amp = state->display_mod_amp;
     if (state->entering_command)
         snprintf(cmd, sizeof(cmd), ":%s", state->command_buffer);
     pthread_mutex_unlock(&state->lock);

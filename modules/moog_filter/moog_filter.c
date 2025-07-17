@@ -31,6 +31,9 @@ static void moog_filter_process(Module *m, float* in, unsigned long frames) {
 		}
 	}
 
+	state->display_cutoff = co;
+	state->display_resonance = res;
+
 	float wc = 2.0f * M_PI * co / state->sample_rate;	
 	float g = wc / (wc + 1.0f); // Scale to appropriate ladder behavior
 	float k = res;
@@ -74,8 +77,8 @@ static void moog_filter_draw_ui(Module *m, int y, int x) {
 	FilterType filt_type;
 
     pthread_mutex_lock(&state->lock);
-    co = state->cutoff;
-    res = state->resonance;
+    co = state->display_cutoff;
+    res = state->display_resonance;
 	filt_type = state->filt_type;
     pthread_mutex_unlock(&state->lock);
 

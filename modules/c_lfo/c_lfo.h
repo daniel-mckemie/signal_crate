@@ -25,6 +25,9 @@ typedef struct {
 
     pthread_mutex_t lock;
 
+	float display_freq;
+	float display_amp;
+
     // Command mode
     bool entering_command;
     char command_buffer[64];

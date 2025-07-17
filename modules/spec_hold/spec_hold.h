@@ -20,6 +20,9 @@ typedef struct {
 
 	pthread_mutex_t lock;
 
+	float display_tilt;
+	float display_pivot;
+
 	// FFT state
 	float* time_buffer;
 	fftwf_complex* freq_buffer;

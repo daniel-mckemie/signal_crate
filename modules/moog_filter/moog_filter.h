@@ -24,6 +24,9 @@ typedef struct {
 	CParamSmooth smooth_res;
 	pthread_mutex_t lock;
 
+	float display_cutoff;
+	float display_resonance;
+
 	// For command mode
 	bool entering_command;
 	char command_buffer[64];

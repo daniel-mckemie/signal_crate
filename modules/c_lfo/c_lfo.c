@@ -18,7 +18,27 @@ static void c_lfo_process_control(Module* m) {
     LFOWaveform wf = state->waveform;
     pthread_mutex_unlock(&state->lock);
 
+    // Modulate with control inputs
+    for (int j = 0; j < m->num_control_inputs; j++) {
+        if (!m->control_inputs[j] || !m->control_input_params[j]) continue;
+
+        const char* param = m->control_input_params[j];
+        float control = *(m->control_inputs[j]);
+
+        if (strcmp(param, "freq") == 0) {
+            float min_hz = 0.1f;
+            float max_hz = 100.0f;
+            freq = min_hz * powf(max_hz / min_hz, control);
+        } else if (strcmp(param, "depth") == 0) {
+            amp *= control;
+        }
+    }
+
     if (!m->control_output) return;
+
+    // Save values for UI (optional)
+    state->display_freq = freq;
+    state->display_amp = amp;
 
     for (unsigned long i = 0; i < FRAMES_PER_BUFFER; i++) {
         float t = state->phase / TWO_PI;
@@ -52,7 +72,6 @@ static void c_lfo_process_control(Module* m) {
     }
 }
 
-
 static void c_lfo_draw_ui(Module* m, int y, int x) {
     CLFO* state = (CLFO*)m->state;
     const char* names[] = {"Sine", "Saw", "Square", "Triangle"};
@@ -61,8 +80,8 @@ static void c_lfo_draw_ui(Module* m, int y, int x) {
     LFOWaveform wf;
 
     pthread_mutex_lock(&state->lock);
-    freq = state->frequency;
-    amp = state->amplitude;
+    freq = state->display_freq;
+    amp = state->display_amp;
     wf = state->waveform;
     pthread_mutex_unlock(&state->lock);
 

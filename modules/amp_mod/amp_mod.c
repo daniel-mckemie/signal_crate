@@ -37,6 +37,10 @@ static void ampmod_process(Module* m, float* in, unsigned long frames) {
 		}
 	}
 
+	state->display_freq = freq;
+	state->display_car_amp = car_amp;
+	state->display_depth = depth;
+
 	int idx;
     for (unsigned long i = 0; i < frames; i++) {
 		idx = (int)(phase / TWO_PI * SINE_TABLE_SIZE) % SINE_TABLE_SIZE;
@@ -72,9 +76,9 @@ static void ampmod_draw_ui(Module* m, int y, int x) {
     char cmd[64] = "";
 
     pthread_mutex_lock(&state->lock);
-    freq = state->freq;
-    car_amp = state->car_amp;
-    depth = state->depth;
+    freq = state->display_freq;
+    car_amp = state->display_car_amp;
+    depth = state->display_depth;
     if (state->entering_command)
         snprintf(cmd, sizeof(cmd), ":%s", state->command_buffer);
     pthread_mutex_unlock(&state->lock);

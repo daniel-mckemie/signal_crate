@@ -13,6 +13,9 @@ typedef struct {
 	CParamSmooth smooth_index;
 	pthread_mutex_t lock;
 
+	float display_freq;
+	float display_index;
+
 	// For command mode
 	bool entering_command;
 	char command_buffer[64];

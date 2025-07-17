@@ -75,6 +75,8 @@ static void spec_hold_process(Module* m, float* in, unsigned long frames) {
 			float tilt = process_smoother(&state->smooth_tilt, tilt_target);
 			float pivot_hz = process_smoother(&state->smooth_pivot_hz, pivot_hz_target);
 
+			state->display_tilt = tilt;
+			state->display_pivot = pivot_hz;
 
 			for (int j = 0; j < bins; j++) {
 				float mag, phase;
@@ -132,13 +134,13 @@ static void spec_hold_draw_ui(Module* m, int y, int x) {
     char cmd[64] = "";
 
     pthread_mutex_lock(&state->lock);
-    tilt = state->tilt;
-	pivot_hz = state->pivot_hz;
+    tilt = state->display_tilt;
+	pivot_hz = state->display_pivot;
     if (state->entering_command)
         snprintf(cmd, sizeof(cmd), ":%s", state->command_buffer);
     pthread_mutex_unlock(&state->lock);
 
-    mvprintw(y,   x, "[SpecTilt] Tilt: %.2f, Pivot: %.2f (Hz), Freeze: %s", tilt, pivot_hz, state->freeze ? "ON" : "OFF");
+    mvprintw(y,   x, "[SpecTilt] Tilt: %.2f, Pivot: %.2f, Freeze: %s", tilt, pivot_hz, state->freeze ? "ON" : "OFF");
     mvprintw(y+1, x, "Real-time Keys: -/= tilt; _/+ pivot; [f] freeze");
     mvprintw(y+2, x, "Cmd: :1 [tilt], :2 [pivot_hz]");
 }

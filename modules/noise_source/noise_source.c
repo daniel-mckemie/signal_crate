@@ -32,6 +32,7 @@ static void noise_source_process(Module* m, float* in, unsigned long frames) {
 		}
 	}
 
+	state->display_amp = amp;
 	
 	for (unsigned long i=0; i<frames; i++) {
 		float white = ((float)rand() / RAND_MAX) * 2.0 - 1.0;
@@ -54,7 +55,7 @@ static void noise_source_draw_ui(Module *m, int y, int x) {
 	NoiseType noise_type;
 	
 	pthread_mutex_lock(&state->lock);
-	amp = process_smoother(&state->smooth_amp, state->amplitude);
+	amp = state->display_amp;
 	noise_type = state->noise_type;
 	pthread_mutex_unlock(&state->lock);
 

@@ -17,7 +17,6 @@ static void looper_process(Module* m, float* in, unsigned long frames) {
     unsigned long loop_start = state->loop_start;
     unsigned long loop_end = state->loop_end;
     float playback_speed = process_smoother(&state->smooth_speed, state->playback_speed);
-	state->current_speed_display = playback_speed;
     LooperState current_state = state->looper_state;
     pthread_mutex_unlock(&state->lock);
 
@@ -33,6 +32,8 @@ static void looper_process(Module* m, float* in, unsigned long frames) {
             playback_speed = min * powf(max / min, control);
         }
     }
+
+	state->display_playback_speed = playback_speed;
 
     for (unsigned long i = 0; i < frames; i++) {
 		float input = in[i];
@@ -110,7 +111,7 @@ static void looper_draw_ui(Module* m, int y, int x) {
     pthread_mutex_lock(&state->lock);
 
     LooperState lstate = state->looper_state;
-    float speed = state->current_speed_display;
+    float speed = state->display_playback_speed;
     float sr = state->sample_rate;
 
     float start_sec = state->loop_start / sr;

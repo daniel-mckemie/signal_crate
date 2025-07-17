@@ -23,7 +23,6 @@ typedef struct {
 	unsigned long loop_start;
 	unsigned long loop_end;
 	float playback_speed;
-	float current_speed_display;
 	LooperState looper_state;
 
 	CParamSmooth smooth_start;
@@ -31,6 +30,8 @@ typedef struct {
 	CParamSmooth smooth_speed;
 
 	pthread_mutex_t lock;
+
+	float display_playback_speed;
 
 	// For command mode input
 	bool entering_command;

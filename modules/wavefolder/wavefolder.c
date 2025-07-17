@@ -48,6 +48,11 @@ static void wavefolder_process(Module *m, float* in, unsigned long frames) {
 		}
 	}
 
+	state->display_fold_amt = fa;
+	state->display_blend = blend;
+	state->display_drive= drive;
+	
+
     for (unsigned long i=0; i<frames; i++) {
 		float input = in[i];
         float warped = input * drive;
@@ -62,9 +67,9 @@ static void wavefolder_draw_ui(Module *m, int y, int x) {
     float fold_amt, blend, drive;
 
     pthread_mutex_lock(&state->lock);
-    fold_amt = state->fold_amt;
-    blend = state->blend;
-    drive = state->drive;
+    fold_amt = state->display_fold_amt;
+    blend = state->display_blend;
+    drive = state->display_drive;
     pthread_mutex_unlock(&state->lock);
 
     mvprintw(y, x, "[Wavefolder] Fold_Amt: %.2f, Blend: %.2f, Drive: %.2f", fold_amt, blend, drive);

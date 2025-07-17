@@ -32,6 +32,9 @@ static void fm_mod_process(Module *m, float* in, unsigned long frames) {
             idx *= control;
         }
     }
+
+	state->display_freq = mf;
+	state->display_index = idx;
 	
     for (unsigned long i=0; i<frames; i++) {
 		float input = in[i];
@@ -47,12 +50,11 @@ static void fm_mod_process(Module *m, float* in, unsigned long frames) {
 
 static void fm_mod_draw_ui(Module *m, int y, int x) {
     FMMod *state = (FMMod*)m->state;
-
     float freq, idx;
 
     pthread_mutex_lock(&state->lock);
-    freq = state->mod_freq;
-    idx = state->index;
+    freq = state->display_freq;
+    idx = state->display_index;
     pthread_mutex_unlock(&state->lock);
 
     mvprintw(y, x, "[FM Mod] Freq %.2f Hz, Index %.2f", freq, idx);

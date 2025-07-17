@@ -16,6 +16,10 @@ typedef struct {
 
 	pthread_mutex_t lock;
 
+	float display_fold_amt;
+	float display_blend;
+	float display_drive;
+
 	// For command mode
 	bool entering_command;
 	char command_buffer[64];

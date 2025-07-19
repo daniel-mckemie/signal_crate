@@ -15,7 +15,7 @@ static void vco_process(Module *m, float* in, unsigned long frames) {
 
 	pthread_mutex_lock(&state->lock);
 	float base_freq = process_smoother(&state->smooth_freq, state->frequency);
-	amp = process_smoother(&state->smooth_amp, state->amplitude);
+	amp = state->amplitude;
 	waveform = state->waveform;
 	pthread_mutex_unlock(&state->lock);
 	
@@ -42,6 +42,7 @@ static void vco_process(Module *m, float* in, unsigned long frames) {
 	int idx;
     for (unsigned long i = 0; i < frames; i++) {
         float value = 0.0f;
+		float smoothed_amp = process_smoother(&state->smooth_amp, amp);
 		idx = (int)(phs / TWO_PI * SINE_TABLE_SIZE) % SINE_TABLE_SIZE;
         switch (waveform) {
             case WAVE_SINE:     value = sine_table[idx]; break;
@@ -72,7 +73,7 @@ static void vco_process(Module *m, float* in, unsigned long frames) {
 								}
 
         }
-        m->output_buffer[i] = amp * value;
+        m->output_buffer[i] = smoothed_amp * value;
 		phs += TWO_PI * freq / state->sample_rate;
 		if (phs >= TWO_PI) phs -= TWO_PI;
 		state->phase = phs;  // store back in state
@@ -205,7 +206,7 @@ Module* create_module(float sample_rate) {
 	pthread_mutex_init(&state->lock, NULL);
 	init_sine_table();
     init_smoother(&state->smooth_freq, 0.75f);
-    init_smoother(&state->smooth_amp, 0.75f);
+    init_smoother(&state->smooth_amp, 0.95f);
     clamp_params(state);
 
     Module *m = calloc(1, sizeof(Module));

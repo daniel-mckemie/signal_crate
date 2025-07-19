@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdbool.h>
 #include <portaudio.h>
 #include "engine.h"
 #include "ui.h"
@@ -57,6 +58,22 @@ int main() {
     }
 
     initialize_engine(patch);  // NEW DAG PATCH PARSER
+
+    // === SAFETY CHECK: Require at least one audio-producing module ===
+    bool has_audio = false;
+    for (int i = 0; i < get_module_count(); i++) {
+        Module* m = get_module(i);
+        if (m && m->output_buffer) {
+            has_audio = true;
+            break;
+        }
+    }
+
+    if (!has_audio) {
+        fprintf(stderr, "[error] No modules with audio output found. Exiting.\n");
+        return 1;
+    }
+
 	if (get_module_count() > 0) {
 		start_osc_server();
 	} else {

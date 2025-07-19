@@ -18,6 +18,7 @@ static void moog_filter_process(Module *m, float* in, unsigned long frames) {
 	res = process_smoother(&state->smooth_res, state->resonance);
 	filt_type = state->filt_type;
 	pthread_mutex_unlock(&state->lock); // Unlock thread
+
 	for (int i = 0; i < m->num_control_inputs; i++) {
 		if (!m->control_inputs[i] || !m->control_input_params[i]) continue;
 		const char* param = m->control_input_params[i];

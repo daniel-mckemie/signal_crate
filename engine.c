@@ -173,7 +173,6 @@ void initialize_engine(const char* patch_text) {
 
     }
 
-    printf("=== Final module count: %d ===\n", module_count);
     free(patch);
 }
 

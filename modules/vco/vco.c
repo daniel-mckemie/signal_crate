@@ -94,7 +94,7 @@ static void vco_draw_ui(Module *m, int y, int x) {
     waveform = state->waveform;
     pthread_mutex_unlock(&state->lock);
 
-    mvprintw(y, x,   "[VCO] Freq: %.2f Hz, Amp: %.2f, Wave: %s", freq, amp, wave_names[waveform]);
+    mvprintw(y, x,   "[VCO] Freq: %.1f Hz, Amp: %.2f, Wave: %s", freq, amp, wave_names[waveform]);
     mvprintw(y+1, x, "Real-time keys: -/= (freq), _/+ (amp)");
     mvprintw(y+2, x, "Command mode: :1 [freq], :2 [amp], :w [waveform]");
 }

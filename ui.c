@@ -40,6 +40,7 @@ float get_cpu_percent() {
 
 void ui_loop() {
     initscr(); cbreak(); noecho();
+	scrollok(stdscr, FALSE);
     keypad(stdscr, TRUE);
     nodelay(stdscr, TRUE);
 

@@ -1,9 +1,9 @@
 #ifndef MODULE_H
 #define MODULE_H
 
-#define MAX_MODULES 64
-#define MAX_INPUTS 128
-#define MAX_CONTROL_INPUTS 32
+#define MAX_MODULES 8192
+#define MAX_INPUTS 512
+#define MAX_CONTROL_INPUTS 64
 
 typedef struct Module {
     const char* name;

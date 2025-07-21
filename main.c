@@ -30,7 +30,7 @@ static int audio_callback(const void* input, void* output,
     return paContinue;
 }
 
-int main() {
+int main(int argc, char** argv) {
     Pa_Initialize();
     PaStream* stream;
 
@@ -47,14 +47,30 @@ int main() {
     const PaDeviceInfo* inputInfo  = Pa_GetDeviceInfo(inputDevice);
     sample_rate = outputInfo->defaultSampleRate;
 
-    // Ask user for patch
-    char patch[4096] = {0};
-    char line[256];
-    printf("Enter patch (end with an empty line):\n");
+    char patch[65536] = {0};
 
-    while (fgets(line, sizeof(line), stdin)) {
-        if (strcmp(line, "\n") == 0) break;
-        strcat(patch, line);
+    if (argc > 1) {
+        FILE* f = fopen(argv[1], "r");
+        if (!f) {
+            fprintf(stderr, "[main] Failed to open patch file: %s\n", argv[1]);
+            return 1;
+        }
+
+        char line[1024];
+        while (fgets(line, sizeof(line), f)) {
+            if (line[0] == '\n' || line[0] == '\0') continue;
+            strcat(patch, line);
+        }
+
+        fclose(f);
+    } else {
+        char line[256];
+        printf("Enter patch (end with an empty line):\n");
+
+        while (fgets(line, sizeof(line), stdin)) {
+            if (strcmp(line, "\n") == 0) break;
+            strcat(patch, line);
+        }
     }
 
     initialize_engine(patch);  // NEW DAG PATCH PARSER
@@ -74,11 +90,12 @@ int main() {
         return 1;
     }
 
-	if (get_module_count() > 0) {
-		start_osc_server();
-	} else {
-		fprintf(stderr, "No modules loaded. Skipping OSC server start.");
-	}
+    if (get_module_count() > 0) {
+        start_osc_server();
+    } else {
+        fprintf(stderr, "No modules loaded. Skipping OSC server start.");
+    }
+
     // Set up PortAudio stream params
     PaStreamParameters inputParams = {
         .device = inputDevice,

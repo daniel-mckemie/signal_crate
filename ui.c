@@ -53,8 +53,11 @@ void ui_loop() {
     int cmd_index = 0;
     int running = 1;
 
+	int mod_x[MAX_MODULES] = {0};
+	int mod_y[MAX_MODULES] = {0};
+
     while (running) {
-        clear();
+        erase();
         mvprintw(0, 2, "--- Signal Crate ---");
 
 		// CPU Usage
@@ -72,28 +75,33 @@ void ui_loop() {
 		getmaxyx(stdscr, rows, cols);
 
         int base_module_height = 3;
-		int module_spacing = 1; // padding b/w modules
+		int module_spacing = 1;
         int module_count = get_module_count();
 		int modules_per_col = (rows - 4) / (base_module_height + module_spacing);
 		if (modules_per_col < 1) modules_per_col = 1;
-		
-		int col_heights[64] = {0}; // vertical offset per col
+
+		int col_heights[64] = {0};
 
         for (int i = 0; i < module_count; i++) {
             Module* m = get_module(i);
             if (m && m->draw_ui) {
 				int col = i / modules_per_col;
 				int module_height = base_module_height;
-				if (strcmp(m->name, "looper") == 0) module_height = 6; // add exceptions here
-				int y = 2 + col_heights[col]; 
+				if (strcmp(m->name, "looper") == 0) module_height = 6;
+
+				int y = 2 + col_heights[col];
 				int x = 2 + col * COLUMN_WIDTH;
+
+				mod_x[i] = x;
+				mod_y[i] = y;
 
                 if (i == focused_module_index)
                     attron(A_REVERSE);
-				move(y,x);
-                m->draw_ui(m,y,x);
+				move(y, x);
+                m->draw_ui(m, y, x);
                 if (i == focused_module_index)
                     attroff(A_REVERSE);
+
 				col_heights[col] += module_height + module_spacing;
             }
         }
@@ -133,7 +141,7 @@ void ui_loop() {
                 cmd_index = 0;
                 command[0] = '\0';
                 in_command_mode = 0;
-            } else if (ch == 27) { // ESC
+            } else if (ch == 27) {
                 cmd_index = 0;
                 command[0] = '\0';
                 in_command_mode = 0;
@@ -147,6 +155,42 @@ void ui_loop() {
         } else {
             if (ch == '\t') {
                 focused_module_index = (focused_module_index + 1) % module_count;
+            } else if (ch == KEY_UP || ch == KEY_DOWN || ch == KEY_LEFT || ch == KEY_RIGHT) {
+				int best_index = focused_module_index;
+				int best_distance = 99999;
+
+				int fx = mod_x[focused_module_index];
+				int fy = mod_y[focused_module_index];
+
+				for (int i = 0; i < module_count; i++) {
+					if (i == focused_module_index) continue;
+
+					int dx = mod_x[i] - fx;
+					int dy = mod_y[i] - fy;
+
+					if (ch == KEY_UP && dy < 0 && abs(dx) < COLUMN_WIDTH / 2) {
+						if (-dy < best_distance) {
+							best_distance = -dy;
+							best_index = i;
+						}
+					} else if (ch == KEY_DOWN && dy > 0 && abs(dx) < COLUMN_WIDTH / 2) {
+						if (dy < best_distance) {
+							best_distance = dy;
+							best_index = i;
+						}
+					} else if (ch == KEY_LEFT && dx < 0 && abs(dy) < 3) {
+						if (-dx < best_distance) {
+							best_distance = -dx;
+							best_index = i;
+						}
+					} else if (ch == KEY_RIGHT && dx > 0 && abs(dy) < 3) {
+						if (dx < best_distance) {
+							best_distance = dx;
+							best_index = i;
+						}
+					}
+				}
+				focused_module_index = best_index;
             } else if (ch == ':') {
                 in_command_mode = 1;
                 cmd_index = 0;

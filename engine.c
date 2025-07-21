@@ -78,8 +78,10 @@ static void connect_control_inputs(Module* m, char** param_names, char** source_
             m->control_inputs[m->num_control_inputs] = src->module->control_output;
             m->control_input_params[m->num_control_inputs] = strdup(param_names[i]);
             m->num_control_inputs++;
-        } else {
-            fprintf(stderr, "Error: invalid control source '%s'\n", source_names[i]);
+		} else {
+            if (strcmp(source_names[i], "player") != 0) {
+                fprintf(stderr, "Error: invalid control source '%s'\n", source_names[i]);
+            }
         }
     }
 }
@@ -87,10 +89,30 @@ static void connect_control_inputs(Module* m, char** param_names, char** source_
 static void parse_patch_line(const char* line) {
     char modtype[64] = {0};
     char alias[64] = {0};
-    char input_str[128] = {0};
+    char all_args[256] = {0};  // Full contents inside ( )
+    char create_args[128] = {0};  // [file=snd.wav]
+    char input_str[128] = {0};    // speed=l1
 
     if (strstr(line, "(")) {
-        sscanf(line, "%[^ (](%[^)]) as %s", modtype, input_str, alias);
+        sscanf(line, "%[^ (](%[^)]) as %s", modtype, all_args, alias);
+
+        // Now separate [ ... ] from the rest
+        const char* bracket_start = strchr(all_args, '[');
+        const char* bracket_end = strchr(all_args, ']');
+        if (bracket_start && bracket_end && bracket_end > bracket_start) {
+            size_t len = bracket_end - bracket_start - 1;
+            strncpy(create_args, bracket_start + 1, len);
+            create_args[len] = '\0';
+
+            // Copy rest (after ]) into input_str
+            const char* rest = bracket_end + 1;
+            while (*rest == ',' || *rest == ' ') rest++;  // skip any comma/space
+            strncpy(input_str, rest, sizeof(input_str) - 1);
+            input_str[sizeof(input_str) - 1] = '\0';
+        } else {
+            // no brackets found, treat all as input_str
+            strncpy(input_str, all_args, sizeof(input_str));
+        }
     } else if (strstr(line, "as")) {
         sscanf(line, "%s as %s", modtype, alias);
     } else {
@@ -98,7 +120,8 @@ static void parse_patch_line(const char* line) {
         snprintf(alias, sizeof(alias), "%s%d", modtype, module_count);
     }
 
-    Module* m = load_module(modtype, sample_rate);
+    // Call load_module with create_args
+    Module* m = load_module(modtype, sample_rate, create_args);
     if (!m) {
         fprintf(stderr, "Failed to load module: %s\n", modtype);
         return;
@@ -107,10 +130,12 @@ static void parse_patch_line(const char* line) {
     NamedModule newmod;
     strncpy(newmod.name, alias, sizeof(newmod.name));
     newmod.module = m;
+
     if (module_count >= MAX_MODULES) {
         fprintf(stderr, "Too many modules! MAX_MODULES = %d\n", MAX_MODULES);
         return;
     }
+
     modules[module_count++] = newmod;
 
     strncpy(patch_lines[patch_line_count].modtype, modtype, sizeof(modtype));

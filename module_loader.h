@@ -3,6 +3,6 @@
 
 #include "module.h"
 
-Module* load_module(const char* name, float sample_rate);
+Module* load_module(const char* name, float sample_rate, const char* args);
 
 #endif

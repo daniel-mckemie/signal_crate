@@ -25,10 +25,9 @@ static void player_process(Module* m, float* in, unsigned long frames) {
 		const char* param = m->control_input_params[i];
 		float control = *(m->control_inputs[i]);
 
-		if (strcmp(param, "play_pos") == 0) {
+		if (strcmp(param, "speed") == 0) {
 			pthread_mutex_lock(&state->lock);
-			state->external_play_pos = control * (float)(max_frames - 1);
-			if (!state->playing) pos = state->external_play_pos;
+			state->playback_speed = control;
 			pthread_mutex_unlock(&state->lock);
 		}
 	}
@@ -183,8 +182,12 @@ Module* create_module(const char* args, float sample_rate) {
 	// Parse args for file=
 	if (args && strstr(args, "file=")) {
 		const char* file_arg = strstr(args, "file=") + 5;
-		strncpy(filepath, file_arg, sizeof(filepath) - 1);
-		filepath[sizeof(filepath) - 1] = '\0';
+		// Copy until we hit a comma, space, or end of string
+		size_t i = 0;
+		while (*file_arg && *file_arg != ',' && *file_arg != ' ' && i < sizeof(filepath) - 1) {
+			filepath[i++] = *file_arg++;
+		}
+	filepath[i] = '\0';
 	}
 
 	SF_INFO info = {0};

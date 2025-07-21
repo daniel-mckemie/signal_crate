@@ -4,7 +4,7 @@
 #include <dlfcn.h>
 #include "module_loader.h"
 
-Module* load_module(const char* name, float sample_rate) {
+Module* load_module(const char* name, float sample_rate, const char* args) {
     char path[256];
     snprintf(path, sizeof(path), "./modules/%s/%s.dylib", name, name);
 
@@ -14,13 +14,13 @@ Module* load_module(const char* name, float sample_rate) {
         return NULL;
     }
 
-    Module* (*create)(float) = dlsym(handle, "create_module");
+    Module* (*create)(const char*, float) = dlsym(handle, "create_module");
     if (!create) {
         fprintf(stderr, "No create_module in %s\n", name);
         return NULL;
     }
 
-    Module* m = create(sample_rate);
+    Module* m = create(args, sample_rate);
     m->handle = handle;
     return m;
 }

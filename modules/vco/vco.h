@@ -12,10 +12,18 @@ typedef enum {
     WAVE_TRIANGLE
 } Waveform;
 
+typedef enum {
+	RANGE_LOW,
+	RANGE_MID,
+	RANGE_FULL,
+	RANGE_SUPER
+} RangeMode;
+
 typedef struct {
     float frequency;
     float amplitude;
     Waveform waveform;
+	RangeMode range_mode;
 	float phase;
     float sample_rate;
 	float tri_state;

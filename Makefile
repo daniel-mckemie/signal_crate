@@ -5,6 +5,7 @@ LDFLAGS = -L/opt/homebrew/lib -ldl -lportaudio -lpthread -lm -lncurses -llo
 
 # === Modules ===
 MODULE_DIRS := $(shell find modules -type f -name Makefile -exec dirname {} \;)
+SPECIAL_TARGETS := all clean modules it
 
 # === Targets ===
 .PHONY: all modules clean
@@ -27,3 +28,15 @@ clean:
 	done
 
 it: clean all
+
+# Build individual module with cleanup
+$(filter-out $(SPECIAL_TARGETS),$(MAKECMDGOALS)):
+	@modpath=modules/$@; \
+	dylib="$$modpath/$@.dylib"; \
+	if [ -f "$$dylib" ]; then \
+		echo "Removing $$dylib..."; \
+		rm -f "$$dylib"; \
+	fi; \
+	echo "Building module $@..."; \
+	$(MAKE) -C $$modpath
+

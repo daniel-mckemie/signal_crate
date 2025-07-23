@@ -13,13 +13,14 @@ static void c_lfo_process_control(Module* m) {
     CLFO* state = (CLFO*)m->state;
 
     pthread_mutex_lock(&state->lock);
-    float freq = process_smoother(&state->smooth_freq, state->frequency);
-    float amp  = process_smoother(&state->smooth_amp, state->amplitude);
-    float depth  = process_smoother(&state->smooth_depth, state->depth);
+    float base_freq = process_smoother(&state->smooth_freq, state->frequency);
+    float amp = process_smoother(&state->smooth_amp, state->amplitude);
+    float depth = process_smoother(&state->smooth_depth, state->depth);
     LFOWaveform wf = state->waveform;
     pthread_mutex_unlock(&state->lock);
 
-	m->control_output_depth = fminf(fmaxf(depth, 0.0f), 1.0f);  // Clamp and store
+	float freq = base_freq;
+	float mod_depth = 0.5f;
 
     // Modulate with control inputs
     for (int j = 0; j < m->num_control_inputs; j++) {
@@ -27,21 +28,24 @@ static void c_lfo_process_control(Module* m) {
 
         const char* param = m->control_input_params[j];
         float control = *(m->control_inputs[j]);
+		float norm = fminf(fmaxf(control, 0.0f), 1.0f);
 
         if (strcmp(param, "freq") == 0) {
-            float min_hz = 0.1f;
-            float max_hz = 100.0f;
-            freq = min_hz * powf(max_hz / min_hz, control);
+			float mod_range = state->frequency * mod_depth;
+            freq = state->frequency + norm * mod_range; 
         } else if (strcmp(param, "amp") == 0) {
-            amp += control;
+			float mod_range = state->amplitude * mod_depth;
+			amp = state->amplitude + (2.0f * norm - 1.0f) * mod_range;
         } else if (strcmp(param, "depth") == 0) {
-			depth += control;
+			float mod_range = state->depth * mod_depth;
+			depth = state->depth * (2.0f * norm - 1.0f) * mod_range;
         }
     }
 
+	m->control_output_depth = fminf(fmaxf(mod_depth, 0.0f), 1.0f);
+
     if (!m->control_output) return;
 
-    // Save values for UI (optional)
     state->display_freq = freq;
     state->display_amp = amp;
 	state->display_depth = depth;

@@ -8,9 +8,9 @@
 typedef struct {
     float attack_ms;
     float decay_ms;
-	float sensitivity;
+	float input_gain;
     float env;
-	float threshold;
+	float depth;
 	float smoothed_env;
     float sample_rate;
 
@@ -18,12 +18,15 @@ typedef struct {
 
     CParamSmooth smooth_attack;
     CParamSmooth smooth_decay;
-	CParamSmooth smooth_sens;
+	CParamSmooth smooth_gain;
+	CParamSmooth smooth_depth;
 
     pthread_mutex_t lock;
 
-	float display_freq;
-	float display_amp;
+	float display_att;
+	float display_dec;
+	float display_gain;
+	float display_depth;
 
     // Command mode
     bool entering_command;

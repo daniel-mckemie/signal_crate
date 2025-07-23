@@ -33,7 +33,9 @@ static void c_lfo_process_control(Module* m) {
             float max_hz = 100.0f;
             freq = min_hz * powf(max_hz / min_hz, control);
         } else if (strcmp(param, "amp") == 0) {
-            amp *= control;
+            amp += control;
+        } else if (strcmp(param, "depth") == 0) {
+			depth += control;
         }
     }
 
@@ -166,6 +168,8 @@ static void c_lfo_set_osc_param(Module* m, const char* param, float value) {
         s->frequency = 0.1f * powf(100.0f / 0.1f, norm);  // exponential map
     } else if (strcmp(param, "amp") == 0) {
         s->amplitude = value;
+    } else if (strcmp(param, "depth") == 0) {
+		s->depth = value;
     } else if (strcmp(param, "wave") == 0) {
         if (value > 0.5f) s->waveform = (s->waveform + 1) % 4;
     }

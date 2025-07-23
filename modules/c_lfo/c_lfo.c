@@ -29,7 +29,7 @@ static void c_lfo_process_control(Module* m) {
             float min_hz = 0.1f;
             float max_hz = 100.0f;
             freq = min_hz * powf(max_hz / min_hz, control);
-        } else if (strcmp(param, "depth") == 0) {
+        } else if (strcmp(param, "amp") == 0) {
             amp *= control;
         }
     }
@@ -64,8 +64,9 @@ static void c_lfo_process_control(Module* m) {
                 break;
             }
         }
-
-        m->control_output[i] = 0.5f + 0.5f * amp * value;
+	
+		float out = amp * (0.5f + 0.5f * value);
+		m->control_output[i] = fminf(fmaxf(out, 0.0f), 1.0f);
 
         state->phase += TWO_PI * freq / state->sample_rate;
         if (state->phase >= TWO_PI) state->phase -= TWO_PI;
@@ -85,9 +86,9 @@ static void c_lfo_draw_ui(Module* m, int y, int x) {
     wf = state->waveform;
     pthread_mutex_unlock(&state->lock);
 
-    mvprintw(y,   x, "[LFO] Freq: %.2f Hz, Depth: %.2f, Wave: %s", freq, amp, names[wf]);
-    mvprintw(y+1, x, "Real-time keys: -/= (freq), _/+ (depth)");
-    mvprintw(y+2, x, "Command mode: :1 [freq], :2 [depth], :w [waveform]");
+    mvprintw(y,   x, "[LFO] Freq: %.2f Hz, Amp: %.2f, Wave: %s", freq, amp, names[wf]);
+    mvprintw(y+1, x, "Real-time keys: -/= (freq), _/+ (amp)");
+    mvprintw(y+2, x, "Command mode: :1 [freq], :2 [amp], :w [waveform]");
 }
 
 static void clamp(CLFO* s) {
@@ -153,7 +154,7 @@ static void c_lfo_set_osc_param(Module* m, const char* param, float value) {
     if (strcmp(param, "freq") == 0) {
         float norm = fminf(fmaxf(value, 0.0f), 1.0f);
         s->frequency = 0.1f * powf(100.0f / 0.1f, norm);  // exponential map
-    } else if (strcmp(param, "depth") == 0) {
+    } else if (strcmp(param, "amp") == 0) {
         s->amplitude = value;
     } else if (strcmp(param, "wave") == 0) {
         if (value > 0.5f) s->waveform = (s->waveform + 1) % 4;

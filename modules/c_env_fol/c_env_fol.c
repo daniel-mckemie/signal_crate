@@ -11,6 +11,12 @@
 #define ENV_UPDATE_INTERVAL 128
 
 static void c_env_fol_process_control(Module* m) {
+	if (!m->inputs[0]) {
+		endwin();
+		fprintf(stderr, "[c_env_fol] Error: No audio input connected to c_env_fol. Exiting.\n");
+		exit(1);
+	}
+
     CEnvFol* state = (CEnvFol*)m->state;
 
     pthread_mutex_lock(&state->lock);
@@ -37,14 +43,14 @@ static void c_env_fol_process_control(Module* m) {
 		state->smoothed_env += 0.05f * (state->env - state->smoothed_env);
 
 		// Apply threshold to output only
-		float val = (state->smoothed_env < (state->threshold))
+		float val = (sensitivity <= 0.0f || state->smoothed_env < state->threshold)
 					? 0.0f
-					: state->smoothed_env;
+					: state->smoothed_env * sensitivity;
 
 		// Downsample the control rate
 		if (i % ENV_UPDATE_INTERVAL == 0) {
 			for (int j = 0; j < ENV_UPDATE_INTERVAL && (i + j) < FRAMES_PER_BUFFER; j++) {
-				m->control_output[i + j] = val;
+				m->control_output[i + j] = fminf(fmaxf(val, 0.0f), 1.0f); 
 			}
 			i += ENV_UPDATE_INTERVAL - 1;
 		}
@@ -59,7 +65,7 @@ static void c_env_fol_draw_ui(Module* m, int y, int x) {
     atk = state->attack_ms;
 	gain = state->sensitivity;
     dec = state->decay_ms;
-    val = state->display_env;
+    val = fminf(1.0f, fmaxf(0.0f, state->display_env));
 	threshold = state->threshold;
     pthread_mutex_unlock(&state->lock);
 

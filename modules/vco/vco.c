@@ -25,9 +25,9 @@ static void vco_process(Module *m, float* in, unsigned long frames) {
 
 		const char* param = m->control_input_params[i];
 		float control = *(m->control_inputs[i]);
+		float norm = fminf(fmaxf(control, 0.0f), 1.0f);
 
 		if (strcmp(param, "freq") == 0) {
-			float min_hz = 20.0f;
 			float max_hz;
 			switch (state->range_mode) {
 				case RANGE_LOW:   max_hz = 2000.0f; break;
@@ -36,9 +36,16 @@ static void vco_process(Module *m, float* in, unsigned long frames) {
 				case RANGE_SUPER: max_hz = fminf(96000.0f, state->sample_rate * 0.45f); break; // does not crash if outside of system SR
 				default:		  max_hz = 20000.0f; break;
 			}
-			freq = min_hz * powf(max_hz / min_hz, control);
+
+			// Target modulation amount (in Hz above base)
+ 			float mod_depth = 0.5f;
+			float mod_range = (max_hz - state ->frequency) * mod_depth;
+			freq = state->frequency + norm * mod_range;
+
 		} else if (strcmp(param, "amp") == 0) {
-			amp *= control;
+			float mod_depth = 0.5f;
+			float mod_range = state->amplitude * mod_depth;
+			amp = state->amplitude + (2.0f * norm - 1.0f) * mod_range;
 		}
 	}
 	

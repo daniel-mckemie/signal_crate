@@ -3,6 +3,9 @@
 #include <string.h>
 #include <stdbool.h>
 #include <portaudio.h>
+#include <ncurses.h>
+#include <signal.h>
+
 #include "engine.h"
 #include "ui.h"
 #include "util.h"
@@ -30,7 +33,17 @@ static int audio_callback(const void* input, void* output,
     return paContinue;
 }
 
+void handle_signal(int sig) {
+    endwin();  // restore terminal
+    fprintf(stderr, "\n[main] Caught signal %d — clean exit.\n", sig);
+    exit(1);
+}
+
 int main(int argc, char** argv) {
+	signal(SIGINT, handle_signal);
+	signal(SIGTERM, handle_signal);
+	signal(SIGSEGV, handle_signal);
+
     Pa_Initialize();
     PaStream* stream;
 

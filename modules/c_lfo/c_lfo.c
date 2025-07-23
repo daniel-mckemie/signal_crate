@@ -34,11 +34,11 @@ static void c_lfo_process_control(Module* m) {
 			float mod_range = state->frequency * mod_depth;
             freq = state->frequency + norm * mod_range; 
         } else if (strcmp(param, "amp") == 0) {
-			float mod_range = state->amplitude * mod_depth;
-			amp = state->amplitude + (2.0f * norm - 1.0f) * mod_range;
+			float mod_range = (1.0f - state->amplitude) * mod_depth;
+			amp = state->amplitude + norm * mod_range;
         } else if (strcmp(param, "depth") == 0) {
-			float mod_range = state->depth * mod_depth;
-			depth = state->depth * (2.0f * norm - 1.0f) * mod_range;
+			float mod_range = (1.0f - state->depth) * mod_depth;
+			depth = state->depth + norm * mod_range;
         }
     }
 

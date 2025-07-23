@@ -42,8 +42,8 @@ static void vco_process(Module *m, float* in, unsigned long frames) {
 			freq = state->frequency + norm * mod_range;
 
 		} else if (strcmp(param, "amp") == 0) {
-			float mod_range = state->amplitude * mod_depth;
-			amp = state->amplitude + (2.0f * norm - 1.0f) * mod_range;
+			float mod_range = (1.0f - state->amplitude) * mod_depth;
+			amp = state->amplitude + norm * mod_range;
 		}
 	}
 	

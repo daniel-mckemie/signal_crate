@@ -15,8 +15,11 @@ static void c_lfo_process_control(Module* m) {
     pthread_mutex_lock(&state->lock);
     float freq = process_smoother(&state->smooth_freq, state->frequency);
     float amp  = process_smoother(&state->smooth_amp, state->amplitude);
+    float depth  = process_smoother(&state->smooth_depth, state->depth);
     LFOWaveform wf = state->waveform;
     pthread_mutex_unlock(&state->lock);
+
+	m->control_output_depth = fminf(fmaxf(depth, 0.0f), 1.0f);  // Clamp and store
 
     // Modulate with control inputs
     for (int j = 0; j < m->num_control_inputs; j++) {
@@ -39,6 +42,7 @@ static void c_lfo_process_control(Module* m) {
     // Save values for UI (optional)
     state->display_freq = freq;
     state->display_amp = amp;
+	state->display_depth = depth;
 
     for (unsigned long i = 0; i < FRAMES_PER_BUFFER; i++) {
         float t = state->phase / TWO_PI;
@@ -65,7 +69,7 @@ static void c_lfo_process_control(Module* m) {
             }
         }
 	
-		float out = amp * (0.5f + 0.5f * value);
+		float out = depth * (amp * (0.5f + 0.5f * value));
 		m->control_output[i] = fminf(fmaxf(out, 0.0f), 1.0f);
 
         state->phase += TWO_PI * freq / state->sample_rate;
@@ -77,18 +81,19 @@ static void c_lfo_draw_ui(Module* m, int y, int x) {
     CLFO* state = (CLFO*)m->state;
     const char* names[] = {"Sine", "Saw", "Square", "Triangle"};
 
-    float freq, amp;
+    float freq, amp, depth;
     LFOWaveform wf;
 
     pthread_mutex_lock(&state->lock);
     freq = state->display_freq;
     amp = state->display_amp;
+	depth = state->display_depth;
     wf = state->waveform;
     pthread_mutex_unlock(&state->lock);
 
-    mvprintw(y,   x, "[LFO] Freq: %.2f Hz, Amp: %.2f, Wave: %s", freq, amp, names[wf]);
-    mvprintw(y+1, x, "Real-time keys: -/= (freq), _/+ (amp)");
-    mvprintw(y+2, x, "Command mode: :1 [freq], :2 [amp], :w [waveform]");
+    mvprintw(y,   x, "[LFO] Freq: %.2f Hz, Amp: %.2f, Depth: %.2f, Wave: %s", freq, amp, depth, names[wf]);
+    mvprintw(y+1, x, "Real-time keys: -/= (freq), _/+ (amp), d/D (depth)");
+    mvprintw(y+2, x, "Command mode: :1 [freq], :2 [amp], :d [depth], :w [waveform]");
 }
 
 static void clamp(CLFO* s) {
@@ -96,6 +101,8 @@ static void clamp(CLFO* s) {
     if (s->frequency > 100.0f) s->frequency = 100.0f;
     if (s->amplitude < 0.0f) s->amplitude = 0.0f;
     if (s->amplitude > 1.0f) s->amplitude = 1.0f;
+	if (s->depth < 0.0f) s->depth = 0.0f;
+	if (s->depth > 1.0f) s->depth = 1.0f;
 }
 
 static void c_lfo_handle_input(Module* m, int key) {
@@ -110,6 +117,8 @@ static void c_lfo_handle_input(Module* m, int key) {
             case '-': s->frequency -= 0.1f; handled = 1; break;
             case '+': s->amplitude += 0.01f; handled = 1; break;
             case '_': s->amplitude -= 0.01f; handled = 1; break;
+			case 'd': s->depth += 0.01f; handled = 1; break;
+			case 'D': s->depth -= 0.01f; handled = 1; break;
             case 'w': s->waveform = (s->waveform + 1) % 4; handled = 1; break;
             case ':':
                 s->entering_command = true;
@@ -127,6 +136,7 @@ static void c_lfo_handle_input(Module* m, int key) {
                 if (type == '1') s->frequency = val;
                 else if (type == '2') s->amplitude = val;
                 else if (type == '3') s->waveform = ((int)val) % 4;
+                else if (type == 'd') s->depth = val; 
             }
             handled = 1;
         } else if (key == 27) {
@@ -179,11 +189,13 @@ Module* create_module(float sample_rate) {
     s->waveform = LFO_SINE;
     s->phase = 0.0f;
     s->tri_state = 0.0f;
+	s->depth = 0.5f;
     s->sample_rate = sample_rate;
 
     pthread_mutex_init(&s->lock, NULL);
     init_smoother(&s->smooth_freq, 0.75f);
     init_smoother(&s->smooth_amp, 0.75f);
+    init_smoother(&s->smooth_depth, 0.75f);
     init_sine_table();
     clamp(s);
 

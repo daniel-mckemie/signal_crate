@@ -17,16 +17,19 @@ typedef struct {
     float amplitude;
     float phase;
     float tri_state;
+	float depth;
     float sample_rate;
     LFOWaveform waveform;
 
     CParamSmooth smooth_freq;
     CParamSmooth smooth_amp;
+	CParamSmooth smooth_depth;
 
     pthread_mutex_t lock;
 
 	float display_freq;
 	float display_amp;
+	float display_depth;
 
     // Command mode
     bool entering_command;

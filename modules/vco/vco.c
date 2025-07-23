@@ -20,6 +20,7 @@ static void vco_process(Module *m, float* in, unsigned long frames) {
 	pthread_mutex_unlock(&state->lock);
 	
 	freq = base_freq;  // default fallback
+	float mod_depth = 0.5f;
 	for (int i = 0; i < m->num_control_inputs; i++) {
 		if (!m->control_inputs[i] || !m->control_input_params[i]) continue;
 
@@ -37,13 +38,10 @@ static void vco_process(Module *m, float* in, unsigned long frames) {
 				default:		  max_hz = 20000.0f; break;
 			}
 
-			// Target modulation amount (in Hz above base)
- 			float mod_depth = 0.5f;
 			float mod_range = (max_hz - state ->frequency) * mod_depth;
 			freq = state->frequency + norm * mod_range;
 
 		} else if (strcmp(param, "amp") == 0) {
-			float mod_depth = 0.5f;
 			float mod_range = state->amplitude * mod_depth;
 			amp = state->amplitude + (2.0f * norm - 1.0f) * mod_range;
 		}

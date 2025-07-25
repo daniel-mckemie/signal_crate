@@ -15,6 +15,9 @@ typedef struct {
     float envelope_out;
 
     float timer;
+	float attack_target_time;
+	float release_target_time;
+
     float sample_rate;
     EnvState state;
 

@@ -41,19 +41,29 @@ static void c_asr_process_control(Module* m) {
         } else if (strcmp(param, "cycle") == 0) {
             s->cycle = (control > s->threshold_cycle);
         } else if (strcmp(param, "att") == 0) {
-            float mod_range = (1000.0f - att) * mod_depth;
-            att = att + norm * mod_range;
-        } else if (strcmp(param, "sus") == 0) {
-            float mod_range = (1.0f - sus) * mod_depth;
-            sus = sus + norm * mod_range;
+			float mod_range;
+			if (s->short_mode) {
+				mod_range = (10.0f - att) * mod_depth;
+			} else {
+				mod_range = (1000.0f - att) * mod_depth;
+			}
+			att = att + norm * mod_range;
         } else if (strcmp(param, "rel") == 0) {
-            float mod_range = (1000.0f - rel) * mod_depth;
+			float mod_range;
+			if (s->short_mode) {
+				mod_range = (10.0f - rel) * mod_depth;
+			} else {
+				mod_range = (1000.0f - rel) * mod_depth;
+			}
             rel = rel + norm * mod_range;
         } else if (strcmp(param, "depth") == 0) {
             float mod_range = (1.0f - s->depth) * mod_depth;
             depth = s->depth + norm * mod_range;
 		}
     }
+
+	sus = fminf(fmaxf(sus, 0.01f), 1.0f);
+	depth = fminf(fmaxf(depth, 0.0f), 1.0f);
 
     // Step 3: Smooth now, with safe variables
     att = process_smoother(&s->smooth_att, att);
@@ -71,83 +81,81 @@ static void c_asr_process_control(Module* m) {
 
     // Step 5: Envelope
     for (unsigned long i = 0; i < FRAMES_PER_BUFFER; i++) {
-        float step = 1.0f / s->sample_rate;
-        float sustain = sus; // for relval calc
+		float step = 1.0f / s->sample_rate;
+		float sustain = sus;
 
-        switch (s->state) {
-            case ENV_ATTACK:
-				att = fmaxf(att, 0.001f);
-				if (s->timer == 0.0f)
-					s->attack_start_level = s->envelope_out;
-
-				float att_progress = s->timer / att;
-				att_progress = fminf(att_progress, 1.0f);
-				s->envelope_out = s->attack_start_level + (1.0f - s->attack_start_level) * att_progress;
-
+		switch (s->state) {
+			case ENV_ATTACK: {
+				float step_size = 1.0f / fmaxf(att, 0.001f);
+				float delta = step_size * step;
+				s->envelope_out += delta;
+				s->envelope_out = fminf(s->envelope_out, 1.0f);
 				s->timer += step;
-				if (att_progress >= 1.0f) {
+
+				if (s->envelope_out >= 1.0f - 1e-4f) {
+					s->envelope_out = 1.0f;
 					s->state = ENV_SUSTAIN;
 					s->timer = 0.0f;
 				}
 				break;
-
-
-            case ENV_SUSTAIN:
-                s->envelope_out = sustain;
-                if (!s->cycle || !s->trigger_held) {
+			}
+			
+			case ENV_SUSTAIN:
+				s->envelope_out = sustain;
+				if (!s->cycle || !s->trigger_held) {
 					s->release_start_level = s->envelope_out;
-                    s->state = ENV_RELEASE;
-                    s->timer = 0.0f;
+					s->state = ENV_RELEASE;
+					s->timer = 0.0f;
 					s->trigger_held = false;
-                }
-                break;
+				}
+				break;
 
-            case ENV_RELEASE:
-				rel = fmaxf(rel, 0.001f);
-				float rel_progress = s->timer / rel;
-				rel_progress = fminf(rel_progress, 1.0f);
-				s->envelope_out = s->release_start_level * (1.0f - rel_progress);
-
+			case ENV_RELEASE: {
+				float step_size = 1.0f / fmaxf(rel, 0.001f); 
+				float delta = step_size * step;
+				s->envelope_out -= delta;
+				s->envelope_out = fmaxf(s->envelope_out, 0.0f);
 				s->timer += step;
-				if (rel_progress >= 1.0f || s->envelope_out <= 0.0f) {
+
+				if (s->envelope_out <= 1e-4f) {
+					s->envelope_out = 0.0f;
 					if (s->cycle_stop_requested) {
 						s->cycle = false;
 						s->cycle_stop_requested = false;
 						s->state = ENV_IDLE;
-						s->envelope_out = 0.0f;
 					} else if (s->cycle && s->trigger_held) {
 						s->state = ENV_ATTACK;
 						s->timer = 0.0f;
 					} else {
 						s->state = ENV_IDLE;
-						s->envelope_out = 0.0f;
 					}
 				}
 				break;
-
-
-            case ENV_IDLE:
-            default:
-                if (s->cycle) {
-                    s->state = ENV_ATTACK;
-                    s->timer = 0.0f;
-                } else {
-                    s->envelope_out = 0.0f;
-                }
-                break;
-        }
+			}
+						
+			case ENV_IDLE:
+			default:
+				if (s->cycle) {
+					s->state = ENV_ATTACK;
+					s->timer = 0.0f;
+				} else {
+					s->envelope_out = 0.0f;
+				}
+				break;
+		}
 
 		float out = s->envelope_out * depth;
-        m->control_output[i] = fminf(fmaxf(out, 0.0f), 1.0f);
-    }
+		m->control_output[i] = fminf(fmaxf(out, 0.0f), 1.0f);
+	}
+
 }
 
 static void c_asr_draw_ui(Module* m, int y, int x) {
     CASR* s = (CASR*)m->state;
     pthread_mutex_lock(&s->lock);
-    mvprintw(y, x,   "[ASR] att: %.2fs | sus %.2f | rel: %.2fs | depth: %.2f | mode: %s | %s", s->display_att, s->display_sus, s->display_rel, s->display_depth, s->short_mode ? "short" : "long", s->display_cycle ? "c" : "t");
-    mvprintw(y+1, x, "Keys: t = trig, c = cycle, :att -/=, :sus _/+, :rel [/], :d/D [depth]");
-    mvprintw(y+2, x, "Command: :1 [att], :2 [sus], :3 [rel], :d[depth], :l [long/short]");
+    mvprintw(y, x,   "[ASR] att: %.2fs | rel: %.2fs | depth: %.2f | %s | %s", s->display_att, s->display_rel, s->display_depth, s->short_mode ? "short" : "long", s->display_cycle ? "cyc" : "trig");
+    mvprintw(y+1, x, "Keys: t = trig, c = cycle, :att -/=, :rel _/+, :d/D [depth]");
+    mvprintw(y+2, x, "Command: :1 [att], :2 [rel], :d[depth], :l [long/short]");
     pthread_mutex_unlock(&s->lock);
 }
 
@@ -200,10 +208,8 @@ static void c_asr_handle_input(Module* m, int key) {
             case 'l': s->short_mode = !s->short_mode; handled = 1; break;
             case '-': s->attack_time -= 0.1f; handled = 1; break;
             case '=': s->attack_time += 0.1f; handled = 1; break;
-            case '_': s->sustain_level -= 0.1f; handled = 1; break;
-            case '+': s->sustain_level += 0.1f; handled = 1; break;
-            case '[': s->release_time -= 0.1f; handled = 1; break;
-            case ']': s->release_time += 0.1f; handled = 1; break;
+            case '_': s->release_time -= 0.1f; handled = 1; break;
+            case '+': s->release_time += 0.1f; handled = 1; break;
             case 'd': s->depth -= 0.01f; handled = 1; break;
             case 'D': s->depth += 0.01f; handled = 1; break;
             case ':':
@@ -220,8 +226,7 @@ static void c_asr_handle_input(Module* m, int key) {
             float val;
             if (sscanf(s->command_buffer, "%c %f", &type, &val) == 2) {
                 if (type == '1') s->attack_time = val;
-                else if (type == '2') s->sustain_level = val;
-				else if (type == '3') s->release_time = val;
+				else if (type == '2') s->release_time = val;
 				else if (type == 'd') s->depth = val;
             }
             handled = 1;
@@ -250,8 +255,6 @@ static void c_asr_set_osc_param(Module* m, const char* param, float value) {
 
     if (strcmp(param, "att") == 0) {
         s->attack_time = value * 1000.0f; 
-    } else if (strcmp(param, "sus") == 0) {
-        s->sustain_level = value; 
     } else if (strcmp(param, "rel") == 0) {
         s->release_time = value * 1000.0f; 
     } else if (strcmp(param, "cycle") == 0) {

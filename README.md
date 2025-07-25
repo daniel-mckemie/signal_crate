@@ -1,7 +1,9 @@
+# Signal Crate
+Signal Crate is a terminal application written entirely in C. It's purpose
 is in creating a modular environment for live performance that is lightweight
-and easily expandable. Blending the worlds of scripted programming events with
-modular synthesizer design. All modules are controllable via one another or
-using OSC.
+and easily expandable. Blending the worlds of scripted event programming with
+modular synthesizer design. All modules are controllable via the computer keyboard,
+one another, or using OSC.
 
 This does not yet have a build file, but if you are interested in using or developing
 for the environment, I can certainly make one and help set it up. Currently only runs

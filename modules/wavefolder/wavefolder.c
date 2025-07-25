@@ -149,7 +149,7 @@ static void wavefolder_set_osc_param(Module* m, const char* param, float value) 
     Wavefolder* state = (Wavefolder*)m->state;
     pthread_mutex_lock(&state->lock);
 
-    if (strcmp(param, "fold_amt") == 0) {
+    if (strcmp(param, "fold") == 0) {
         state->fold_amt = fminf(fmaxf(value * 5.0f, 0.01f), 5.0f);  // map [0–1] → [0.01–5]
     } else if (strcmp(param, "blend") == 0) {
         state->blend = fminf(fmaxf(value, 0.01f), 1.0f);

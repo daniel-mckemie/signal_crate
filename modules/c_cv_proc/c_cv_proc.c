@@ -17,15 +17,24 @@ static void c_cv_proc_process_control(Module* m) {
     if (m->control_inputs[2]) vc = *(m->control_inputs[2]);
 
     pthread_mutex_lock(&s->lock);
-    float k = s->k;
-    float m_amt = s->m;
-    float offset = s->offset;
+	float k = (m->control_inputs[3]) ? *(m->control_inputs[3]) : s->k;
+	float m_amt = (m->control_inputs[4]) ? *(m->control_inputs[4]) : s->m;
+	float offset = (m->control_inputs[5]) ? *(m->control_inputs[5]) : s->offset;
+
+	// Clamp params
+	k = fminf(fmaxf(k, -2.0f), 2.0f);
+	m_amt = fminf(fmaxf(m_amt, 0.0f), 1.0f);
+	offset = fminf(fmaxf(offset, -1.0f), 1.0f);
+
     float out = va * k + vb * (1.0f - m_amt) + vc * m_amt + offset;
     out = fminf(fmaxf(out, -1.0f), 1.0f);
     s->output = out;
     s->display_va = va;
     s->display_vb = vb;
     s->display_vc = vc;
+	s->display_k = k;
+	s->display_m_amt = m_amt;
+	s->display_offset = offset;
     pthread_mutex_unlock(&s->lock);
 
     for (unsigned long i = 0; i < FRAMES_PER_BUFFER; i++) {
@@ -37,14 +46,11 @@ static void c_cv_proc_draw_ui(Module* m, int y, int x) {
     CCVProc* s = (CCVProc*)m->state;
 
     pthread_mutex_lock(&s->lock);
-    float k = s->k;
-    float m_amt = s->m;
-    float offset = s->offset;
     float val = s->output;
     pthread_mutex_unlock(&s->lock);
 
     mvprintw(y,   x, "[c_cv_proc] Out: %.3f | va: %.3f | vb: %.3f | vc: %.3f", val, s->display_va, s->display_vb, s->display_vc);
-    mvprintw(y+1, x, "K: %.2f | M: %.2f | Offset: %.2f", k, m_amt, offset);
+    mvprintw(y+1, x, "K: %.2f | M: %.2f | Offset: %.2f", s->display_k, s->display_m_amt, s->display_offset);
     mvprintw(y+2, x, "Keys: k/K (-/+) | m/M (-/+) | o/O (-/+)");
 }
 
@@ -68,11 +74,11 @@ static void c_cv_proc_set_osc_param(Module* m, const char* param, float value) {
     pthread_mutex_lock(&s->lock);
 
     if (strcmp(param, "k") == 0) {
-        s->k = fminf(fmaxf(value, -2.0f), 2.0f);
+        s->k = fminf(fmaxf(value, -2.0f), 2.0f);         // Gain for va
     } else if (strcmp(param, "m") == 0) {
-        s->m = fminf(fmaxf(value, 0.0f), 1.0f);
+        s->m = fminf(fmaxf(value, 0.0f), 1.0f);          // Crossfade between vb and vc
     } else if (strcmp(param, "offset") == 0) {
-        s->offset = fminf(fmaxf(value, -1.0f), 1.0f);
+        s->offset = fminf(fmaxf(value, -1.0f), 1.0f);    // Output bias
     } else {
         fprintf(stderr, "[c_cv_proc] Unknown OSC param: %s\n", param);
     }
@@ -90,7 +96,7 @@ Module* create_module(float sample_rate) {
     Module* m = calloc(1, sizeof(Module));
     m->name = "c_cv_proc";
     m->state = s;
-    m->num_control_inputs = 3;
+    m->num_control_inputs = 6;
     m->process_control = c_cv_proc_process_control;
     m->draw_ui = c_cv_proc_draw_ui;
     m->handle_input = c_cv_proc_handle_input;
@@ -99,5 +105,9 @@ Module* create_module(float sample_rate) {
     m->control_input_params[0] = "in";
     m->control_input_params[1] = "vb";
     m->control_input_params[2] = "vc";
+	m->control_input_params[3] = "k";
+	m->control_input_params[4] = "m";
+	m->control_input_params[5] = "offset";
+
     return m;
 }

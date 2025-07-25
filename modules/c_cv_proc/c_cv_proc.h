@@ -11,6 +11,9 @@ typedef struct {
 	float display_va;
 	float display_vb;
 	float display_vc;
+	float display_k;
+	float display_m_amt;
+	float display_offset;
 
     float output;   // Final output value
     pthread_mutex_t lock;

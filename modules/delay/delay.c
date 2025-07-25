@@ -173,11 +173,11 @@ static void delay_set_osc_param(Module* m, const char* param, float value) {
     Delay* state = (Delay*)m->state;
     pthread_mutex_lock(&state->lock);
 
-    if (strcmp(param, "delay_ms") == 0) {
+    if (strcmp(param, "time") == 0) {
         state->delay_ms = fmaxf(1.0f, fminf(value, 2000.0f));
     } else if (strcmp(param, "mix") == 0) {
         state->mix = fmaxf(0.0f, fminf(value, 1.0f));
-    } else if (strcmp(param, "feedback") == 0) {
+    } else if (strcmp(param, "fb") == 0) {
         state->feedback = fmaxf(0.0f, fminf(value, 0.99f));
     } else {
         fprintf(stderr, "[delay] Unknown OSC param: %s\n", param);

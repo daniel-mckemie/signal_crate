@@ -1,109 +1,176 @@
-# C Modules
+# SignalCrate Modules
 
-## **Modules**
-- **System Input** (mono)  
-  *(no `control_input_params` listed)*
+##  Audio Modules
 
-- **Amplitude Modulator** (single input, sine as mod)  
-  - `gain` (via `output` module or internal)
-
-- **Delay**
-  - `time`
-  - `fb`
-  - `mix`
-
-- **Frequency Modulator** (single input, sine as mod)
-  - `freq`
-  - `index`
-  - `mix`
-
-- **Looper** (10 Seconds Total)
-  - `rec`
-  - `play`
-  - `speed`
-
-- **Moog Ladder Filter** (LP/HP/BP/Notch/Res)
-  - `cutoff`
-  - `res`
-
-- **Noise Source** (White, Pink, Brown)  
-  *(no `control_input_params` listed)*
-
-- **Ring Modulator** (single user input, sine tone as modulator)
-  - `freq`
-  - `mix`
-
-- **Spectral Hold** (tilt/freeze)
-  - `thresh`
-
-- **Spectral Tilt**
-  - `pivot`
-  - `tilt`
-
-- **VCA**
-  - `gain`
-
-- **VCO**
-  - `freq`
-  - `amp`
-
-- **Wavefolder**
-  - `gain`
-  - `fold`
-  - `bias`
-
-- **Wave Player** (variable speed, mono)  
-  *(params not listed)*
+### **System Input**
+Mono input from external sources.  
+- `amp`
 
 ---
 
-## **Control Modules**
-
-- **ASR Envelope**
-  - `trigger`
-  - `cycle`
-  - `att`
-  - `sus`
-  - `rel`
-
-- **Envelope Follower**
-  - `att`
-  - `dec`
-  - `gain`
-  - `depth`
-
-- **LFO**
-  - `freq`
-  - `amp`
-  - `depth`
-
-- **CV Processor**
-  - `in`
-  - `vb`
-  - `vc`
-  - `k`
-  - `m`
-  - `offset`
+### **Amplitude Modulator**
+Single input, sine wave as internal modulator.  
+- `freq`
+- `car_amp`  
+- `depth`  
 
 ---
 
-## **OSC Instructions**
+### **Delay**
+Basic delay line.  
+- `time`  
+- `mix`  
+- `fb`  
 
-OSC routes are assigned by alias/param.  
-When building a layout in TouchOSC, for the **VCO**, for example:
-- Create two sliders and a button (`freq`, `amp`, and `waveform`)
-- `slider1` route = `/vco1/freq`
-- `slider2` route = `/vco1/amp`
-- `button1` route = `/vco1/waveform`
+---
 
-Repeat for `vco2`, but use:
-- `/vco2/freq`
-- `/vco2/amp`
-- etc.
+### **Frequency Modulator**
+Single input, sine wave as internal modulator.  
+- `mod_freq`
+- `index`  
 
-Then in `./SignalCrate`:
-```text
+---
+
+### **Looper**
+10-second mono looper.  
+- `speed`
+- `start`
+- `end`  
+- `record`  
+- `play`  
+- `overdub`  
+- `stop`  
+
+---
+
+### **Moog Ladder Filter**
+Multi-mode resonant filter (LP/HP/BP/Notch).  
+- `cutoff`  
+- `res`  
+- `type`
+
+---
+
+### **Noise Source**
+Generates white, pink, or brown noise.  
+- `amp`  
+- `type`
+
+---
+
+### **Ring Modulator**
+Single input with sine carrier.  
+- `mod_freq`
+- `car_amp`  
+- `mod_amp`  
+
+---
+
+### **Spectral Hold**
+Freezes spectrum in-place.  
+- `tilt`
+- `pivot`  
+- `freeze`  
+
+---
+
+### **VCA**
+Voltage-controlled amplifier.  
+- `gain`
+
+---
+
+### **VCO**
+Waveform oscillator.  
+- `freq`  
+- `amp`  
+- `wave`
+
+---
+
+### **Wavefolder**
+Adds wavefolding distortion.  
+- `fold`  
+- `blend`  
+- `drive`  
+
+---
+
+### **Wave Player**
+Mono WAV playback.  
+- `speed`
+
+---
+
+## Control Modules
+
+### **ASR Envelope**
+Attack-Sustain-Release envelope generator.  
+- `att`  
+- `cycle`  
+- `rel`  
+- `trig`
+- `depth`  
+
+---
+
+### **Envelope Follower**
+Extracts amplitude envelope.  
+- `in_gain`
+- `dec`  
+- `depth`  
+
+---
+
+### **LFO**
+Low-frequency waveform modulator.  
+- `freq`  
+- `amp`  
+- `wave`
+- `depth`  
+
+---
+
+### **CV Processor**
+Flexible control signal processor. Modeled after Buchla 257
+- `in` (va)
+- `vb`
+- `vc`
+
+Params controllable via OSC
+- `k`  
+- `m`  
+- `offset`
+
+---
+
+## OSC Instructions
+
+OSC routes are assigned using `alias/param`.  
+When building a TouchOSC layout:
+
+For **VCO**:
+- Add sliders for `freq`, `amp`, and `wave`
+- Routes:
+  - `/vco1/freq`
+  - `/vco1/amp`
+  - `/vco1/wave`
+
+For `vco2`:
+- `/vco2/freq`, etc.
+
+Example usage in `./SignalCrate`:
+```bash
 vco as vco1  
 vco as vco2  
 output(vco1,vco2) as out
+
+Your layout will target each oscillator. But the alias must match your layout!
+
+For OSC compatibility. Firewall must allow incoming connections to terminal.
+Depending on your settings, this may silently block incoming UDP connections.
+Add terminal/iterm to firewall allowance, and if needed run these commands:
+- sudo /usr/libexec/ApplicationFirewall/socketfilterfw --remove path/to/SignalCrate
+- sudo /usr/libexec/ApplicationFirewall/socketfilterfw --add path/to/SignalCrate
+- sudo /usr/libexec/ApplicationFirewall/socketfilterfw --unblockapp path/to/SignalCrate
 

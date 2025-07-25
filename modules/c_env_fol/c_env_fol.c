@@ -184,7 +184,7 @@ static void c_env_fol_destroy(Module* m) {
 
 Module* create_module(float sample_rate) {
     CEnvFol* s = calloc(1, sizeof(CEnvFol));
-    s->attack_ms = 0.2f;
+    s->attack_ms = 0.1f;
     s->decay_ms = 1.0f;
 	s->input_gain = 0.5f;
 	s->env = 0.0f;

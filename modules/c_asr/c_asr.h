@@ -12,8 +12,6 @@ typedef struct {
     float release_time;
     float sustain_level;
     float envelope_out;
-	float base_level;
-	float peak_level;
 
     float timer;
     float sample_rate;
@@ -24,8 +22,15 @@ typedef struct {
 	bool trigger_held;
     bool short_mode;
 
+	float attack_start_level;
+	float release_start_level;
     float threshold_trigger;
     float threshold_cycle;
+
+	float display_att;
+	float display_sus;
+	float display_rel;
+	float display_cycle;
 
     // Smoothed control inputs
     CParamSmooth smooth_att;

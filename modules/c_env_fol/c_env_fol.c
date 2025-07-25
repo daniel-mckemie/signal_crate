@@ -20,7 +20,7 @@ static void c_env_fol_process_control(Module* m) {
     CEnvFol* state = (CEnvFol*)m->state;
 
     pthread_mutex_lock(&state->lock);
-    float attack = process_smoother(&state->smooth_attack, state->attack_ms);
+    float attack = process_smoother(&state->smooth_attack, state->attack_ms); // Attack not writeable (Buchla 130)
     float decay  = process_smoother(&state->smooth_decay, state->decay_ms);
     float input_gain = process_smoother(&state->smooth_gain, state->input_gain);
     float depth = process_smoother(&state->smooth_depth, state->depth);
@@ -35,16 +35,10 @@ static void c_env_fol_process_control(Module* m) {
         float control = *(m->control_inputs[j]);
 		float norm = fminf(fmaxf(control, 0.0f), 1.0f);
 
-		const float MIN_TIME = 2.0f;
-		const float MAX_TIME = 1000.0f;
-
-        if (strcmp(param, "att") == 0) {
-			float mod_range = (MAX_TIME - MIN_TIME) * mod_depth;
-			attack = MIN_TIME + norm * mod_range; 
-        } else if (strcmp(param, "dec") == 0) {
-			float mod_range = (MAX_TIME - MIN_TIME) * mod_depth;
-			decay = MIN_TIME + norm * mod_range; 
-        } else if (strcmp(param, "gain") == 0) {
+        if (strcmp(param, "dec") == 0) {
+			float mod_range = (5000.0f - state->decay_ms) * mod_depth;
+			decay = state->decay_ms + norm * mod_range; 
+        } else if (strcmp(param, "in_gain") == 0) {
 			float mod_range = (1.0f - state->input_gain) * mod_depth;
             input_gain = state->input_gain + norm * mod_range;
         } else if (strcmp(param, "depth") == 0) {
@@ -53,12 +47,11 @@ static void c_env_fol_process_control(Module* m) {
         }
     }
 
-	m->control_output_depth = fminf(fmaxf(depth, 0.0f), 1.0f);
-
 	state->display_att = attack;
 	state->display_dec = decay;
 	state->display_gain = input_gain;
 	state->display_depth = depth;
+	state->display_env = state->smoothed_env;
 
 	float atk_coeff = expf(-1.0f / (0.001f * attack * state->sample_rate));
 	float dec_coeff = expf(-1.0f / (0.001f * decay  * state->sample_rate));
@@ -94,28 +87,26 @@ static void c_env_fol_process_control(Module* m) {
 static void c_env_fol_draw_ui(Module* m, int y, int x) {
     CEnvFol* state = (CEnvFol*)m->state;
 
-    float atk, dec, gain, val, depth;
+    float dec, gain, val, depth;
     pthread_mutex_lock(&state->lock);
-    atk = state->display_att;
     dec = state->display_dec;
 	gain = state->display_gain;
 	depth = state->display_depth;
     val = fminf(1.0f, fmaxf(0.0f, state->display_env));
     pthread_mutex_unlock(&state->lock);
 
-    mvprintw(y,   x, "[EnvFol] Env: %.3f | a: %.1fms d: %.1fms g: %.2f depth: %.2f", val, atk, dec, gain, depth);
-    mvprintw(y+1, x, "Real-time keys: -/= (att), _/+ (dec), [/] (gain), d/D (d)");
-    mvprintw(y+2, x, "Command mode: :1 [att], :2 [dec], :3 [gain],:d [depth]");
+    mvprintw(y,   x, "[EnvFol] Env: %.3f | dec: %.1fms in_gain: %.2f depth: %.2f", val, dec, gain, depth);
+    mvprintw(y+1, x, "Real-time keys: -/= (dec), _/+ (in_gain), d/D (d)");
+    mvprintw(y+2, x, "Command mode: :1 [dec], :2 [in_gain], :d [depth]");
 }
 
-static void clamp(CEnvFol* state) {
-    if (state->attack_ms < 0.1f) state->attack_ms = 0.1f;
-    if (state->decay_ms < 2.0f) state->decay_ms = 2.0f;
+static void clamp_params(CEnvFol* state) {
+    if (state->decay_ms < 1.0f) state->decay_ms = 1.0f;
+    if (state->decay_ms > 5000.0f) state->decay_ms = 5000.0f;
 	if (state->input_gain < 0.1f) state->input_gain = 0.1f;
-	if (state->input_gain > 2.0f) state->input_gain = 2.0f;
+	if (state->input_gain > 1.0f) state->input_gain = 1.0f;
 	if (state->depth < 0.0f) state->depth = 0.0f;
 	if (state->depth > 1.0f) state->depth = 1.0f;
-
 }
 
 static void c_env_fol_handle_input(Module* m, int key) {
@@ -126,12 +117,10 @@ static void c_env_fol_handle_input(Module* m, int key) {
 
     if (!s->entering_command) {
         switch (key) {
-            case '=': s->attack_ms += 0.1f; handled = 1; break;
-            case '-': s->attack_ms -= 0.1f; handled = 1; break;
-            case '+': s->decay_ms += 0.01f; handled = 1; break;
-            case '_': s->decay_ms -= 0.01f; handled = 1; break;
-            case ']': s->input_gain += 0.1f; handled = 1; break;
-            case '[': s->input_gain -= 0.1f; handled = 1; break;
+            case '=': s->decay_ms += 0.1f; handled = 1; break;
+            case '-': s->decay_ms -= 0.1f; handled = 1; break;
+            case '+': s->input_gain += 0.1f; handled = 1; break;
+            case '_': s->input_gain -= 0.1f; handled = 1; break;
 			case 'D': s->depth += 0.1f; handled = 1; break;
             case 'd': s->depth -= 0.1f; handled = 1; break;
             case ':':
@@ -147,9 +136,8 @@ static void c_env_fol_handle_input(Module* m, int key) {
             char type;
             float val;
             if (sscanf(s->command_buffer, "%c %f", &type, &val) == 2) {
-                if (type == '1') s->attack_ms = val;
-                else if (type == '2') s->decay_ms = val;
-                else if (type == '3') s->input_gain = val;
+                if (type == '1') s->decay_ms = val;
+                else if (type == '2') s->input_gain = val;
                 else if (type == 'd') s->depth = val;
             }
             handled = 1;
@@ -167,7 +155,7 @@ static void c_env_fol_handle_input(Module* m, int key) {
         }
     }
 
-    if (handled) clamp(s);
+    if (handled) clamp_params(s);
     pthread_mutex_unlock(&s->lock);
 }
 
@@ -175,11 +163,9 @@ static void c_env_fol_set_osc_param(Module* m, const char* param, float value) {
     CEnvFol* s = (CEnvFol*)m->state;
     pthread_mutex_lock(&s->lock);
 
-    if (strcmp(param, "att") == 0) {
-        s->attack_ms = fmaxf(1.0f, value * 1000.0f);
-    } else if (strcmp(param, "dec") == 0) {
-        s->decay_ms = fmaxf(1.0f, value * 1000.0f);
-    } else if (strcmp(param, "gain") == 0) {
+    if (strcmp(param, "dec") == 0) {
+        s->decay_ms = fmaxf(1.0f, value * 5000.0f);
+    } else if (strcmp(param, "in_gain") == 0) {
 		s->input_gain = value;
     } else if (strcmp(param, "depth") == 0) {
 		s->depth = value;
@@ -198,9 +184,9 @@ static void c_env_fol_destroy(Module* m) {
 
 Module* create_module(float sample_rate) {
     CEnvFol* s = calloc(1, sizeof(CEnvFol));
-    s->attack_ms = 2.0f;
-    s->decay_ms = 5.0f;
-	s->input_gain = 1.0f;
+    s->attack_ms = 0.2f;
+    s->decay_ms = 1.0f;
+	s->input_gain = 0.5f;
 	s->env = 0.0f;
 	s->smoothed_env = 0.0f;
 	s->depth = 0.5f;
@@ -211,7 +197,6 @@ Module* create_module(float sample_rate) {
     init_smoother(&s->smooth_decay, 0.75f);
     init_smoother(&s->smooth_gain, 0.75f);
     init_smoother(&s->smooth_depth, 0.75f);
-    clamp(s);
 
     Module* m = calloc(1, sizeof(Module));
     m->name = "c_env_fol";

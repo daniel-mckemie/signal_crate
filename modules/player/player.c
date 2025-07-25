@@ -35,7 +35,7 @@ static void player_process(Module* m, float* in, unsigned long frames) {
 		}
 	}
 
-	state->display_pos = state->play_pos;
+	state->display_pos = pos;
 	state->display_speed = speed;
 
 	if (pos < 0) pos = 0;
@@ -91,7 +91,7 @@ static void player_draw_ui(Module* m, int y, int x) {
 	pthread_mutex_unlock(&state->lock);
 
 	mvprintw(y,   x, "[Player] Pos: %.2f sec / %.2f sec (%s) | Speed: %.2fx", pos_sec, dur_sec, is_playing ? "Playing" : "Stopped", speed);
-	mvprintw(y+1, x, "Keys: _/+ to scrub | [/] (speed) | p=play, s=stop"); 
+	mvprintw(y+1, x, "Keys: -/= to scrub | _/+ (speed) | p=play, s=stop"); 
 	mvprintw(y+2, x, "Cmd: :1=pos :2=speed"); 
 	if (cmd[0]) mvprintw(y+3, x, "%s", cmd);
 }
@@ -104,10 +104,10 @@ static void player_handle_input(Module* m, int key) {
 
     if (!state->entering_command) {
         switch (key) {
-            case '_': state->play_pos -= state->sample_rate * 0.1f; handled = 1; break;
-            case '+': state->play_pos += state->sample_rate * 0.1f; handled = 1; break;
-            case '[': state->playback_speed -= 0.01f; handled = 1; break;
-            case ']': state->playback_speed += 0.01f; handled = 1; break;
+            case '-': state->play_pos -= state->sample_rate * 0.1f; handled = 1; break;
+            case '=': state->play_pos += state->sample_rate * 0.1f; handled = 1; break;
+            case '_': state->playback_speed -= 0.01f; handled = 1; break;
+            case '+': state->playback_speed += 0.01f; handled = 1; break;
             case 'p': state->playing = true;  handled = 1; break;
             case 's': state->playing = false; handled = 1; break;
             case ':':

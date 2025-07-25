@@ -137,12 +137,12 @@ static void looper_draw_ui(Module* m, int y, int x) {
 
     pthread_mutex_unlock(&state->lock);
 
-    mvprintw(y,     x, "[Looper] State: %s | Speed: %.2fx", state_names[lstate], speed);
+    mvprintw(y,     x, "[Looper:%s] State: %s | Speed: %.2fx", m->name, state_names[lstate], speed);
     mvprintw(y + 1, x, "         Loop Range: [%.2f -> %.2f] sec", start_sec, end_sec);
     mvprintw(y + 2, x, "         Current Position: %.2f sec", pos_sec);
-    mvprintw(y + 3, x, "Function keys: -/= (start pt), _/+ (end pt), [/] (speed)");
+    mvprintw(y + 3, x, "Keys: -/= (start pt), _/+ (end pt), [/] (speed)");
     mvprintw(y + 4, x, "State keys: r(record), p(play), o(overdub), s(stop)");
-    mvprintw(y + 5, x, "Cmd: :1=start :2=end :3=speed");
+    mvprintw(y + 5, x, "Cmd Mode: :1=start, :2=end, :3=speed");
 }
 
 static void looper_handle_input(Module* m, int ch) {
@@ -232,12 +232,9 @@ static void looper_set_osc_param(Module* m, const char* param, float value) {
 }
 
 static void looper_destroy(Module* m) {
-    if (!m) return;
     Looper* state = (Looper*)m->state;
-    if (state) {
-        pthread_mutex_destroy(&state->lock);
-        free(state);
-    }
+	if (state) pthread_mutex_destroy(&state->lock);
+    destroy_base_module(m);
 }
 
 Module* create_module(float sample_rate) {

@@ -12,4 +12,5 @@ SignalCrate/
 #Ignore others
 *.swp
 *.txt
+*.wav
 .DS_Store

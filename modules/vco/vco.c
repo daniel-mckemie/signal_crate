@@ -99,9 +99,9 @@ static void vco_draw_ui(Module *m, int y, int x) {
 	range = state->range_mode;
     pthread_mutex_unlock(&state->lock);
 
-    mvprintw(y, x,   "[VCO] Freq: %.1f Hz | Amp: %.2f | Wave: %s | Range: %s", freq, amp, wave_names[waveform], range_names[range]);
-    mvprintw(y+1, x, "Real-time keys: -/= (freq), _/+ (amp)");
-    mvprintw(y+2, x, "Command mode: :1 [freq], :2 [amp], :w [waveform], :r [range]");
+    mvprintw(y, x,   "[VCO:%s] Freq: %.1f Hz | Amp: %.2f | Wave: %s | Range: %s", m->name, freq, amp, wave_names[waveform], range_names[range]);
+    mvprintw(y+1, x, "Real-time keys: -/= (freq), _/+ (amp), w (wave), r (range)");
+    mvprintw(y+2, x, "Command mode: :1 [freq], :2 [amp]");
 }
 
 static void clamp_params(VCO *state) {
@@ -212,12 +212,9 @@ static void vco_set_osc_param(Module* m, const char* param, float value) {
 
 
 static void vco_destroy(Module* m) {
-    if (!m) return;
     VCO* state = (VCO*)m->state;
-    if (state) {
-        pthread_mutex_destroy(&state->lock);
-        free(state);
-    }
+	if (state) pthread_mutex_destroy(&state->lock);
+    destroy_base_module(m);
 }
 
 Module* create_module(float sample_rate) {

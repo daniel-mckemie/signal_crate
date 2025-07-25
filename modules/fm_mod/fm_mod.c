@@ -59,7 +59,7 @@ static void fm_mod_draw_ui(Module *m, int y, int x) {
     idx = state->display_index;
     pthread_mutex_unlock(&state->lock);
 
-    mvprintw(y, x, "[FM Mod] Freq %.2f Hz, Index %.2f", freq, idx);
+    mvprintw(y, x, "[FMMod:%s] Freq %.2f Hz | Index %.2f", m->name, freq, idx);
     mvprintw(y+1, x, "Real-time keys: -/= (mod freq), _/+ (idx)");
     mvprintw(y+2, x, "Command mode: :1 [mod freq], :2 [idx]"); 
 }
@@ -140,12 +140,9 @@ static void fm_mod_set_osc_param(Module* m, const char* param, float value) {
 }
 
 static void fm_mod_destroy(Module* m) {
-    if (!m) return;
     FMMod* state = (FMMod*)m->state;
-    if (state) {
-        pthread_mutex_destroy(&state->lock);
-        free(state);
-    }
+	if (state) pthread_mutex_destroy(&state->lock);
+    destroy_base_module(m);
 }
 
 Module* create_module(float sample_rate) {

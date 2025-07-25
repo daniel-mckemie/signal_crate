@@ -85,7 +85,7 @@ static void moog_filter_draw_ui(Module *m, int y, int x) {
 	filt_type = state->filt_type;
     pthread_mutex_unlock(&state->lock);
 
-    mvprintw(y, x, "[Moog Filter] Cutoff: %.2f, Res: %.2f, Type: %s", co, res, filt_names[filt_type]);
+    mvprintw(y, x, "[Moog Filter:%s] Cutoff: %.2f | Res: %.2f | Type: %s", m->name, co, res, filt_names[filt_type]);
     mvprintw(y+1, x, "Real-time keys: -/= (cutoff), _/+ (resonance)");
     mvprintw(y+2, x, "Command mode: :1 [cutoff], :2 [resonance] f: [filter type]");
 }
@@ -174,12 +174,9 @@ static void moog_filter_set_osc_param(Module* m, const char* param, float value)
 }
 
 static void moog_filter_destroy(Module* m) {
-    if (!m) return;
     MoogFilter* state = (MoogFilter*)m->state;
-    if (state) {
-        pthread_mutex_destroy(&state->lock);
-        free(state);
-    }
+	if (state) pthread_mutex_destroy(&state->lock);
+    destroy_base_module(m);
 }
 
 Module* create_module(float sample_rate) {

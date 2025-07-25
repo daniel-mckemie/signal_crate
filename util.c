@@ -1,3 +1,4 @@
+#include <stdlib.h>
 #include <ctype.h>
 #include <string.h>
 #include <stdio.h>
@@ -24,5 +25,14 @@ char* trim_whitespace(char* str) {
     while (end > str && isspace((unsigned char)*end)) end--;
     end[1] = '\0';
     return str;
+}
+
+void destroy_base_module(Module* m) {
+    if (!m) return;
+
+    if (m->state) free(m->state);
+    if (m->name)  free((void*)m->name);
+    if (m->output_buffer) free(m->output_buffer);
+    free(m);
 }
 

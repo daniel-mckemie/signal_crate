@@ -1,5 +1,3 @@
-# Signal Crate 
-Signal Crate is a terminal application written entirely in C. It's purpose
 is in creating a modular environment for live performance that is lightweight
 and easily expandable. Blending the worlds of scripted programming events with
 modular synthesizer design. All modules are controllable via one another or
@@ -123,6 +121,7 @@ Adds wavefolding distortion.
 
 ### **Wave Player**
 Mono WAV playback.  
+- `file` - Specify relative file location, enclose in [ ]...`wav_player([file=sound.wav], speed=ctrl) as out`
 - `speed`
 
 ---
@@ -176,13 +175,29 @@ There are two ways to load an environment, declaratively line by line in the ter
 passed in as an argument upon launch. (ie. ./SignalCrate mypatch.txt). The language is the same for either
 method.
 
-For example, this would patch two oscillators into a filter and out. out is a keyword to your local settings
-for system output (portaudio). This could be saved in a .txt file all the same:
+For example, this would patch two oscillators into a filter and out. `out` is a keyword to output to your system output
+as determined by your local settings. This could be saved in a .txt file all the same:
 
 ```bash
 vco as vco1
 vco as vco2
 moog_filter(vco1,vco2) as out
+```
+
+This will produce...
+
+```bash
+[VCO:vco1] Freq: 440.0 Hz | Amp: 0.50 | Wave: Sine | Range: Low
+Real-time keys: -/= (freq), _/+ (amp), w (wave), r (range)
+Command mode: :1 [freq], :2 [amp]
+
+[VCO:vco2] Freq: 440.0 Hz | Amp: 0.50 | Wave: Sine | Range: Low
+Real-time keys: -/= (freq), _/+ (amp), w (wave), r (range)
+Command mode: :1 [freq], :2 [amp]
+
+[Moog Filter:out] Cutoff: 440.00 | Res: 0.50 | Type: LP
+Real-time keys: -/= (cutoff), _/+ (resonance)
+Command mode: :1 [cutoff], :2 [resonance] f: [filter type]
 ```
 
 Modules can have aliases which are used for routing and CV/OSC assignment. They are assigned with the `as` keyword.
@@ -193,6 +208,13 @@ c_lfo as lfo1
 c_lfo as lfo2
 vco(freq=lfo1, amp=lfo2) as out
 ```
+Control can be done with the keyboard. Each module has scrolling control and command mode. 
+- `-/=, _/=`, etc...are keys that can scroll the params. Each module has which keys control which param
+directly in the UI.
+- Command mode is entered by hitting `:` followed by a character, also indicated in the UI. For example,
+`:1` will change the `freq` of the VCO.
+- `:q` quits the environment
+
 The control parameters for the modules listed above are the exact labels to assign control. Again not all of these
 are assignable via CV, mostly for ease of architecture and lack of musical purpose to build it. They are all, however,
 controllable via OSC. `wave` for example, is not assignable via CV but is as a button/toggle via OSC.

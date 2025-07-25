@@ -77,7 +77,7 @@ static void wavefolder_draw_ui(Module *m, int y, int x) {
     drive = state->display_drive;
     pthread_mutex_unlock(&state->lock);
 
-    mvprintw(y, x, "[Wavefolder] fold: %.2f, blend: %.2f, drive: %.2f", fold_amt, blend, drive);
+    mvprintw(y, x, "[Wavefolder:%s] fold: %.2f | Blend: %.2f | Drive: %.2f", m->name, fold_amt, blend, drive);
     mvprintw(y+1, x, "Real-time keys: -/= (fold), _/+ (blend), [/] (drive)");
     mvprintw(y+2, x, "Command mode: :1 [fold], :2 [blend], :3 [drive]");
 }
@@ -164,12 +164,9 @@ static void wavefolder_set_osc_param(Module* m, const char* param, float value) 
 }
 
 static void wavefolder_destroy(Module* m) {
-    if (!m) return;
     Wavefolder* state = (Wavefolder*)m->state;
-    if (state) {
-        pthread_mutex_destroy(&state->lock);
-        free(state);
-    }
+	if (state) pthread_mutex_destroy(&state->lock);
+    destroy_base_module(m);
 }
 
 Module* create_module(float sample_rate) {

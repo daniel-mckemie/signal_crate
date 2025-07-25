@@ -9,7 +9,7 @@
 #include "engine.h"
 #include "osc.h"
 
-#define COLUMN_WIDTH 64
+#define COLUMN_WIDTH 72
 
 static struct timespec last_time = {0};
 static struct rusage last_usage = {0};

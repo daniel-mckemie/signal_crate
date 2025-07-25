@@ -93,9 +93,9 @@ static void c_lfo_draw_ui(Module* m, int y, int x) {
     wf = state->waveform;
     pthread_mutex_unlock(&state->lock);
 
-    mvprintw(y,   x, "[LFO] Freq: %.2f Hz, Amp: %.2f, Depth: %.2f, Wave: %s", freq, amp, depth, names[wf]);
-    mvprintw(y+1, x, "Real-time keys: -/= (freq), _/+ (amp), d/D (depth)");
-    mvprintw(y+2, x, "Command mode: :1 [freq], :2 [amp], :d [depth], :w [waveform]");
+    mvprintw(y,   x, "[LFO:%s] Freq: %.2f Hz | Amp: %.2f | Depth: %.2f | Wave: %s", m->name, freq, amp, depth, names[wf]);
+    mvprintw(y+1, x, "Real-time keys: -/= (freq), _/+ (amp), d/D (depth), w (wave{");
+    mvprintw(y+2, x, "Command mode: :1 [freq], :2 [amp], :d [depth]");
 }
 
 static void clamp_params(CLFO* s) {
@@ -178,12 +178,9 @@ static void c_lfo_set_osc_param(Module* m, const char* param, float value) {
 }
 
 static void c_lfo_destroy(Module* m) {
-    CLFO* s = (CLFO*)m->state;
-    if (s) {
-        pthread_mutex_destroy(&s->lock);
-        free(s);
-    }
-	if (m->control_output) free(m->control_output);
+    CLFO* state = (CLFO*)m->state;
+	if (state) pthread_mutex_destroy(&state->lock);
+    destroy_base_module(m);
 }
 
 Module* create_module(float sample_rate) {

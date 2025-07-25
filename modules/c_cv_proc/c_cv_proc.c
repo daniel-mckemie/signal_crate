@@ -49,7 +49,7 @@ static void c_cv_proc_draw_ui(Module* m, int y, int x) {
     float val = s->output;
     pthread_mutex_unlock(&s->lock);
 
-    mvprintw(y,   x, "[c_cv_proc] Out: %.3f | va: %.3f | vb: %.3f | vc: %.3f", val, s->display_va, s->display_vb, s->display_vc);
+    mvprintw(y,   x, "[CVProc:%s] Out: %.3f | va: %.3f | vb: %.3f | vc: %.3f", m->name, val, s->display_va, s->display_vb, s->display_vc);
     mvprintw(y+1, x, "K: %.2f | M: %.2f | Offset: %.2f", s->display_k, s->display_m_amt, s->display_offset);
     mvprintw(y+2, x, "Keys: k/K (-/+) | m/M (-/+) | o/O (-/+)");
 }
@@ -86,6 +86,14 @@ static void c_cv_proc_set_osc_param(Module* m, const char* param, float value) {
     pthread_mutex_unlock(&s->lock);
 }
 
+static void c_cv_proc_destroy(Module* m) {
+    CCVProc* s = (CCVProc*)m->state;
+    if (s) {
+        pthread_mutex_destroy(&s->lock);
+    }
+    destroy_base_module(m);
+}
+
 Module* create_module(float sample_rate) {
     CCVProc* s = calloc(1, sizeof(CCVProc));
     s->k = 1.0f;
@@ -108,6 +116,7 @@ Module* create_module(float sample_rate) {
 	m->control_input_params[3] = "k";
 	m->control_input_params[4] = "m";
 	m->control_input_params[5] = "offset";
+	m->destroy = c_cv_proc_destroy;
 
     return m;
 }

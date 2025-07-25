@@ -85,9 +85,9 @@ static void ringmod_draw_ui(Module* m, int y, int x) {
         snprintf(cmd, sizeof(cmd), ":%s", state->command_buffer);
     pthread_mutex_unlock(&state->lock);
 
-    mvprintw(y,   x, "[RingMod] mod_freq: %.2f Hz, car_amp: %.2f, mod_amp: %.2f", mod_freq, car_amp, mod_amp);
-    mvprintw(y+1, x, "Real-time keys: -/= (mod_freq), _/+ (ModAmp), [/] (CarAmp)");
-    mvprintw(y+2, x, "Command mode: :1 [mod_freq], :2 [CarAmp], :3 [ModAmp]");
+    mvprintw(y,   x, "[RingMod:%s] mod_freq: %.2f Hz | car_amp: %.2f | mod_amp: %.2f", m->name, mod_freq, car_amp, mod_amp);
+    mvprintw(y+1, x, "Real-time keys: -/= (mod_freq), _/+ (mod_amp), [/] (car_amp)");
+    mvprintw(y+2, x, "Command mode: :1 [mod_freq], :2 [car_amp], :3 [mod_amp]");
 }
 
 static void ringmod_handle_input(Module* m, int key) {
@@ -163,12 +163,9 @@ static void ring_mod_set_osc_param(Module* m, const char* param, float value) {
 }
 
 static void ringmod_destroy(Module* m) {
-    if (!m) return;
     RingMod* state = (RingMod*)m->state;
-    if (state) {
-        pthread_mutex_destroy(&state->lock);
-        free(state);
-    }
+	if (state) pthread_mutex_destroy(&state->lock);
+    destroy_base_module(m);
 }
 
 Module* create_module(float sample_rate) {

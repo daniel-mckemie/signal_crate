@@ -90,7 +90,7 @@ static void player_draw_ui(Module* m, int y, int x) {
 	cmd[sizeof(cmd) - 1] = '\0';
 	pthread_mutex_unlock(&state->lock);
 
-	mvprintw(y,   x, "[Player] Pos: %.2f sec / %.2f sec (%s) | Speed: %.2fx", pos_sec, dur_sec, is_playing ? "Playing" : "Stopped", speed);
+	mvprintw(y,   x, "[Player:%s] Pos: %.2f sec / %.2f sec (%s) | Speed: %.2fx", m->name, pos_sec, dur_sec, is_playing ? "Playing" : "Stopped", speed);
 	mvprintw(y+1, x, "Keys: -/= to scrub | _/+ (speed) | p=play, s=stop"); 
 	mvprintw(y+2, x, "Cmd: :1=pos :2=speed"); 
 	if (cmd[0]) mvprintw(y+3, x, "%s", cmd);
@@ -171,13 +171,9 @@ static void player_set_osc_param(Module* m, const char* param, float value) {
 }
 
 static void player_destroy(Module* m) {
-	if (!m) return;
 	Player* state = (Player*)m->state;
-	if (state) {
-		pthread_mutex_destroy(&state->lock);
-		free(state->data);
-		free(state);
-	}
+	if (state) pthread_mutex_destroy(&state->lock);
+    destroy_base_module(m);
 }
 
 Module* create_module(const char* args, float sample_rate) {

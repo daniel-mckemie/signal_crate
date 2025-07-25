@@ -113,7 +113,7 @@ static void delay_draw_ui(Module* m, int y, int x) {
         snprintf(cmd, sizeof(cmd), ":%s", state->command_buffer);
     pthread_mutex_unlock(&state->lock);
 
-    mvprintw(y,   x, "[Delay] time: %.1f ms  mix: %.2f  feedback: %.2f", ms, mix, fb);
+    mvprintw(y,   x, "[Delay:%s] Time: %.1f ms | Mix: %.2f | Feedback: %.2f", m->name, ms, mix, fb);
     mvprintw(y+1, x, "Real-time keys: -/= (time), _/+ (mix), [/] (fb)");
     mvprintw(y+2, x, "Command mode: :1 [time], :2 [mix], :3 [fb]");
     if (cmd[0])
@@ -187,13 +187,9 @@ static void delay_set_osc_param(Module* m, const char* param, float value) {
 }
 
 static void delay_destroy(Module* m) {
-    if (!m) return;
     Delay* state = (Delay*)m->state;
-    if (state) {
-        pthread_mutex_destroy(&state->lock);
-        free(state->buffer);
-        free(state);
-    }
+	if (state) pthread_mutex_destroy(&state->lock);
+    destroy_base_module(m);
 }
 
 Module* create_module(float sample_rate) {

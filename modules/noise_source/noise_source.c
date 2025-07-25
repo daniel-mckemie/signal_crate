@@ -62,7 +62,7 @@ static void noise_source_draw_ui(Module *m, int y, int x) {
 	noise_type = state->noise_type;
 	pthread_mutex_unlock(&state->lock);
 
-	mvprintw(y, x, "[Noise Source] Amp: %.2f Hz, Type: %s", amp, noise_names[noise_type]);
+	mvprintw(y, x, "[Noise Source:%s] Amp: %.2f Hz | Type: %s", m->name, amp, noise_names[noise_type]);
 	mvprintw(y+1, x,   "Real-time keys: -/= (amp), n: (type)");
 	mvprintw(y+2, x,   "Command mode: :1 [amp], :n [noise type]");
 }
@@ -138,12 +138,9 @@ static void noise_source_set_osc_param(Module* m, const char* param, float value
 }
 
 static void noise_source_destroy(Module* m) {
-	if (!m) return;
 	NoiseSource* state = (NoiseSource*)m->state;
-	if (state) {
-		pthread_mutex_destroy(&state->lock);
-		free(state);
-	}
+	if (state) pthread_mutex_destroy(&state->lock);
+    destroy_base_module(m);
 }
 
 Module* create_module(float sample_rate) {

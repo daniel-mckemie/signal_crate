@@ -153,7 +153,7 @@ static void c_asr_process_control(Module* m) {
 static void c_asr_draw_ui(Module* m, int y, int x) {
     CASR* s = (CASR*)m->state;
     pthread_mutex_lock(&s->lock);
-    mvprintw(y, x,   "[ASR] att: %.2fs | rel: %.2fs | depth: %.2f | %s | %s", s->display_att, s->display_rel, s->display_depth, s->short_mode ? "short" : "long", s->display_cycle ? "cyc" : "trig");
+    mvprintw(y, x,   "[ASR:%s] att: %.2fs | rel: %.2fs | depth: %.2f | %s | %s", m->name, s->display_att, s->display_rel, s->display_depth, s->short_mode ? "short" : "long", s->display_cycle ? "cyc" : "trig");
     mvprintw(y+1, x, "Keys: t = trig, c = cycle, :att -/=, :rel _/+, :d/D [depth]");
     mvprintw(y+2, x, "Command: :1 [att], :2 [rel], :d[depth], :l [long/short]");
     pthread_mutex_unlock(&s->lock);
@@ -280,12 +280,9 @@ static void c_asr_set_osc_param(Module* m, const char* param, float value) {
 
 
 static void c_asr_destroy(Module* m) {
-    CASR* s = (CASR*)m->state;
-    if (s) {
-        pthread_mutex_destroy(&s->lock);
-        free(s);
-    }
-    if (m->control_output) free(m->control_output);
+    CASR* state = (CASR*)m->state;
+	if (state) pthread_mutex_destroy(&state->lock);
+    destroy_base_module(m);
 }
 
 Module* create_module(float sample_rate) {

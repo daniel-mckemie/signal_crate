@@ -95,7 +95,7 @@ static void c_env_fol_draw_ui(Module* m, int y, int x) {
     val = fminf(1.0f, fmaxf(0.0f, state->display_env));
     pthread_mutex_unlock(&state->lock);
 
-    mvprintw(y,   x, "[EnvFol] Env: %.3f | dec: %.1fms in_gain: %.2f depth: %.2f", val, dec, gain, depth);
+    mvprintw(y,   x, "[EnvFol:%s] Env: %.3f | dec: %.1fms in_gain: %.2f depth: %.2f", m->name, val, dec, gain, depth);
     mvprintw(y+1, x, "Real-time keys: -/= (dec), _/+ (in_gain), d/D (d)");
     mvprintw(y+2, x, "Command mode: :1 [dec], :2 [in_gain], :d [depth]");
 }
@@ -174,12 +174,9 @@ static void c_env_fol_set_osc_param(Module* m, const char* param, float value) {
 }
 
 static void c_env_fol_destroy(Module* m) {
-    CEnvFol* s = (CEnvFol*)m->state;
-    if (s) {
-        pthread_mutex_destroy(&s->lock);
-        free(s);
-    }
-	if (m->control_output) free(m->control_output);
+    CEnvFol* state = (CEnvFol*)m->state;
+	if (state) pthread_mutex_destroy(&state->lock);
+    destroy_base_module(m);
 }
 
 Module* create_module(float sample_rate) {

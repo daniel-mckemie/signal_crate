@@ -87,7 +87,7 @@ static void ampmod_draw_ui(Module* m, int y, int x) {
         snprintf(cmd, sizeof(cmd), ":%s", state->command_buffer);
     pthread_mutex_unlock(&state->lock);
 
-    mvprintw(y,   x, "[AmpMod] Freq: %.2f Hz, Car_Amp: %.2f, Depth: %.2f", freq, car_amp, depth);
+    mvprintw(y,   x, "[AmpMod:%s] Freq: %.2f Hz | Car_Amp: %.2f | Depth: %.2f", m->name, freq, car_amp, depth);
     mvprintw(y+1, x, "Real-time keys: -/= (freq), _/+ (Car_Amp), [/] (Depth)");
     mvprintw(y+2, x, "Command mode: :1 [freq], :2 [car_amp], :3 [depth]");
 }
@@ -166,12 +166,9 @@ static void amp_mod_set_osc_param(Module* m, const char* param, float value) {
 }
 
 static void ampmod_destroy(Module* m) {
-    if (!m) return;
     AmpMod* state = (AmpMod*)m->state;
-    if (state) {
-        pthread_mutex_destroy(&state->lock);
-        free(state);
-    }
+	if (state) pthread_mutex_destroy(&state->lock);
+    destroy_base_module(m);
 }
 
 Module* create_module(float sample_rate) {

@@ -36,7 +36,7 @@ static void input_draw_ui(Module* m, int y, int x) {
         snprintf(cmd, sizeof(cmd), ":%s", state->command_buffer);
     pthread_mutex_unlock(&state->lock);
 
-    mvprintw(y,   x, "[Input] Amp: %.2f", amp);
+    mvprintw(y,   x, "[Input:%s] Amp: %.2f", m->name, amp);
     mvprintw(y+1, x, "Real-time keys: _/+ (Amp)");
     mvprintw(y+2, x, "Command mode: :1 [Amp]");
 }
@@ -99,12 +99,9 @@ static void input_set_osc_param(Module* m, const char* param, float value) {
 }
 
 static void input_destroy(Module* m) {
-    if (!m) return;
     InputState* state = (InputState*)m->state;
-    if (state) {
-        pthread_mutex_destroy(&state->lock);
-        free(state);
-    }
+	if (state) pthread_mutex_destroy(&state->lock);
+    destroy_base_module(m);
 }
 
 Module* create_module(float sample_rate) {

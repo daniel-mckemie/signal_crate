@@ -47,7 +47,7 @@ static void output_draw_ui(Module* m, int y, int x) {
     float gain = state->display_gain;
     pthread_mutex_unlock(&state->lock);
 
-    mvprintw(y,   x, "[Output] Gain: %.2f", gain);
+    mvprintw(y,   x, "[VCA:%s] Gain: %.2f", m->name, gain);
     mvprintw(y+1, x, "Real-time keys: -/= gain");
     mvprintw(y+2, x, "Command mode: :1 [gain]");
 }
@@ -117,8 +117,8 @@ static void output_set_osc_param(Module* m, const char* param, float value) {
 
 static void output_destroy(Module* m) {
     OutputState* state = (OutputState*)m->state;
-    pthread_mutex_destroy(&state->lock);
-    free(state);
+	if (state) pthread_mutex_destroy(&state->lock);
+    destroy_base_module(m);
 }
 
 Module* create_module(float sample_rate) {

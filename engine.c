@@ -136,6 +136,8 @@ static void parse_patch_line(const char* line) {
         return;
     }
 
+	m->name = strdup(alias);
+
     NamedModule newmod;
     strncpy(newmod.name, alias, sizeof(newmod.name));
     newmod.module = m;

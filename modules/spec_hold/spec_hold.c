@@ -138,9 +138,9 @@ static void spec_hold_draw_ui(Module* m, int y, int x) {
         snprintf(cmd, sizeof(cmd), ":%s", state->command_buffer);
     pthread_mutex_unlock(&state->lock);
 
-    mvprintw(y,   x, "[SpecTilt] pivot: %.2f hz, tilt: %.2f, freeze: %s", pivot_hz, tilt, state->freeze ? "ON" : "OFF");
-    mvprintw(y+1, x, "Real-time Keys: -/= tilt; _/+ pivot; [f] freeze");
-    mvprintw(y+2, x, "Cmd: :1 [pivot], :2 [tilt]");
+    mvprintw(y,   x, "[SpecTilt:%s] Pivot: %.2f Hz | Tilt: %.2f | Freeze: %s", m->name, pivot_hz, tilt, state->freeze ? "ON" : "OFF");
+    mvprintw(y+1, x, "Real-time Keys: -/= tilt, _/+ pivot, [f] freeze");
+    mvprintw(y+2, x, "Cmd Mode: :1 [pivot], :2 [tilt]");
 }
 
 static void spec_hold_handle_input(Module* m, int key) {
@@ -222,12 +222,14 @@ static void spec_hold_destroy(Module* m) {
         fftwf_free(state->freq_buffer);
         free(state->input_buffer);
         free(state->output_buffer);
-		free(state->frozen_mag);
-		free(state->frozen_phase);
+        free(state->frozen_mag);
+        free(state->frozen_phase);
         pthread_mutex_destroy(&state->lock);
-        free(state);
+        // Do NOT free(state) — destroy_base_module() will
     }
+    destroy_base_module(m);
 }
+
 
 Module* create_module(float sample_rate) {
     SpecHold* state = calloc(1, sizeof(SpecHold));

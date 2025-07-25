@@ -1,4 +1,29 @@
-# SignalCrate Modules
+# Signal Crate 
+Signal Crate is a terminal application written entirely in C. It's purpose
+is in creating a modular environment for live performance that is lightweight
+and easily expandable. Blending the worlds of scripted programming events with
+modular synthesizer design. All modules are controllable via one another or
+using OSC.
+
+This does not yet have a build file, but if you are interested in using or developing
+for the environment, I can certainly make one and help set it up. Currently only runs
+on MacOS with Linux support to follow. I will get to this if/when interest arises!
+
+Notes on the environment:
+- There are dedicated audio, control, and UI threads
+- Modules follow similar design patterns for processing audio, UI, OSC, and control functions, with
+a central engine to wire it together. This allows for new modules to be created as they are needed.
+- All modules run with a mono input and mono out
+- Multiple modules can sum into one module's input, and they do just that,
+sum into a mono signal.
+- All control outputs are 0.0-1.0 32-float values and each control module has a depth parameter
+to control its output strength. Similarly, audio modules have amp parameters to do the same.
+- All modules take -1.0-1.0 control values and use of the CV Processor can allow for inversion, attenuation,
+and offset of CV, along with several other mixing capabilities. Modules do not have attenuvertable inputs, 
+but the input scale is built and again, if that feature is desired, use an intermediary CV Processor.
+- See below on instructions on scripts and aliases for OSC usage. OSC inputs are all scaled to accept 0-1
+float, so any work on building an interface requires no additional scaling assignments beyond that, unless
+you want to.
 
 ##  Audio Modules
 
@@ -85,7 +110,7 @@ Waveform oscillator.
 - `freq`  
 - `amp`  
 - `wave`
-
+- `range` = toggles freq range (low=20-2000Hz, mid=20-8000Hz, full=20-20000Hz, super=20-nyquist)
 ---
 
 ### **Wavefolder**
@@ -111,7 +136,7 @@ Attack-Sustain-Release envelope generator.
 - `rel`  
 - `trig`
 - `depth`  
-
+- `long/short` toggles maximum att/rel time (short=10s max, long=no upper bounds)
 ---
 
 ### **Envelope Follower**
@@ -144,6 +169,35 @@ Params controllable via OSC
 
 ---
 
+## Loading a Signal Crate
+Arm Signal Crate in the directory with ./SignalCrate or relevant bash script
+
+There are two ways to load an environment, declaratively line by line in the terminal or as a .txt file
+passed in as an argument upon launch. (ie. ./SignalCrate mypatch.txt). The language is the same for either
+method.
+
+For example, this would patch two oscillators into a filter and out. out is a keyword to your local settings
+for system output (portaudio). This could be saved in a .txt file all the same:
+
+```bash
+vco as vco1
+vco as vco2
+moog_filter(vco1,vco2) as out
+```
+
+Modules can have aliases which are used for routing and CV/OSC assignment. They are assigned with the `as` keyword.
+This is true for either control or audio rate modules.
+
+```bash
+c_lfo as lfo1
+c_lfo as lfo2
+vco(freq=lfo1, amp=lfo2) as out
+```
+The control parameters for the modules listed above are the exact labels to assign control. Again not all of these
+are assignable via CV, mostly for ease of architecture and lack of musical purpose to build it. They are all, however,
+controllable via OSC. `wave` for example, is not assignable via CV but is as a button/toggle via OSC.
+
+---
 ## OSC Instructions
 
 OSC routes are assigned using `alias/param`.  
@@ -164,9 +218,14 @@ Example usage in `./SignalCrate`:
 vco as vco1  
 vco as vco2  
 output(vco1,vco2) as out
-
+```
 Your layout will target each oscillator. But the alias must match your layout!
 
+All modules expect -1.0f-1.0f and all OSC params are designed to work with 0-1.
+For example, if you have a slider `/vco1/freq` setting 0-1 automatically gives you
+the required range as a lograthmic control.
+
+- An extra note:
 For OSC compatibility. Firewall must allow incoming connections to terminal.
 Depending on your settings, this may silently block incoming UDP connections.
 Add terminal/iterm to firewall allowance, and if needed run these commands:

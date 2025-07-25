@@ -13,13 +13,14 @@
 static void c_asr_process_control(Module* m) {
     CASR* s = (CASR*)m->state;
 
-    float att, sus, rel;
+    float att, sus, rel, depth;
 
     // Step 1: Lock and read base values
     pthread_mutex_lock(&s->lock);
     att = s->attack_time;
     sus = s->sustain_level;
     rel = s->release_time;
+	depth = s->depth; 
     pthread_mutex_unlock(&s->lock);
 
     // Step 2: Modulate with control inputs
@@ -48,19 +49,24 @@ static void c_asr_process_control(Module* m) {
         } else if (strcmp(param, "rel") == 0) {
             float mod_range = (1000.0f - rel) * mod_depth;
             rel = rel + norm * mod_range;
-        }
+        } else if (strcmp(param, "depth") == 0) {
+            float mod_range = (1.0f - s->depth) * mod_depth;
+            depth = s->depth + norm * mod_range;
+		}
     }
 
     // Step 3: Smooth now, with safe variables
     att = process_smoother(&s->smooth_att, att);
     sus = process_smoother(&s->smooth_sus, sus);
     rel = process_smoother(&s->smooth_rel, rel);
+	depth = process_smoother(&s->smooth_depth, depth);
 
     // Step 4: Write smoothed and display values back under lock
     pthread_mutex_lock(&s->lock);
     s->display_att = att;
     s->display_sus = sus;
     s->display_rel = rel;
+	s->display_depth = depth;
     pthread_mutex_unlock(&s->lock);
 
     // Step 5: Envelope
@@ -131,28 +137,38 @@ static void c_asr_process_control(Module* m) {
                 break;
         }
 
-        m->control_output[i] = s->envelope_out;
+		float out = s->envelope_out * depth;
+        m->control_output[i] = fminf(fmaxf(out, 0.0f), 1.0f);
     }
-}
-
-static void clamp_params(CASR* s) {
-	if (s->attack_time < 1.0f) s->attack_time = 1.0f;
-	if (s->attack_time > 1000.0f) s->attack_time = 1000.0f;
-
-	if (s->sustain_level < 0.01f) s->sustain_level = 0.01f;
-	if (s->sustain_level > 1.0f) s->sustain_level = 1.0f;
-
-	if (s->release_time < 1.0f) s->release_time = 1.0f;
-	if (s->release_time > 1000.0f) s->release_time = 1000.0f;
 }
 
 static void c_asr_draw_ui(Module* m, int y, int x) {
     CASR* s = (CASR*)m->state;
     pthread_mutex_lock(&s->lock);
-    mvprintw(y, x,   "[ASR] att: %.2fs sus %.2f rel: %.2fs %s", s->display_att, s->display_sus, s->display_rel, s->display_cycle ? "Cycle" : "One-shot");
-    mvprintw(y+1, x, "Keys: t = trig, c = cycle, :att -/=, :sus _/+, :rel [/]");
-    mvprintw(y+2, x, "Command: :1 [att], :2 [sus], :3 [rel]");
+    mvprintw(y, x,   "[ASR] att: %.2fs | sus %.2f | rel: %.2fs | depth: %.2f | mode: %s | %s", s->display_att, s->display_sus, s->display_rel, s->display_depth, s->short_mode ? "short" : "long", s->display_cycle ? "c" : "t");
+    mvprintw(y+1, x, "Keys: t = trig, c = cycle, :att -/=, :sus _/+, :rel [/], :d/D [depth]");
+    mvprintw(y+2, x, "Command: :1 [att], :2 [sus], :3 [rel], :d[depth], :l [long/short]");
     pthread_mutex_unlock(&s->lock);
+}
+
+static void clamp_params(CASR* s) {
+    if (s->short_mode) {
+        if (s->attack_time < 0.01f) s->attack_time = 0.01f;
+        if (s->attack_time > 10.0f)  s->attack_time = 10.0f;
+
+        if (s->release_time < 0.01f) s->release_time = 0.01f;
+        if (s->release_time > 10.0f)  s->release_time = 10.0f;
+    } else {
+		// No upper bounds
+        if (s->attack_time < 0.01f) s->attack_time = 0.01f;
+        if (s->release_time < 0.01f) s->release_time = 0.01f;
+    }
+
+    if (s->sustain_level < 0.01f) s->sustain_level = 0.01f;
+    if (s->sustain_level > 1.0f)  s->sustain_level = 1.0f;
+
+    if (s->depth < 0.0f)  s->depth = 0.0f;
+    if (s->depth > 1.0f)  s->depth = 1.0f;
 }
 
 static void c_asr_handle_input(Module* m, int key) {
@@ -188,6 +204,8 @@ static void c_asr_handle_input(Module* m, int key) {
             case '+': s->sustain_level += 0.1f; handled = 1; break;
             case '[': s->release_time -= 0.1f; handled = 1; break;
             case ']': s->release_time += 0.1f; handled = 1; break;
+            case 'd': s->depth -= 0.01f; handled = 1; break;
+            case 'D': s->depth += 0.01f; handled = 1; break;
             case ':':
                 s->entering_command = true;
                 memset(s->command_buffer, 0, sizeof(s->command_buffer));
@@ -204,6 +222,7 @@ static void c_asr_handle_input(Module* m, int key) {
                 if (type == '1') s->attack_time = val;
                 else if (type == '2') s->sustain_level = val;
 				else if (type == '3') s->release_time = val;
+				else if (type == 'd') s->depth = val;
             }
             handled = 1;
         } else if (key == 27) {
@@ -250,7 +269,9 @@ static void c_asr_set_osc_param(Module* m, const char* param, float value) {
             s->state = ENV_ATTACK;
             s->timer = 0;
         }
-    }
+    } else if (strcmp(param, "depth") == 0) {
+		s->depth = value;
+	}
     pthread_mutex_unlock(&s->lock);
 }
 
@@ -267,9 +288,10 @@ static void c_asr_destroy(Module* m) {
 Module* create_module(float sample_rate) {
     CASR* s = calloc(1, sizeof(CASR));
     s->attack_time = 1.0f;
-    s->release_time = 1.5f;
+    s->release_time = 1.0f;
     s->sustain_level = 1.0f;
     s->envelope_out = 0.0f;
+	s->depth = 0.5f;
     s->sample_rate = sample_rate;
     s->short_mode = true;
     s->threshold_trigger = 0.5f;
@@ -278,6 +300,7 @@ Module* create_module(float sample_rate) {
     init_smoother(&s->smooth_att, 0.75f);
     init_smoother(&s->smooth_rel, 0.75f);
     init_smoother(&s->smooth_sus, 0.75f);
+	init_smoother(&s->smooth_depth, 0.75f);
 
     Module* m = calloc(1, sizeof(Module));
     m->name = "c_asr";

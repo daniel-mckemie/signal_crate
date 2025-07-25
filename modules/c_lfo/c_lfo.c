@@ -98,7 +98,7 @@ static void c_lfo_draw_ui(Module* m, int y, int x) {
     mvprintw(y+2, x, "Command mode: :1 [freq], :2 [amp], :d [depth], :w [waveform]");
 }
 
-static void clamp(CLFO* s) {
+static void clamp_params(CLFO* s) {
     if (s->frequency < 0.01f) s->frequency = 0.01f;
     if (s->frequency > 100.0f) s->frequency = 100.0f;
     if (s->amplitude < 0.0f) s->amplitude = 0.0f;
@@ -155,7 +155,7 @@ static void c_lfo_handle_input(Module* m, int key) {
         }
     }
 
-    if (handled) clamp(s);
+    if (handled) clamp_params(s);
     pthread_mutex_unlock(&s->lock);
 }
 
@@ -201,7 +201,7 @@ Module* create_module(float sample_rate) {
     init_smoother(&s->smooth_amp, 0.75f);
     init_smoother(&s->smooth_depth, 0.75f);
     init_sine_table();
-    clamp(s);
+    clamp_params(s);
 
     Module* m = calloc(1, sizeof(Module));
     m->name = "c_lfo";

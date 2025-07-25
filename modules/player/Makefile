@@ -1,4 +1,4 @@
-MODULE_NAME = player
+MODULE_NAME = wav_player
 MODULE_DIR = ../..
 
 SRC = $(MODULE_NAME).c

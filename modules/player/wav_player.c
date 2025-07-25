@@ -6,7 +6,7 @@
 #include <sndfile.h>
 #include <libgen.h>
 
-#include "player.h"
+#include "wav_player.h"
 #include "module.h"
 #include "util.h"
 

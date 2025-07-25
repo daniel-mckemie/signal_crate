@@ -20,20 +20,23 @@ static void ringmod_process(Module* m, float* in, unsigned long frames) {
     sr = state->sample_rate;
     pthread_mutex_unlock(&state->lock);
 
+	float mod_depth = 1.0f;
 	for (int i = 0; i < m->num_control_inputs; i++) {
 		if (!m->control_inputs[i] || !m->control_input_params[i]) continue;
 
 		const char* param = m->control_input_params[i];
 		float control = *(m->control_inputs[i]);
+		float norm = fminf(fmaxf(control, 0.0f), 1.0f);
 
 		if (strcmp(param, "mod_freq") == 0) {
-			float min_hz = 1.0f;
-			float max_hz = 20000.0f;
-			mod_freq = min_hz * powf(max_hz / min_hz, control);
+			float mod_range = state->mod_freq * mod_depth;
+			mod_freq = state-> mod_freq + norm * mod_range;
 		} else if (strcmp(param, "car_amp") == 0) {
-			car_amp *= control;
+			float mod_range = (1.0f - state->car_amp) * mod_depth;
+			car_amp = state->car_amp + norm * mod_range;
 		} else if (strcmp(param, "mod_amp") == 0) {
-			mod_amp *= control;
+			float mod_range = (1.0f - state->mod_amp) * mod_depth;
+			mod_amp = state->mod_amp + norm * mod_range;
 		}
 	}
 
@@ -64,8 +67,8 @@ static void clamp_params(RingMod *state) {
     if (state->mod_amp < 0.0f) state->mod_amp = 0.0f;
     if (state->mod_amp > 1.0f) state->mod_amp = 1.0f;
 
-	if (state->mod_freq < 1.0f) state->mod_freq = 1.0f;
-    if (state->mod_freq > 20000.0f) state->mod_freq = 20000.0f;
+	if (state->mod_freq < 0.1f) state->mod_freq = 0.1f;
+    if (state->mod_freq > state->sample_rate * 0.45f) state->mod_freq = state->sample_rate * 0.45;
 }
 
 static void ringmod_draw_ui(Module* m, int y, int x) {

@@ -21,14 +21,17 @@ static void noise_source_process(Module* m, float* in, unsigned long frames) {
 	noise_type = state->noise_type;
 	pthread_mutex_unlock(&state->lock);
 
+	float mod_depth = 1.0f;
 	for (int i = 0; i < m->num_control_inputs; i++) {
 		if (!m->control_inputs[i] || !m->control_input_params[i]) continue;
 
 		const char* param = m->control_input_params[i];
 		float control = *(m->control_inputs[i]);
+		float norm = fminf(fmaxf(control, 0.0f), 1.0f);
 
 		if (strcmp(param, "amp") == 0) {
-			amp *= control;
+			float mod_range = (1.0f - state->amplitude) * mod_depth;
+			amp = state->amplitude + norm * mod_range;
 		}
 	}
 

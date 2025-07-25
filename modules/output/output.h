@@ -6,6 +6,9 @@
 
 typedef struct {
     float gain;              // overall gain
+	float display_gain;
+
+	CParamSmooth smooth_gain;
 
     // Command mode
     bool entering_command;

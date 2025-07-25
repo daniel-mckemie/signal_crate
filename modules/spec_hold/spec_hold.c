@@ -21,11 +21,10 @@ static void init_hann_window() {
 }
 
 static void clamp_params(SpecHold* state) {
+	if (state->pivot_hz < 1.0f) state->pivot_hz = 1.0f;
+	if (state->pivot_hz > state->sample_rate * 0.45f) state->pivot_hz = state->pivot_hz * 0.45f;
 	if (state->tilt < -1.0f) state->tilt = -1.0f;
 	if (state->tilt >  1.0f) state->tilt = 1.0f;
-	
-	if (state->pivot_hz < 1.0f) state->pivot_hz = 1.0f;
-	if (state->pivot_hz > 20000.0f) state->pivot_hz = 20000.0f;
 }
 
 static void spec_hold_process(Module* m, float* in, unsigned long frames) {
@@ -51,32 +50,31 @@ static void spec_hold_process(Module* m, float* in, unsigned long frames) {
 			int bins = FFT_SIZE / 2 + 1;
 			float nyquist = state->sample_rate / 2.0f;
 
-			float tilt_target, pivot_hz_target;
+			float pivot_hz, tilt;
 			pthread_mutex_lock(&state->lock);
-			tilt_target = state->tilt;
-			pivot_hz_target = state->pivot_hz;
+			pivot_hz = process_smoother(&state->smooth_pivot_hz, state->pivot_hz);
+			tilt = process_smoother(&state->smooth_tilt, state->tilt);
 			pthread_mutex_unlock(&state->lock);
 
+			float mod_depth = 1.0f;
 			for (int i = 0; i < m->num_control_inputs; i++) {
 				if (!m->control_inputs[i] || !m->control_input_params[i]) continue;
 
 				const char* param = m->control_input_params[i];
 				float control = *(m->control_inputs[i]);
+				float norm = fminf(fmaxf(control, 0.0f), 1.0f);
 
-				if (strcmp(param, "tilt") == 0) {
-					tilt_target = control * 2.0f - 1.0f;  // range [-1, 1]
-				} else if (strcmp(param, "pivot") == 0) {
-					float min_hz = 20.0f;
-					float max_hz = 20000.0f;
-					pivot_hz_target = min_hz * powf(max_hz / min_hz, control);
+				if (strcmp(param, "pivot") == 0) {
+					float mod_range = state->pivot_hz * mod_depth;
+					pivot_hz = state->pivot_hz + norm * mod_range;
+				} else if (strcmp(param, "tilt") == 0) {
+					float mod_range = (1.0f - state->tilt) * mod_depth;
+					tilt = state->tilt + norm * mod_range; 
 				}
 			}
 
-			float tilt = process_smoother(&state->smooth_tilt, tilt_target);
-			float pivot_hz = process_smoother(&state->smooth_pivot_hz, pivot_hz_target);
-
-			state->display_tilt = tilt;
 			state->display_pivot = pivot_hz;
+			state->display_tilt = tilt;
 
 			for (int j = 0; j < bins; j++) {
 				float mag, phase;
@@ -140,9 +138,9 @@ static void spec_hold_draw_ui(Module* m, int y, int x) {
         snprintf(cmd, sizeof(cmd), ":%s", state->command_buffer);
     pthread_mutex_unlock(&state->lock);
 
-    mvprintw(y,   x, "[SpecTilt] Tilt: %.2f, Pivot: %.2f, Freeze: %s", tilt, pivot_hz, state->freeze ? "ON" : "OFF");
+    mvprintw(y,   x, "[SpecTilt] pivot: %.2f hz, tilt: %.2f, freeze: %s", pivot_hz, tilt, state->freeze ? "ON" : "OFF");
     mvprintw(y+1, x, "Real-time Keys: -/= tilt; _/+ pivot; [f] freeze");
-    mvprintw(y+2, x, "Cmd: :1 [tilt], :2 [pivot_hz]");
+    mvprintw(y+2, x, "Cmd: :1 [pivot], :2 [tilt]");
 }
 
 static void spec_hold_handle_input(Module* m, int key) {
@@ -153,10 +151,10 @@ static void spec_hold_handle_input(Module* m, int key) {
 
     if (!state->entering_command) {
         switch (key) {
-            case '=': state->tilt += 0.01f; handled = 1; break;
-            case '-': state->tilt -= 0.01f; handled = 1; break;
-            case '+': state->pivot_hz += 1.0f; handled = 1; break;
-            case '_': state->pivot_hz -= 1.0f; handled = 1; break;
+            case '=': state->pivot_hz += 0.01f; handled = 1; break;
+            case '-': state->pivot_hz -= 0.01f; handled = 1; break;
+            case '+': state->tilt += 1.0f; handled = 1; break;
+            case '_': state->tilt -= 1.0f; handled = 1; break;
             case 'f': state->freeze = !state->freeze; handled = 1; break;
             case ':':
                 state->entering_command = true;
@@ -171,8 +169,8 @@ static void spec_hold_handle_input(Module* m, int key) {
             char type;
             float val;
             if (sscanf(state->command_buffer, "%c %f", &type, &val) == 2) {
-                if (type == '1') {state->tilt = val;}
-				else if (type == '2') {state->pivot_hz = val;}
+                if (type == '1') {state->pivot_hz = val;}
+				else if (type == '2') {state->tilt = val;}
             }
             handled = 1;
         } else if (key == 27) {

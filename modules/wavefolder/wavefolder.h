@@ -10,7 +10,7 @@ typedef struct {
 	float drive;
 	float sample_rate;
 	
-	CParamSmooth smooth_amt;
+	CParamSmooth smooth_fold;
 	CParamSmooth smooth_blend;
 	CParamSmooth smooth_drive;
 

@@ -29,8 +29,8 @@ typedef struct {
 	float tri_state;
 
 	// For modulation UI display
-	float current_freq_display;
-	float current_amp_display;
+	float display_freq;
+	float display_amp;
     CParamSmooth smooth_freq;
     CParamSmooth smooth_amp;
     pthread_mutex_t lock;

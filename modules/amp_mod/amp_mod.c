@@ -20,20 +20,25 @@ static void ampmod_process(Module* m, float* in, unsigned long frames) {
     sr = state->sample_rate;
     pthread_mutex_unlock(&state->lock);
 
+	// Non-destructive control input
+	float mod_depth = 1.0f;
 	for (int i = 0; i < m->num_control_inputs; i++) {
 		if (!m->control_inputs[i] || !m->control_input_params[i]) continue;
 
 		const char* param = m->control_input_params[i];
 		float control = *(m->control_inputs[i]);
+		float norm = fminf(fmaxf(control, 0.0f), 1.0f);
 
 		if (strcmp(param, "freq") == 0) {
-			float min_hz = 1.0f;
-			float max_hz = 20000.0f;
-			freq = min_hz * powf(max_hz / min_hz, control);  // exponential mapping
+			float mod_range = state->freq * mod_depth;
+			freq = state->freq + norm * mod_range; 
 		} else if (strcmp(param, "car_amp") == 0) {
-			car_amp *= control;
+			float mod_range = (1.0f - state->car_amp) * mod_depth;
+			car_amp = state->car_amp + norm * mod_range;
 		} else if (strcmp(param, "depth") == 0) {
-			depth *= control;
+			float mod_range = (1.0f - state->depth) * mod_depth;
+			depth = state->depth + norm * mod_range;
+
 		}
 	}
 
@@ -64,9 +69,8 @@ static void clamp_params(AmpMod *state) {
 
     if (state->depth < 0.0f) state->depth = 0.0f;
     if (state->depth > 1.0f) state->depth = 1.0f;
-
-    if (state->freq < 1.0f) state->freq = 1.0f;
-    if (state->freq > 20000.0f) state->freq = 20000.0f;
+    if (state->freq < 0.01f) state->freq = 0.01f;
+	if (state->freq > state->sample_rate * 0.45f) state->freq = state->sample_rate * 0.45f;
 }
 
 static void ampmod_draw_ui(Module* m, int y, int x) {

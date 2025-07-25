@@ -13,13 +13,12 @@ static void c_lfo_process_control(Module* m) {
     CLFO* state = (CLFO*)m->state;
 
     pthread_mutex_lock(&state->lock);
-    float base_freq = process_smoother(&state->smooth_freq, state->frequency);
+    float freq = process_smoother(&state->smooth_freq, state->frequency);
     float amp = process_smoother(&state->smooth_amp, state->amplitude);
     float depth = process_smoother(&state->smooth_depth, state->depth);
     LFOWaveform wf = state->waveform;
     pthread_mutex_unlock(&state->lock);
 
-	float freq = base_freq;
 	float mod_depth = 0.5f;
 
     // Modulate with control inputs
@@ -67,10 +66,7 @@ static void c_lfo_process_control(Module* m) {
             case LFO_TRIANGLE: {
                 float sq = (t < 0.5f) ? 1.0f : -1.0f;
                 state->tri_state += 2.0f * freq / state->sample_rate * sq;
-                state->tri_state *= 0.999f;
-                if (state->tri_state > 1.0f) state->tri_state = 1.0f;
-                if (state->tri_state < -1.0f) state->tri_state = -1.0f;
-                value = state->tri_state;
+                value = tanhf(state->tri_state) * 2.0f;
                 break;
             }
         }

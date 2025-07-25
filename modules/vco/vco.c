@@ -14,13 +14,12 @@ static void vco_process(Module *m, float* in, unsigned long frames) {
     Waveform waveform;
 
 	pthread_mutex_lock(&state->lock);
-	float base_freq = process_smoother(&state->smooth_freq, state->frequency);
+	freq = process_smoother(&state->smooth_freq, state->frequency);
 	amp = state->amplitude;
 	waveform = state->waveform;
 	pthread_mutex_unlock(&state->lock);
 	
-	freq = base_freq;  // default fallback
-	float mod_depth = 0.5f;
+	float mod_depth = 1.0f;
 	for (int i = 0; i < m->num_control_inputs; i++) {
 		if (!m->control_inputs[i] || !m->control_input_params[i]) continue;
 
@@ -29,16 +28,7 @@ static void vco_process(Module *m, float* in, unsigned long frames) {
 		float norm = fminf(fmaxf(control, 0.0f), 1.0f);
 
 		if (strcmp(param, "freq") == 0) {
-			float max_hz;
-			switch (state->range_mode) {
-				case RANGE_LOW:   max_hz = 2000.0f; break;
-				case RANGE_MID:   max_hz = 8000.0f; break;
-				case RANGE_FULL:  max_hz = 20000.0f; break;
-				case RANGE_SUPER: max_hz = fminf(96000.0f, state->sample_rate * 0.45f); break; // does not crash if outside of system SR
-				default:		  max_hz = 20000.0f; break;
-			}
-
-			float mod_range = (max_hz - state ->frequency) * mod_depth;
+			float mod_range = state->frequency * mod_depth;
 			freq = state->frequency + norm * mod_range;
 
 		} else if (strcmp(param, "amp") == 0) {
@@ -47,8 +37,8 @@ static void vco_process(Module *m, float* in, unsigned long frames) {
 		}
 	}
 	
-	state->current_freq_display = freq;
-	state->current_amp_display = amp;
+	state->display_freq = freq;
+	state->display_amp = amp;
 
     float phs = state->phase;
 	int idx;
@@ -80,7 +70,8 @@ static void vco_process(Module *m, float* in, unsigned long frames) {
 									state->tri_state *= 0.999f;
 									if (state->tri_state > 1.0f) state->tri_state = 1.0f;
 									if (state->tri_state < -1.0f) state->tri_state = -1.0f;
-									value = state->tri_state;
+									// value = tanhf(state->tri_state) * 2.0f; // replace if getting aliasing at high freq, performance intensive
+									value = state->tri_state * 2.0f;
 									break;
 								}
 
@@ -102,16 +93,15 @@ static void vco_draw_ui(Module *m, int y, int x) {
 	RangeMode range;
 
     pthread_mutex_lock(&state->lock);
-    // freq = state->frequency;
-    freq = state->current_freq_display;
-    amp = state->current_amp_display;
+    freq = state->display_freq;
+    amp = state->display_amp;
     waveform = state->waveform;
 	range = state->range_mode;
     pthread_mutex_unlock(&state->lock);
 
     mvprintw(y, x,   "[VCO] Freq: %.1f Hz | Amp: %.2f | Wave: %s | Range: %s", freq, amp, wave_names[waveform], range_names[range]);
     mvprintw(y+1, x, "Real-time keys: -/= (freq), _/+ (amp)");
-    mvprintw(y+2, x, "Command mode: :1 [freq], :2 [amp], :w [waveform], r [range]");
+    mvprintw(y+2, x, "Command mode: :1 [freq], :2 [amp], :w [waveform], :r [range]");
 }
 
 static void clamp_params(VCO *state) {
@@ -122,7 +112,7 @@ static void clamp_params(VCO *state) {
         case RANGE_LOW:   max_freq = 2000.0f; break;
         case RANGE_MID:   max_freq = 8000.0f; break;
         case RANGE_FULL:  max_freq = 20000.0f; break;
-        case RANGE_SUPER: max_freq = fminf(96000.0f, state->sample_rate * 0.45f); break;
+		case RANGE_SUPER: max_freq = state->sample_rate * 0.45; break;
     }
 
     if (state->frequency < min_freq) state->frequency = min_freq;
@@ -180,8 +170,8 @@ static void vco_handle_input(Module *m, int key) {
 
     if (handled)
         clamp_params(state);
-		state->current_freq_display = state->frequency;
-		state->current_amp_display = state->amplitude;
+		state->display_freq = state->frequency;
+		state->display_amp = state->amplitude;
 
     pthread_mutex_unlock(&state->lock);
 }
@@ -201,7 +191,7 @@ static void vco_set_osc_param(Module* m, const char* param, float value) {
 			case RANGE_LOW:   max_hz = 2000.0f; break;
 			case RANGE_MID:   max_hz = 8000.0f; break;
 			case RANGE_FULL:  max_hz = 20000.0f; break;
-			case RANGE_SUPER: max_hz = fminf(96000.0f, state->sample_rate * 0.45f); break;
+			case RANGE_SUPER: max_hz = state->sample_rate * 0.45f; break;
 			default:          max_hz = 20000.0f; break;
 		}
 		float norm = fminf(fmaxf(value, 0.0f), 1.0f); // clamp 0–1

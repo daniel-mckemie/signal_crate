@@ -11,13 +11,32 @@
 static void output_process(Module* m, float* in, unsigned long frames) {
     OutputState* state = (OutputState*)m->state;
     float* out = m->output_buffer;
+	float gain;
 
     pthread_mutex_lock(&state->lock);
-    float gain = state->gain;
+	gain = state->gain;
     pthread_mutex_unlock(&state->lock);
+	
+	float mod_depth = 1.0f;
+	for (int i = 0; i < m->num_control_inputs; i++) {
+		if (!m->control_inputs[i] || !m->control_input_params[i]) continue;
 
-    for (unsigned long i = 0; i < frames; i++) {
-        out[i] = gain * in[i];
+		const char* param = m->control_input_params[i];
+		float control = *(m->control_inputs[i]);
+		float norm = fminf(fmaxf(control, 0.0f), 1.0f);
+
+		if (strcmp(param, "gain") == 0) {
+			float mod_range = (1.0f - state->gain) * mod_depth;
+			gain = state->gain + norm * mod_range;
+		}
+	}
+
+	state->display_gain = gain;
+
+	for (unsigned long i = 0; i < frames; i++) {
+		float smoothed_gain = process_smoother(&state->smooth_gain, gain);
+
+        out[i] = smoothed_gain * in[i];
     }
 }
 
@@ -25,7 +44,7 @@ static void output_draw_ui(Module* m, int y, int x) {
     OutputState* state = (OutputState*)m->state;
 
     pthread_mutex_lock(&state->lock);
-    float gain = state->gain;
+    float gain = state->display_gain;
     pthread_mutex_unlock(&state->lock);
 
     mvprintw(y,   x, "[Output] Gain: %.2f", gain);
@@ -77,6 +96,7 @@ static void output_handle_input(Module* m, int key) {
     if (handled) {
         if (state->gain < 0.0f) state->gain = 0.0f;
         if (state->gain > 1.0f) state->gain = 1.0f;
+		state->display_gain = state->gain;
     }
 
     pthread_mutex_unlock(&state->lock);
@@ -105,6 +125,7 @@ Module* create_module(float sample_rate) {
     OutputState* state = calloc(1, sizeof(OutputState));
     state->gain = 1.0f;
     pthread_mutex_init(&state->lock, NULL);
+	init_smoother(&state->smooth_gain, 0.75);
 
     Module* m = calloc(1, sizeof(Module));
     m->name = "output";  // IMPORTANT: engine uses "out" for final audio

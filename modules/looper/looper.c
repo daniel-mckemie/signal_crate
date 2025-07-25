@@ -20,16 +20,17 @@ static void looper_process(Module* m, float* in, unsigned long frames) {
     LooperState current_state = state->looper_state;
     pthread_mutex_unlock(&state->lock);
 
+	float mod_depth = 1.0f;
     for (int i = 0; i < m->num_control_inputs; i++) {
         if (!m->control_inputs[i] || !m->control_input_params[i]) continue;
 
         const char* param = m->control_input_params[i];
         float control = *(m->control_inputs[i]);
+		float norm = fminf(fmaxf(control, 0.0f), 1.0f);
 
         if (strcmp(param, "speed") == 0) {
-            float min = 0.1f;
-            float max = 4.0f;
-            playback_speed = min * powf(max / min, control);
+			float mod_range = (4.0f - state->playback_speed) * mod_depth;
+            playback_speed = state->playback_speed + norm * mod_range; 
         }
     }
 

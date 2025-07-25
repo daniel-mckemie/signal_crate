@@ -16,12 +16,13 @@ typedef struct {
 	float scrub_target;
 	float playback_speed;
 
-	CParamSmooth smooth_scrub;
+	CParamSmooth smooth_speed;
 
 	pthread_mutex_t lock;
 
 	// Display
 	float display_pos;
+	float display_speed;
 	bool playing;
 
 	// Command input

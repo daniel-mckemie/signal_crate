@@ -27,23 +27,29 @@ static void c_env_fol_process_control(Module* m) {
     pthread_mutex_unlock(&state->lock);
 
 	// Modulate with control inputs
+	float mod_depth = 1.0f;
     for (int j = 0; j < m->num_control_inputs; j++) {
         if (!m->control_inputs[j] || !m->control_input_params[j]) continue;
 
         const char* param = m->control_input_params[j];
         float control = *(m->control_inputs[j]);
+		float norm = fminf(fmaxf(control, 0.0f), 1.0f);
 
 		const float MIN_TIME = 2.0f;
 		const float MAX_TIME = 1000.0f;
 
         if (strcmp(param, "att") == 0) {
-			attack = MIN_TIME + control * (MAX_TIME - MIN_TIME);
+			float mod_range = (MAX_TIME - MIN_TIME) * mod_depth;
+			attack = MIN_TIME + norm * mod_range; 
         } else if (strcmp(param, "dec") == 0) {
-			decay = MIN_TIME + control * (MAX_TIME - MIN_TIME);
+			float mod_range = (MAX_TIME - MIN_TIME) * mod_depth;
+			decay = MIN_TIME + norm * mod_range; 
         } else if (strcmp(param, "gain") == 0) {
-            input_gain += control;
+			float mod_range = (1.0f - state->input_gain) * mod_depth;
+            input_gain = state->input_gain + norm * mod_range;
         } else if (strcmp(param, "depth") == 0) {
-			depth += control;
+			float mod_range = (1.0f - state->depth) * mod_depth;
+			depth = state->depth + norm * mod_range;
         }
     }
 

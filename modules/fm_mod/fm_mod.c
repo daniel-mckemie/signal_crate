@@ -18,18 +18,20 @@ static void fm_mod_process(Module *m, float* in, unsigned long frames) {
     pthread_mutex_unlock(&state->lock);
 
 	// --- Control Modulation Block ---
+	float mod_depth = 1.0f;
     for (int i = 0; i < m->num_control_inputs; i++) {
         if (!m->control_inputs[i] || !m->control_input_params[i]) continue;
 
         const char* param = m->control_input_params[i];
         float control = *(m->control_inputs[i]);
+		float norm = fminf(fmaxf(control, 0.0f), 1.0f);
 
         if (strcmp(param, "mod_freq") == 0) {
-            float min_hz = 1.0f;
-            float max_hz = 20000.0f;
-            mf = min_hz * powf(max_hz / min_hz, control);
+			float mod_range = state->mod_freq * mod_depth;
+			mf = state->mod_freq + norm * mod_range;
         } else if (strcmp(param, "index") == 0) {
-            idx *= control;
+			float mod_range = (10.0f - state->index) * mod_depth;
+            idx = state->index + norm * mod_range;
         }
     }
 
@@ -65,6 +67,8 @@ static void fm_mod_draw_ui(Module *m, int y, int x) {
 static void clamp_params(FMMod *state) {
 	// Set boundaries for params
     if (state->index < 0.01f) state->index = 0.01f;
+	if (state->mod_freq < 0.01f) state->mod_freq = 0.01f;
+	if (state->mod_freq > state->sample_rate * 0.45f) state->mod_freq = state->sample_rate * 0.45f;
 }
 
 static void fm_mod_handle_input(Module *m, int key) {

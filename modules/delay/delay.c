@@ -20,21 +20,25 @@ static void delay_process(Module* m, float* in, unsigned long frames) {
     delay_ms = process_smoother(&state->smooth_delay, state->delay_ms);
     pthread_mutex_unlock(&state->lock);
 
-    // Control-rate modulation
+    // Control-rate modulation - non-destructive
+	float mod_depth = 1.0f;
     for (int i = 0; i < m->num_control_inputs; i++) {
         if (!m->control_inputs[i] || !m->control_input_params[i]) continue;
 
         const char* param = m->control_input_params[i];
         float control = *(m->control_inputs[i]);
+		float norm = fminf(fmaxf(control, 0.0f), 1.0f);	
 
         if (strcmp(param, "time") == 0) {
-            float min_ms = 1.0f;
-            float max_ms = 2000.0f;
-            delay_ms = min_ms * powf(max_ms / min_ms, control); // exponential map
+			float mod_range = state->delay_ms * mod_depth;
+            // delay_ms = min_ms * powf(max_ms / min_ms, control); // exponential map
+            delay_ms = state->delay_ms + norm * mod_range;
         } else if (strcmp(param, "mix") == 0) {
-            mix *= control;
-        } else if (strcmp(param, "feedback") == 0) {
-            fb *= control;
+			float mod_range = (1.0f - state->mix) * mod_depth;
+            mix = state->mix + norm * mod_range;
+        } else if (strcmp(param, "fb") == 0) {
+			float mod_range = (1.0f - state->feedback) * mod_depth;
+            fb = state->feedback + norm * mod_range;
         }
     }
 
@@ -109,9 +113,9 @@ static void delay_draw_ui(Module* m, int y, int x) {
         snprintf(cmd, sizeof(cmd), ":%s", state->command_buffer);
     pthread_mutex_unlock(&state->lock);
 
-    mvprintw(y,   x, "[Delay] Time: %.1f ms  Mix: %.2f  Feedback: %.2f", ms, mix, fb);
-    mvprintw(y+1, x, "Real-time keys: -/= (time), _/+ (mix), [/] (feedback)");
-    mvprintw(y+2, x, "Command mode: :1 [time], :2 [mix], :3 [feedback]");
+    mvprintw(y,   x, "[Delay] time: %.1f ms  mix: %.2f  feedback: %.2f", ms, mix, fb);
+    mvprintw(y+1, x, "Real-time keys: -/= (time), _/+ (mix), [/] (fb)");
+    mvprintw(y+2, x, "Command mode: :1 [time], :2 [mix], :3 [fb]");
     if (cmd[0])
         mvprintw(y+3, x, "%s", cmd);
 }

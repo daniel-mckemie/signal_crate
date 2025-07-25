@@ -24,7 +24,7 @@ static void moog_filter_process(Module *m, float* in, unsigned long frames) {
 		if (!m->control_inputs[i] || !m->control_input_params[i]) continue;
 		const char* param = m->control_input_params[i];
 		float control = *(m->control_inputs[i]);
-		float norm = fminf(fmaxf(control, 0.0f), 1.0f);
+		float norm = fminf(fmaxf(control, -1.0f), 1.0f);
 		if (strcmp(param, "cutoff") == 0) {
 			float mod_range = state->cutoff * mod_depth;
 			co = state->cutoff + norm * mod_range;

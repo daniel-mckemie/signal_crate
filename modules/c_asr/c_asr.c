@@ -30,7 +30,7 @@ static void c_asr_process_control(Module* m) {
 
         const char* param = m->control_input_params[j];
         float control = *(m->control_inputs[j]);
-        float norm = fminf(fmaxf(control, 0.0f), 1.0f);
+        float norm = fminf(fmaxf(control, -1.0f), 1.0f);
 
         if (strcmp(param, "trig") == 0) {
             s->trigger_held = (control > s->threshold_trigger);

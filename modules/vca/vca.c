@@ -6,7 +6,7 @@
 
 #include "module.h"
 #include "util.h"
-#include "output.h"
+#include "vca.h"
 
 static void output_process(Module* m, float* in, unsigned long frames) {
     OutputState* state = (OutputState*)m->state;
@@ -23,7 +23,7 @@ static void output_process(Module* m, float* in, unsigned long frames) {
 
 		const char* param = m->control_input_params[i];
 		float control = *(m->control_inputs[i]);
-		float norm = fminf(fmaxf(control, 0.0f), 1.0f);
+		float norm = fminf(fmaxf(control, -1.0f), 1.0f);
 
 		if (strcmp(param, "gain") == 0) {
 			float mod_range = (1.0f - state->gain) * mod_depth;

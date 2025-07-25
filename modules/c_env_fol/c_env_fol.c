@@ -33,7 +33,7 @@ static void c_env_fol_process_control(Module* m) {
 
         const char* param = m->control_input_params[j];
         float control = *(m->control_inputs[j]);
-		float norm = fminf(fmaxf(control, 0.0f), 1.0f);
+		float norm = fminf(fmaxf(control, -1.0f), 1.0f);
 
         if (strcmp(param, "dec") == 0) {
 			float mod_range = (5000.0f - state->decay_ms) * mod_depth;

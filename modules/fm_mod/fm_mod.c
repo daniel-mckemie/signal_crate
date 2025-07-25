@@ -24,7 +24,7 @@ static void fm_mod_process(Module *m, float* in, unsigned long frames) {
 
         const char* param = m->control_input_params[i];
         float control = *(m->control_inputs[i]);
-		float norm = fminf(fmaxf(control, 0.0f), 1.0f);
+		float norm = fminf(fmaxf(control, -1.0f), 1.0f);
 
         if (strcmp(param, "mod_freq") == 0) {
 			float mod_range = state->mod_freq * mod_depth;

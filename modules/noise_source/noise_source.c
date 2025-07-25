@@ -27,7 +27,7 @@ static void noise_source_process(Module* m, float* in, unsigned long frames) {
 
 		const char* param = m->control_input_params[i];
 		float control = *(m->control_inputs[i]);
-		float norm = fminf(fmaxf(control, 0.0f), 1.0f);
+		float norm = fminf(fmaxf(control, -1.0f), 1.0f);
 
 		if (strcmp(param, "amp") == 0) {
 			float mod_range = (1.0f - state->amplitude) * mod_depth;

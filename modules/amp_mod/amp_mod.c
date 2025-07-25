@@ -27,7 +27,7 @@ static void ampmod_process(Module* m, float* in, unsigned long frames) {
 
 		const char* param = m->control_input_params[i];
 		float control = *(m->control_inputs[i]);
-		float norm = fminf(fmaxf(control, 0.0f), 1.0f);
+		float norm = fminf(fmaxf(control, -1.0f), 1.0f);
 
 		if (strcmp(param, "freq") == 0) {
 			float mod_range = state->freq * mod_depth;

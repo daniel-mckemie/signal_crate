@@ -217,11 +217,32 @@ static void vco_destroy(Module* m) {
     destroy_base_module(m);
 }
 
-Module* create_module(float sample_rate) {
+Module* create_module(const char* args, float sample_rate) {
+	float freq = 440.0f;
+    float amp = 0.5f;
+	Waveform wave = WAVE_SINE;
+
+	if (args && strstr(args, "freq=")) {
+        sscanf(strstr(args, "freq="), "freq=%f", &freq);
+    }
+    if (args && strstr(args, "amp=")) {
+        sscanf(strstr(args, "amp="), "amp=%f", &amp);
+	}
+	if (args && strstr(args, "wave=")) {
+        char wave_str[32] = {0};
+        sscanf(strstr(args, "wave="), "wave=%31s", wave_str);
+
+        if (strcmp(wave_str, "sine") == 0) wave = WAVE_SINE;
+        else if (strcmp(wave_str, "saw") == 0) wave = WAVE_SAW;
+        else if (strcmp(wave_str, "square") == 0) wave = WAVE_SQUARE;
+        else if (strcmp(wave_str, "triangle") == 0) wave = WAVE_TRIANGLE;
+        else fprintf(stderr, "[vco] Unknown wave type: '%s'\n", wave_str);
+    }
+
     VCO *state = calloc(1, sizeof(VCO));
-    state->frequency = 440.0f;
-    state->amplitude = 0.5f;
-    state->waveform = WAVE_SINE;
+    state->frequency = freq;
+    state->amplitude = amp;
+    state->waveform = wave;
 	state->range_mode = RANGE_LOW;
 	state->phase = 0.0f;
 	state->tri_state = 0.0f;

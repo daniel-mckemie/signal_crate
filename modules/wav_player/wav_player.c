@@ -51,7 +51,7 @@ static void player_process(Module* m, float* in, unsigned long frames) {
 		m->output_buffer[i] = (1.0f - frac) * s1 + frac * s2;
 
 		if (state->playing) {
-			pos += speed;
+			pos += speed * (state->file_rate / state->sample_rate);
 			if (pos >= max_frames - 1) pos = 0.0f;
 		}
 	}
@@ -82,8 +82,8 @@ static void player_draw_ui(Module* m, int y, int x) {
 	pthread_mutex_lock(&state->lock);
 	float pos = state->display_pos;
 	float speed = state->display_speed;
-	float dur_sec = (float)state->num_frames / state->sample_rate;
-	float pos_sec = pos / state->sample_rate;
+	float dur_sec = (float)state->num_frames / state->file_rate;
+	float pos_sec = pos / state->file_rate;
 	bool is_playing = state->playing;
 	char cmd[64];
 	strncpy(cmd, state->command_buffer, sizeof(cmd));
@@ -215,6 +215,7 @@ Module* create_module(const char* args, float sample_rate) {
 
 	Player* state = calloc(1, sizeof(Player));
 	state->sample_rate = sample_rate;
+	state->file_rate = (float)info.samplerate;
 	state->data = data;
 	state->num_frames = info.frames;
 	state->scrub_target = 0.0f;

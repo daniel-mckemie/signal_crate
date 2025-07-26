@@ -12,8 +12,6 @@ static void clamp_params(InputState* state) {
     if (state->amp > 1.0f) state->amp = 1.0f;
 }
 
-extern float* global_input_buffer;
-
 static void input_process(Module* m, float* in, unsigned long frames) {
     InputState* state = (InputState*)m->state;
     pthread_mutex_lock(&state->lock);
@@ -21,7 +19,7 @@ static void input_process(Module* m, float* in, unsigned long frames) {
     pthread_mutex_unlock(&state->lock);
 
     for (unsigned long i = 0; i < frames; i++) {
-        m->output_buffer[i] = (in != NULL) ? amp * in[i] : 0.0f;
+		m->output_buffer[i] = amp * in[i];
     }
 }
 

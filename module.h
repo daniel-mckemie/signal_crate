@@ -6,7 +6,8 @@
 #define MAX_CONTROL_INPUTS 64
 
 typedef struct Module {
-    const char* name;
+    const char* name; // Module name for aliases
+	const char* type; // Module type
     void (*process)(struct Module*, float* input, unsigned long frames);
 	void (*process_control)(struct Module*);
     void (*draw_ui)(struct Module*, int y, int x);

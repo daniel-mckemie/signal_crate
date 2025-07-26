@@ -8,6 +8,7 @@
 
 typedef struct {
 	float sample_rate;
+	float file_rate;
 	float* data;
 	unsigned long num_frames;
 

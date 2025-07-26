@@ -22,5 +22,6 @@ Module* load_module(const char* name, float sample_rate, const char* args) {
 
     Module* m = create(args, sample_rate);
     m->handle = handle;
+	m->type = strdup(name);  // store original type
     return m;
 }

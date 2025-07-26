@@ -213,9 +213,27 @@ vco(freq=lfo1, amp=lfo2) as out
 Control can be done with the keyboard. Each module has scrolling control and command mode. 
 - `-/=, _/=`, etc...are keys that can scroll the params. Each module has which keys control which param
 directly in the UI.
+- `tab` and the `arrow keys` highlight the active module, opening control via the keyboard. Scroll through the UI
+as needed to change params. No need to have the module active if using CV or OSC.
 - Command mode is entered by hitting `:` followed by a character, also indicated in the UI. For example,
 `:1` will change the `freq` of the VCO.
 - `:q` quits the environment
+
+You can also set the params via constructor arguments, which are indicated with `[ ]`, as well as use both a constructor and control assignment:
+
+`vco([freq=212, amp=0.1, wave=saw]) as out` will produce:
+```bash
+[VCO] Freq: 212.0 Hz | Amp: 0.10 | Wave: Saw | Range: Low
+Real-time keys: -/= (freq), _/+ (amp), w (wave), r (range)
+Command mode: :1 [freq], :2 [amp]
+```
+
+You can also combine them. The below will give you a VCO with the starting/center freq at 100, with lfo modulation input.
+
+```bash
+c_lfo as lfo1
+vco([freq=100], freq=lfo1) as out
+```
 
 The control parameters for the modules listed above are the exact labels to assign control. Again not all of these
 are assignable via CV, mostly for ease of architecture and lack of musical purpose to build it. They are all, however,

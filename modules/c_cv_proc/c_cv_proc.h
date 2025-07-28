@@ -14,8 +14,18 @@ typedef struct {
 	float display_k;
 	float display_m_amt;
 	float display_offset;
-
     float output;   // Final output value
+	float sample_rate;
+
+	CParamSmooth smooth_k;
+    CParamSmooth smooth_m;
+    CParamSmooth smooth_offset;
+	
+	// For command mode
+	bool entering_command;
+	char command_buffer[64];
+	int command_index;
+
     pthread_mutex_t lock;
 } CCVProc;
 

@@ -192,12 +192,25 @@ static void delay_destroy(Module* m) {
     destroy_base_module(m);
 }
 
-Module* create_module(float sample_rate) {
+Module* create_module(const char* args, float sample_rate) {
+	float delay_ms = 500.0f;
+	float mix = 0.5f;
+	float feedback = 0.3f;
+    if (args && strstr(args, "time=")) {
+        sscanf(strstr(args, "time="), "time=%f", &delay_ms);
+	}
+	if (args && strstr(args, "mix=")) {
+        sscanf(strstr(args, "mix="), "mix=%f", &mix);
+    }
+	if (args && strstr(args, "fb=")) {
+        sscanf(strstr(args, "fb="), "fb=%f", &feedback);
+    }
+
     Delay* state = calloc(1, sizeof(Delay));
     state->sample_rate = sample_rate;
-    state->delay_ms = 500.0f;
-    state->mix = 0.5f;
-    state->feedback = 0.3f;
+    state->delay_ms = delay_ms;
+    state->mix = mix;
+    state->feedback = feedback;
     state->buffer_size = (unsigned int)((MAX_DELAY_MS / 1000.0f) * sample_rate);
     state->buffer = calloc(state->buffer_size, sizeof(float));
 	state->last_delay_samples = (state->delay_ms / 1000.0f) * sample_rate;

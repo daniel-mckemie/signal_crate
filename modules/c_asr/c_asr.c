@@ -285,13 +285,27 @@ static void c_asr_destroy(Module* m) {
     destroy_base_module(m);
 }
 
-Module* create_module(float sample_rate) {
+Module* create_module(const char* args, float sample_rate) {
+	float attack_time = 1.0f;
+    float release_time = 1.0f;
+	float depth = 0.5f;
+
+	if (args && strstr(args, "att=")) {
+        sscanf(strstr(args, "att="), "att=%f", &attack_time);
+    }
+    if (args && strstr(args, "rel=")) {
+        sscanf(strstr(args, "rel="), "rel=%f", &release_time);
+	}
+	if (args && strstr(args, "depth=")) {
+        sscanf(strstr(args, "depth="), "depth=%f", &depth);
+    }
+
     CASR* s = calloc(1, sizeof(CASR));
-    s->attack_time = 1.0f;
-    s->release_time = 1.0f;
+    s->attack_time = attack_time;
+    s->release_time = release_time;
     s->sustain_level = 1.0f;
     s->envelope_out = 0.0f;
-	s->depth = 0.5f;
+	s->depth = depth;
     s->sample_rate = sample_rate;
     s->short_mode = true;
     s->threshold_trigger = 0.5f;

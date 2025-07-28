@@ -8,7 +8,7 @@
 typedef struct {
     float attack_ms;
     float decay_ms;
-	float input_gain;
+	float sens;
     float env;
 	float depth;
 	float smoothed_env;

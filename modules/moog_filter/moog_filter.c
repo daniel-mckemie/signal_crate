@@ -85,9 +85,9 @@ static void moog_filter_draw_ui(Module *m, int y, int x) {
 	filt_type = state->filt_type;
     pthread_mutex_unlock(&state->lock);
 
-    mvprintw(y, x, "[Moog Filter:%s] Cutoff: %.2f | Res: %.2f | Type: %s", m->name, co, res, filt_names[filt_type]);
-    mvprintw(y+1, x, "Real-time keys: -/= (cutoff), _/+ (resonance)");
-    mvprintw(y+2, x, "Command mode: :1 [cutoff], :2 [resonance] f: [filter type]");
+    mvprintw(y, x, "[Moog Filter:%s] Cutoff: %.2f | Res: %.2f | type: %s", m->name, co, res, filt_names[filt_type]);
+    mvprintw(y+1, x, "Real-time keys: -/= (cutoff), _/+ (res)");
+    mvprintw(y+2, x, "Command mode: :1 [cutoff], :2 [res] f: [type]");
 }
 
 static void clamp_params(MoogFilter *state) {
@@ -179,11 +179,33 @@ static void moog_filter_destroy(Module* m) {
     destroy_base_module(m);
 }
 
-Module* create_module(float sample_rate) {
+Module* create_module(const char* args, float sample_rate) {
+	float cutoff = 440.0f;
+	float resonance = 1.0f;
+	FilterType filt_type = LOWPASS;
+
+	if (args && strstr(args, "cutoff=")) {
+        sscanf(strstr(args, "cutoff="), "cutoff=%f", &cutoff);
+    }
+    if (args && strstr(args, "res=")) {
+        sscanf(strstr(args, "res="), "res=%f", &resonance);
+	}
+	if (args && strstr(args, "type=")) {
+        char filt_str[32] = {0};
+        sscanf(strstr(args, "type="), "type=%31s", filt_str);
+
+        if (strcmp(filt_str, "LP") == 0) filt_type = LOWPASS;
+        else if (strcmp(filt_str, "HP") == 0) filt_type = HIGHPASS;
+        else if (strcmp(filt_str, "BP") == 0) filt_type = BANDPASS;
+        else if (strcmp(filt_str, "notch") == 0) filt_type = NOTCH;
+        else if (strcmp(filt_str, "resonant") == 0) filt_type = RESONANT;
+        else fprintf(stderr, "[moog_filter] Unknown type: '%s'\n", filt_str);
+    }
+
 	MoogFilter *state = calloc(1, sizeof(MoogFilter));
-	state->cutoff = 440.0f;
-	state->resonance = 0.5f;
-	state->filt_type = LOWPASS;
+	state->cutoff = cutoff;
+	state->resonance = resonance;
+	state->filt_type = filt_type;
 	state->sample_rate = sample_rate;
 	pthread_mutex_init(&state->lock, NULL);
 	init_smoother(&state->smooth_co, 0.75f);

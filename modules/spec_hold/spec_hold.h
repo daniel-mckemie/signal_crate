@@ -41,6 +41,4 @@ typedef struct {
 	int command_index;
 } SpecHold;
 
-Module* create_module(float sample_rate);
-
 #endif

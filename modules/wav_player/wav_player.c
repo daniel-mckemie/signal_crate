@@ -212,6 +212,12 @@ Module* create_module(const char* args, float sample_rate) {
 	free(raw);
 
 	sf_close(f);
+	
+	float playback_speed = 1.0f;
+
+	if (args && strstr(args, "speed=")) {
+        sscanf(strstr(args, "speed="), "speed=%f", &playback_speed);
+    }
 
 	Player* state = calloc(1, sizeof(Player));
 	state->sample_rate = sample_rate;
@@ -221,7 +227,7 @@ Module* create_module(const char* args, float sample_rate) {
 	state->scrub_target = 0.0f;
 	state->external_play_pos = 0.0f;
 	state->play_pos = 0.0f;
-	state->playback_speed = 1.0f;
+	state->playback_speed = playback_speed;
 	state->playing = true;
 	pthread_mutex_init(&state->lock, NULL);
 	init_smoother(&state->smooth_speed, 0.75f);

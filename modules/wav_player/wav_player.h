@@ -32,7 +32,5 @@ typedef struct {
 	int command_index;
 } Player;
 
-Module* create_module(const char* args, float sample_rate);
-
 #endif
 

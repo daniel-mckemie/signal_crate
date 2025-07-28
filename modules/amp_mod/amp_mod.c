@@ -171,11 +171,25 @@ static void ampmod_destroy(Module* m) {
     destroy_base_module(m);
 }
 
-Module* create_module(float sample_rate) {
+Module* create_module(const char* args, float sample_rate) {
+	float freq = 440.0f;
+	float car_amp = 1.0f;
+	float depth = 1.0f;
+
+	if (args && strstr(args, "freq=")) {
+        sscanf(strstr(args, "freq="), "freq=%f", &freq);
+    }
+    if (args && strstr(args, "car_amp=")) {
+        sscanf(strstr(args, "car_amp="), "car_amp=%f", &car_amp);
+	}
+	if (args && strstr(args, "depth=")) {
+        sscanf(strstr(args, "depth="), "depth=%f", &depth);
+    }
+
     AmpMod* state = calloc(1, sizeof(AmpMod));
-    state->freq = 440.0f;
-    state->car_amp = 1.0f;
-    state->depth = 1.0f;
+    state->freq = freq;
+    state->car_amp = car_amp;
+    state->depth = depth;
     state->sample_rate = sample_rate;
     pthread_mutex_init(&state->lock, NULL);
 	init_sine_table();

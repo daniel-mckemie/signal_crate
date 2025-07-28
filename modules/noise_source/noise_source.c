@@ -64,7 +64,7 @@ static void noise_source_draw_ui(Module *m, int y, int x) {
 
 	mvprintw(y, x, "[Noise Source:%s] Amp: %.2f Hz | Type: %s", m->name, amp, noise_names[noise_type]);
 	mvprintw(y+1, x,   "Real-time keys: -/= (amp), n: (type)");
-	mvprintw(y+2, x,   "Command mode: :1 [amp], :n [noise type]");
+	mvprintw(y+2, x,   "Command mode: :1 [amp], :n [type]");
 }
 
 static void clamp_params(NoiseSource *state) {
@@ -143,10 +143,26 @@ static void noise_source_destroy(Module* m) {
     destroy_base_module(m);
 }
 
-Module* create_module(float sample_rate) {
+Module* create_module(const char* args, float sample_rate) {
+	float amplitude = 0.5f;
+	NoiseType noise_type = WHITE_NOISE;
+	if (args && strstr(args, "amp=")) {
+        sscanf(strstr(args, "amp="), "amp=%f", &amplitude);
+	}
+	if (args && strstr(args, "type=")) {
+        char noise_str[32] = {0};
+        sscanf(strstr(args, "type="), "type=%31s", noise_str);
+
+        if (strcmp(noise_str, "white") == 0) noise_type = WHITE_NOISE;
+        else if (strcmp(noise_str, "pink") == 0) noise_type = PINK_NOISE;
+        else if (strcmp(noise_str, "brown") == 0) noise_type = BROWN_NOISE;
+        else fprintf(stderr, "[noise_source] Unknown type: '%s'\n", noise_str);
+    }
+
+
 	NoiseSource *state = calloc(1, sizeof(NoiseSource));
-	state->amplitude = 0.5f;
-	state->noise_type = WHITE_NOISE;
+	state->amplitude = amplitude;
+	state->noise_type = noise_type;
 	state->sample_rate = sample_rate;
 	pink_filter_init(&state->pink, sample_rate);
 	brown_noise_init(&state->brown);

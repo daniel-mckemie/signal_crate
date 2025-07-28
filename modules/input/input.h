@@ -5,10 +5,10 @@
 #include "util.h"
 
 typedef struct {
-	float amp;
+	float gain;
 	float sample_rate;
 
-	CParamSmooth smooth_amp;
+	CParamSmooth smooth_gain;
 	
 	pthread_mutex_t lock;
 

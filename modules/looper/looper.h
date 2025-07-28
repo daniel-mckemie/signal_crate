@@ -39,7 +39,5 @@ typedef struct {
 	int command_index;
 } Looper;
 
-Module* create_module(float sample_rate);
-
 #endif
 

@@ -145,10 +145,19 @@ static void fm_mod_destroy(Module* m) {
     destroy_base_module(m);
 }
 
-Module* create_module(float sample_rate) {
+Module* create_module(const char* args, float sample_rate) {
+	float mod_freq = 440.0f;
+	float index = 1.0f;
+    if (args && strstr(args, "mod_freq=")) {
+        sscanf(strstr(args, "mod_freq="), "mod_freq=%f", &mod_freq);
+	}
+	if (args && strstr(args, "idx=")) {
+        sscanf(strstr(args, "idx="), "idx=%f", &index);
+    }
+
 	FMMod *state = calloc(1, sizeof(FMMod));
-	state->mod_freq = 440.0f;
-	state->index = 1.0f;
+	state->mod_freq = mod_freq;
+	state->index = index;
 	state->sample_rate = sample_rate;
 	pthread_mutex_init(&state->lock, NULL);
 	init_smoother(&state->smooth_freq, 0.75f);	

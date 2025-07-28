@@ -237,13 +237,23 @@ static void looper_destroy(Module* m) {
     destroy_base_module(m);
 }
 
-Module* create_module(float sample_rate) {
+Module* create_module(const char* args, float sample_rate) {
+	float loop_length = 10.0f;
+	float playback_speed = 1.0f;
+
+    if (args && strstr(args, "length=")) {
+        sscanf(strstr(args, "length="), "length=%f", &loop_length);
+	}
+	if (args && strstr(args, "speed=")) {
+        sscanf(strstr(args, "speed="), "speed=%f", &playback_speed);
+    }
+
     Looper* state = calloc(1, sizeof(Looper));
     state->sample_rate = sample_rate;
-	state->buffer_len = (unsigned long)(sample_rate * 10.0f); // 10 second buffer
+	state->buffer_len = (unsigned long)(sample_rate * loop_length); // 10 second buffer
 	state->buffer = calloc(state->buffer_len, sizeof(float));														  
     state->loop_start = 0;
-    state->loop_end = (unsigned long)(sample_rate * 10.0f); 
+    state->loop_end = (unsigned long)(sample_rate * loop_length); 
     state->playback_speed = 1.0f;
 	state->write_pos = 0;
     pthread_mutex_init(&state->lock, NULL);

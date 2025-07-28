@@ -8,35 +8,35 @@
 #include "input.h"
 
 static void clamp_params(InputState* state) {
-    if (state->amp < 0.0f) state->amp = 0.0f;
-    if (state->amp > 1.0f) state->amp = 1.0f;
+    if (state->gain < 0.0f) state->gain = 0.0f;
+    if (state->gain > 1.0f) state->gain = 1.0f;
 }
 
 static void input_process(Module* m, float* in, unsigned long frames) {
     InputState* state = (InputState*)m->state;
     pthread_mutex_lock(&state->lock);
-    float amp = process_smoother(&state->smooth_amp, state->amp);
+    float gain = process_smoother(&state->smooth_gain, state->gain);
     pthread_mutex_unlock(&state->lock);
 
     for (unsigned long i = 0; i < frames; i++) {
-		m->output_buffer[i] = amp * in[i];
+		m->output_buffer[i] = gain * in[i];
     }
 }
 
 static void input_draw_ui(Module* m, int y, int x) {
     InputState* state = (InputState*)m->state;
-    float amp;
+    float gain;
     char cmd[128] = "";
 
     pthread_mutex_lock(&state->lock);
-    amp = state->amp;
+    gain = state->gain;
     if (state->entering_command)
         snprintf(cmd, sizeof(cmd), ":%s", state->command_buffer);
     pthread_mutex_unlock(&state->lock);
 
-    mvprintw(y,   x, "[Input:%s] Amp: %.2f", m->name, amp);
-    mvprintw(y+1, x, "Real-time keys: _/+ (Amp)");
-    mvprintw(y+2, x, "Command mode: :1 [Amp]");
+    mvprintw(y,   x, "[Input:%s] Gain: %.2f", m->name, gain);
+    mvprintw(y+1, x, "Real-time keys: _/+ (gain)");
+    mvprintw(y+2, x, "Command mode: :1 [gain]");
 }
 
 static void input_handle_input(Module* m, int key) {
@@ -46,8 +46,8 @@ static void input_handle_input(Module* m, int key) {
     pthread_mutex_lock(&state->lock);
     if (!state->entering_command) {
         switch (key) {
-            case '+': state->amp += 0.05f; handled = 1; break;
-            case '_': state->amp -= 0.05f; handled = 1; break;
+            case '+': state->gain += 0.05f; handled = 1; break;
+            case '_': state->gain -= 0.05f; handled = 1; break;
             case ':':
                 state->entering_command = true;
                 memset(state->command_buffer, 0, sizeof(state->command_buffer));
@@ -61,7 +61,7 @@ static void input_handle_input(Module* m, int key) {
             char type;
             float val;
             if (sscanf(state->command_buffer, "%c %f", &type, &val) == 2) {
-                if (type == '1') state->amp = val;
+                if (type == '1') state->gain = val;
             }
             handled = 1;
         } else if (key == 27) {  // ESC
@@ -87,8 +87,8 @@ static void input_set_osc_param(Module* m, const char* param, float value) {
     InputState* state = (InputState*)m->state;
     pthread_mutex_lock(&state->lock);
 
-    if (strcmp(param, "amp") == 0) {
-        state->amp = fminf(fmaxf(value, 0.0f), 1.0f);
+    if (strcmp(param, "gain") == 0) {
+        state->gain = fminf(fmaxf(value, 0.0f), 1.0f);
     } else {
         fprintf(stderr, "[input] Unknown OSC param: %s\n", param);
     }
@@ -102,11 +102,16 @@ static void input_destroy(Module* m) {
     destroy_base_module(m);
 }
 
-Module* create_module(float sample_rate) {
+Module* create_module(const char* args, float sample_rate) {
+	float gain = 1.0f;
+	if (args && strstr(args, "gain=")) {
+        sscanf(strstr(args, "gain="), "gain=%f", &gain);
+	}
+
     InputState* state = calloc(1, sizeof(InputState));
-    state->amp = 1.0f;
+    state->gain = gain;
     state->sample_rate = sample_rate;
-    init_smoother(&state->smooth_amp, 0.75f);
+    init_smoother(&state->smooth_gain, 0.75f);
     pthread_mutex_init(&state->lock, NULL);
     clamp_params(state);
 

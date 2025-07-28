@@ -57,10 +57,10 @@ Single input, sine wave as internal modulator.
 ---
 
 ### **Looper**
-10-second mono looper.  
-- `speed`
+10-second (default) looper
+- `speed` = passable as constructor
 - `start`
-- `end`  
+- `end` = passable as constructor (length)
 - `record`  
 - `play`  
 - `overdub`  
@@ -72,7 +72,7 @@ Single input, sine wave as internal modulator.
 Multi-mode resonant filter (LP/HP/BP/Notch).  
 - `cutoff`  
 - `res`  
-- `type`
+- `filt_type` (LP, HP, BP, notch, resonant)
 
 ---
 
@@ -159,7 +159,8 @@ Low-frequency waveform modulator.
 
 ### **CV Processor**
 Flexible control signal processor. Modeled after Buchla 257
-- `in` (va)
+`V_a * K + V_b * (1 - M) + M * V_c + V_offset = V_out`
+- `in` (va) = to pass in control signal, must call `c_cv_proc(in=alias)`
 - `vb`
 - `vc`
 
@@ -228,11 +229,18 @@ Real-time keys: -/= (freq), _/+ (amp), w (wave), r (range)
 Command mode: :1 [freq], :2 [amp]
 ```
 
-You can also combine them. The below will give you a VCO with the starting/center freq at 100, with lfo modulation input.
+You can also combine them. The below will give you a VCO with the starting/center freq at 100, with lfo modulation input. Note that
+the constructor MUST precede the control input. Otherwise the constructor will override control assignment.
 
 ```bash
 c_lfo as lfo1
 vco([freq=100], freq=lfo1) as out
+```
+Another example:
+```bash
+c_lfo as a
+c_cv_proc([k=0.5, m=0.4, offset=0.7], in=a) as u
+vco([freq=220], freq=u) as out
 ```
 
 The control parameters for the modules listed above are the exact labels to assign control. Again not all of these

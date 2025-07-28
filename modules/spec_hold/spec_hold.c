@@ -231,11 +231,20 @@ static void spec_hold_destroy(Module* m) {
 }
 
 
-Module* create_module(float sample_rate) {
+Module* create_module(const char* args, float sample_rate) {
+	float tilt = 0.0f;
+	float pivot_hz = 1000.0f;
+	if (args && strstr(args, "tilt=")) {
+        sscanf(strstr(args, "tilt="), "tilt=%f", &tilt);
+    }
+    if (args && strstr(args, "pivot=")) {
+        sscanf(strstr(args, "pivot="), "pivot=%f", &pivot_hz);
+	}
+
     SpecHold* state = calloc(1, sizeof(SpecHold));
     state->sample_rate = sample_rate;
-    state->tilt = 0.0f;
-	state->pivot_hz = 1000.0f;
+    state->tilt = tilt;
+	state->pivot_hz = pivot_hz;
     pthread_mutex_init(&state->lock, NULL);
 
     init_smoother(&state->smooth_tilt, 0.75f);

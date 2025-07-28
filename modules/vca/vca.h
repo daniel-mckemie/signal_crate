@@ -16,7 +16,7 @@ typedef struct {
     int command_index;
 
     pthread_mutex_t lock;
-} OutputState;
+} VCAState;
 
 #endif
 

@@ -183,14 +183,27 @@ static void c_lfo_destroy(Module* m) {
     destroy_base_module(m);
 }
 
-Module* create_module(float sample_rate) {
+Module* create_module(const char* args, float sample_rate) {
+	float frequency = 1.0f;
+	float amplitude = 1.0f;
+	float depth = 0.5f;
+    if (args && strstr(args, "freq=")) {
+        sscanf(strstr(args, "freq="), "freq=%f", &frequency);
+	}
+	if (args && strstr(args, "amp=")) {
+        sscanf(strstr(args, "amp="), "amp=%f", &amplitude);
+    }
+	if (args && strstr(args, "depth=")) {
+        sscanf(strstr(args, "depth="), "depth=%f", &depth);
+    }
+	
     CLFO* s = calloc(1, sizeof(CLFO));
-    s->frequency = 1.0f;
-    s->amplitude = 1.0f;
+    s->frequency = frequency;
+    s->amplitude = amplitude;
     s->waveform = LFO_SINE;
     s->phase = 0.0f;
     s->tri_state = 0.0f;
-	s->depth = 0.5f;
+	s->depth = depth;
     s->sample_rate = sample_rate;
 
     pthread_mutex_init(&s->lock, NULL);

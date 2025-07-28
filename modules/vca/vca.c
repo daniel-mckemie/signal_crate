@@ -8,8 +8,8 @@
 #include "util.h"
 #include "vca.h"
 
-static void output_process(Module* m, float* in, unsigned long frames) {
-    OutputState* state = (OutputState*)m->state;
+static void vca_process(Module* m, float* in, unsigned long frames) {
+    VCAState* state = (VCAState*)m->state;
     float* out = m->output_buffer;
 	float gain;
 
@@ -40,8 +40,8 @@ static void output_process(Module* m, float* in, unsigned long frames) {
     }
 }
 
-static void output_draw_ui(Module* m, int y, int x) {
-    OutputState* state = (OutputState*)m->state;
+static void vca_draw_ui(Module* m, int y, int x) {
+    VCAState* state = (VCAState*)m->state;
 
     pthread_mutex_lock(&state->lock);
     float gain = state->display_gain;
@@ -52,8 +52,8 @@ static void output_draw_ui(Module* m, int y, int x) {
     mvprintw(y+2, x, "Command mode: :1 [gain]");
 }
 
-static void output_handle_input(Module* m, int key) {
-    OutputState* state = (OutputState*)m->state;
+static void vca_handle_input(Module* m, int key) {
+    VCAState* state = (VCAState*)m->state;
     int handled = 0;
 
     pthread_mutex_lock(&state->lock);
@@ -102,40 +102,45 @@ static void output_handle_input(Module* m, int key) {
     pthread_mutex_unlock(&state->lock);
 }
 
-static void output_set_osc_param(Module* m, const char* param, float value) {
-    OutputState* state = (OutputState*)m->state;
+static void vca_set_osc_param(Module* m, const char* param, float value) {
+    VCAState* state = (VCAState*)m->state;
     pthread_mutex_lock(&state->lock);
 
     if (strcmp(param, "gain") == 0) {
         state->gain = fmaxf(value, 0.0f);
     } else {
-        fprintf(stderr, "[output] Unknown OSC param: %s\n", param);
+        fprintf(stderr, "[vca] Unknown OSC param: %s\n", param);
     }
 
     pthread_mutex_unlock(&state->lock);
 }
 
-static void output_destroy(Module* m) {
-    OutputState* state = (OutputState*)m->state;
+static void vca_destroy(Module* m) {
+    VCAState* state = (VCAState*)m->state;
 	if (state) pthread_mutex_destroy(&state->lock);
     destroy_base_module(m);
 }
 
-Module* create_module(float sample_rate) {
-    OutputState* state = calloc(1, sizeof(OutputState));
-    state->gain = 1.0f;
+Module* create_module(const char* args, float sample_rate) {
+	float gain = 1.0f;
+	if (args && strstr(args, "gain=")) {
+        sscanf(strstr(args, "gain="), "gain=%f", &gain);
+    }
+
+    VCAState* state = calloc(1, sizeof(VCAState));
+    state->gain = gain;
     pthread_mutex_init(&state->lock, NULL);
 	init_smoother(&state->smooth_gain, 0.75);
 
     Module* m = calloc(1, sizeof(Module));
-    m->name = "output";  // IMPORTANT: engine uses "out" for final audio
+    m->name = "vca";  // IMPORTANT: engine uses "out" for final audio
     m->state = state;
 	m->output_buffer = calloc(FRAMES_PER_BUFFER, sizeof(float));  // mono
-    m->process = output_process;
-    m->draw_ui = output_draw_ui;
-    m->handle_input = output_handle_input;
-    m->set_param = output_set_osc_param;
-    m->destroy = output_destroy;
+    m->process = vca_process;
+    m->draw_ui = vca_draw_ui;
+    m->handle_input = vca_handle_input;
+    m->set_param = vca_set_osc_param;
+    m->destroy = vca_destroy;
     return m;
 }
 

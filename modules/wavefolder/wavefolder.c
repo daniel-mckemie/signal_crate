@@ -169,11 +169,25 @@ static void wavefolder_destroy(Module* m) {
     destroy_base_module(m);
 }
 
-Module* create_module(float sample_rate) {
+Module* create_module(const char* args, float sample_rate) {
+	float fold_amt = 0.5f;
+	float blend = 0.01f;
+	float drive = 1.0f;
+
+	if (args && strstr(args, "fold=")) {
+        sscanf(strstr(args, "fold="), "fold=%f", &fold_amt);
+    }
+    if (args && strstr(args, "blend=")) {
+        sscanf(strstr(args, "blend="), "blend=%f", &blend);
+	}
+	if (args && strstr(args, "drive=")) {
+        sscanf(strstr(args, "drive="), "drive=%f", &drive);
+    }
+
     Wavefolder *state = calloc(1, sizeof(Wavefolder));
-    state->fold_amt = 0.5f;
-    state->blend = 0.01f;
-    state->drive = 1.0f;
+    state->fold_amt = fold_amt;
+    state->blend = blend;
+    state->drive = drive;
     state->sample_rate = sample_rate;
     pthread_mutex_init(&state->lock, NULL);
     init_smoother(&state->smooth_fold, 0.75f);

@@ -35,7 +35,5 @@ typedef struct {
     int command_index;
 } Delay;
 
-Module* create_module(float sample_rate);
-
 #endif
 

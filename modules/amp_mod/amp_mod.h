@@ -28,6 +28,4 @@ typedef struct {
 	int command_index;
 } AmpMod;
 
-Module* create_module(float sample_rate);
-
 #endif

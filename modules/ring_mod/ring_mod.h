@@ -28,6 +28,4 @@ typedef struct {
 	int command_index;
 } RingMod;
 
-Module* create_module(float sample_rate);
-
 #endif

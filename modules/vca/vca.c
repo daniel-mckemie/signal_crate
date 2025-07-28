@@ -40,6 +40,10 @@ static void vca_process(Module* m, float* in, unsigned long frames) {
     }
 }
 
+static void clamp_params(VCAState* state) {
+    clampf(&state->gain, 0.0f, 1.0f);
+}
+
 static void vca_draw_ui(Module* m, int y, int x) {
     VCAState* state = (VCAState*)m->state;
 
@@ -93,11 +97,8 @@ static void vca_handle_input(Module* m, int key) {
     }
 
     // Clamp
-    if (handled) {
-        if (state->gain < 0.0f) state->gain = 0.0f;
-        if (state->gain > 1.0f) state->gain = 1.0f;
-		state->display_gain = state->gain;
-    }
+    if (handled) clamp_params(state);
+	state->display_gain = state->gain;
 
     pthread_mutex_unlock(&state->lock);
 }

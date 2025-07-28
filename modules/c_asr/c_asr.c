@@ -8,7 +8,6 @@
 #include "module.h"
 #include "util.h"
 
-
 static void c_asr_process_control(Module* m) {
     CASR* s = (CASR*)m->state;
 
@@ -166,6 +165,21 @@ static void c_asr_process_control(Module* m) {
 
 }
 
+static void clamp_params(CASR* s) {
+    if (s->short_mode) {
+        clampf(&s->attack_time, 0.01f, 10.0f);
+        clampf(&s->release_time, 0.01f, 10.0f);
+    } else {
+        clampf(&s->attack_time, 0.01f, INFINITY);   // no upper bound
+        clampf(&s->release_time, 0.01f, INFINITY);
+    }
+
+    clampf(&s->sustain_level, 0.01f, 1.0f);
+    clampf(&s->depth, 0.0f, 1.0f);
+    clampf(&s->threshold_gate, 0.0f, 1.0f);
+}
+
+
 static void c_asr_draw_ui(Module* m, int y, int x) {
     CASR* s = (CASR*)m->state;
     pthread_mutex_lock(&s->lock);
@@ -173,29 +187,6 @@ static void c_asr_draw_ui(Module* m, int y, int x) {
     mvprintw(y+1, x, "Keys: t=trig, c=cycle, att -/=, rel _/+, gate [/], d/D [depth]");
     mvprintw(y+2, x, "Command: :1 [att], :2 [rel], :3 [g_thresh], :d[depth], :m [s/l mode]");
     pthread_mutex_unlock(&s->lock);
-}
-
-static void clamp_params(CASR* s) {
-    if (s->short_mode) {
-        if (s->attack_time < 0.01f) s->attack_time = 0.01f;
-        if (s->attack_time > 10.0f)  s->attack_time = 10.0f;
-
-        if (s->release_time < 0.01f) s->release_time = 0.01f;
-        if (s->release_time > 10.0f)  s->release_time = 10.0f;
-    } else {
-		// No upper bounds
-        if (s->attack_time < 0.01f) s->attack_time = 0.01f;
-        if (s->release_time < 0.01f) s->release_time = 0.01f;
-    }
-
-    if (s->sustain_level < 0.01f) s->sustain_level = 0.01f;
-    if (s->sustain_level > 1.0f)  s->sustain_level = 1.0f;
-
-    if (s->depth < 0.0f)  s->depth = 0.0f;
-    if (s->depth > 1.0f)  s->depth = 1.0f;
-
-    if (s->threshold_gate < 0.0f)  s->threshold_gate = 0.0f;
-    if (s->threshold_gate > 1.0f)  s->threshold_gate = 1.0f;
 }
 
 static void c_asr_handle_input(Module* m, int key) {

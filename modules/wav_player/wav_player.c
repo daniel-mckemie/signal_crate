@@ -74,14 +74,10 @@ static void player_process(Module* m, float* in, unsigned long frames) {
 }
 
 static void clamp_params(Player* state) {
-	if (state->scrub_target < 0.0f) state->scrub_target = 0.0f;
-	if (state->scrub_target > state->num_frames - 1) state->scrub_target = state->num_frames - 1;
-	if (state->play_pos < 0.0f) state->play_pos = 0.0f;
-	if (state->play_pos > state->num_frames - 1) state->play_pos = state->num_frames - 1;
-	if (state->playback_speed < 0.1f) state->playback_speed = 0.1f;
-	if (state->playback_speed > 4.0f) state->playback_speed = 4.0f;
-	if (state->amp < 0.0f) state->amp = 0.00f;
-	if (state->amp > 1.0f) state->amp = 1.0f;
+    clampf(&state->scrub_target, 0.0f, (float)(state->num_frames - 1));
+    clampf(&state->play_pos, 0.0f, (float)(state->num_frames - 1));
+    clampf(&state->playback_speed, 0.1f, 4.0f);
+    clampf(&state->amp, 0.0f, 1.0f);
 }
 
 static void player_draw_ui(Module* m, int y, int x) {

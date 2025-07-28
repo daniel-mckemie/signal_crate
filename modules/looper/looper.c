@@ -94,13 +94,16 @@ static void looper_process(Module* m, float* in, unsigned long frames) {
 }
 
 static void clamp_params(Looper *state) {
-	unsigned long max_samples = state->buffer_len;
-    if (state->loop_start > max_samples - 1) state->loop_start = max_samples - 1;
-    if (state->loop_end > max_samples) state->loop_end = max_samples;
-    if (state->loop_end < state->loop_start) state->loop_end = state->loop_start + 1; // force valid loop
-    if (state->playback_speed < 0.1f) state->playback_speed = 0.1f;
-    if (state->playback_speed > 4.0f) state->playback_speed = 4.0f;
+    unsigned long max_samples = state->buffer_len;
+    if (state->loop_start > max_samples - 1)
+        state->loop_start = max_samples - 1;
+    if (state->loop_end > max_samples)
+        state->loop_end = max_samples;
+    if (state->loop_end < state->loop_start)
+        state->loop_end = state->loop_start + 1;
+    clampf(&state->playback_speed, 0.1f, 4.0f);
 }
+
 
 static void looper_draw_ui(Module* m, int y, int x) {
     Looper* state = (Looper*)m->state;

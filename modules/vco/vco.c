@@ -84,6 +84,21 @@ static void vco_process(Module *m, float* in, unsigned long frames) {
     }
 }
 
+static void clamp_params(VCO *state) {
+    float min_freq = 20.0f;
+    float max_freq;
+
+    switch (state->range_mode) {
+        case RANGE_LOW:   max_freq = 2000.0f; break;
+        case RANGE_MID:   max_freq = 8000.0f; break;
+        case RANGE_FULL:  max_freq = 20000.0f; break;
+		case RANGE_SUPER: max_freq = state->sample_rate * 0.45; break;
+    }
+	clampf(&state->frequency, min_freq, max_freq);
+    clampf(&state->amplitude, 0.0f, 1.0f);
+}
+
+
 static void vco_draw_ui(Module *m, int y, int x) {
     VCO *state = (VCO*)m->state;
     const char *wave_names[] = {"Sine", "Saw", "Square", "Triangle"};
@@ -103,24 +118,6 @@ static void vco_draw_ui(Module *m, int y, int x) {
     mvprintw(y, x,   "[VCO:%s] Freq: %.1f Hz | Amp: %.2f | Wave: %s | Range: %s", m->name, freq, amp, wave_names[waveform], range_names[range]);
     mvprintw(y+1, x, "Real-time keys: -/= (freq), _/+ (amp), w (wave), r (range)");
     mvprintw(y+2, x, "Command mode: :1 [freq], :2 [amp]");
-}
-
-static void clamp_params(VCO *state) {
-    float min_freq = 20.0f;
-    float max_freq;
-
-    switch (state->range_mode) {
-        case RANGE_LOW:   max_freq = 2000.0f; break;
-        case RANGE_MID:   max_freq = 8000.0f; break;
-        case RANGE_FULL:  max_freq = 20000.0f; break;
-		case RANGE_SUPER: max_freq = state->sample_rate * 0.45; break;
-    }
-
-    if (state->frequency < min_freq) state->frequency = min_freq;
-    if (state->frequency > max_freq) state->frequency = max_freq;
-
-    if (state->amplitude < 0.0f) state->amplitude = 0.0f;
-    if (state->amplitude > 1.0f) state->amplitude = 1.0f;
 }
 
 static void vco_handle_input(Module *m, int key) {

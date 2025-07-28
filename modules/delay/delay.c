@@ -42,14 +42,6 @@ static void delay_process(Module* m, float* in, unsigned long frames) {
         }
     }
 
-    // Clamp to safe values
-    if (mix < 0.0f) mix = 0.0f;
-    if (mix > 1.0f) mix = 1.0f;
-    if (fb < 0.0f) fb = 0.0f;
-    if (fb > 0.99f) fb = 0.99f;
-    if (delay_ms < 1.0f) delay_ms = 1.0f;
-    if (delay_ms > 2000.0f) delay_ms = 2000.0f;
-
     // For display
     state->display_mix = mix;
     state->display_feedback = fb;
@@ -93,12 +85,9 @@ static void delay_process(Module* m, float* in, unsigned long frames) {
 }
 
 static void clamp_params(Delay* state) {
-    if (state->mix < 0.0f) state->mix = 0.0f;
-    if (state->mix > 1.0f) state->mix = 1.0f;
-    if (state->feedback < 0.0f) state->feedback = 0.0f;
-    if (state->feedback > 0.99f) state->feedback = 0.99f;
-    if (state->delay_ms < 1.0f) state->delay_ms = 1.0f;
-    if (state->delay_ms > MAX_DELAY_MS) state->delay_ms = MAX_DELAY_MS;
+    clampf(&state->mix, 0.0f, 1.0f);
+    clampf(&state->feedback, 0.0f, 0.99f);
+    clampf(&state->delay_ms, 1.0f, MAX_DELAY_MS);
 }
 
 static void delay_draw_ui(Module* m, int y, int x) {

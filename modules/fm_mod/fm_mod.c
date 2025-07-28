@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#include <float.h>
 #include <pthread.h>
 #include <ncurses.h>
 
@@ -50,6 +51,11 @@ static void fm_mod_process(Module *m, float* in, unsigned long frames) {
     }
 }
 
+static void clamp_params(FMMod *state) {
+	clampf(&state->index, 0.01f, FLT_MAX);
+	clampf(&state->mod_freq, 0.01f, state->sample_rate * 0.45f);
+}
+
 static void fm_mod_draw_ui(Module *m, int y, int x) {
     FMMod *state = (FMMod*)m->state;
     float freq, idx;
@@ -62,13 +68,6 @@ static void fm_mod_draw_ui(Module *m, int y, int x) {
     mvprintw(y, x, "[FMMod:%s] Freq %.2f Hz | Index %.2f", m->name, freq, idx);
     mvprintw(y+1, x, "Real-time keys: -/= (mod freq), _/+ (idx)");
     mvprintw(y+2, x, "Command mode: :1 [mod freq], :2 [idx]"); 
-}
-
-static void clamp_params(FMMod *state) {
-	// Set boundaries for params
-    if (state->index < 0.01f) state->index = 0.01f;
-	if (state->mod_freq < 0.01f) state->mod_freq = 0.01f;
-	if (state->mod_freq > state->sample_rate * 0.45f) state->mod_freq = state->sample_rate * 0.45f;
 }
 
 static void fm_mod_handle_input(Module *m, int key) {

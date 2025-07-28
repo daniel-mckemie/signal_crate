@@ -66,6 +66,12 @@ static void wavefolder_process(Module *m, float* in, unsigned long frames) {
     }
 }
 
+static void clamp_params(Wavefolder *state) {
+    clampf(&state->fold_amt, 0.01f, 5.0f);
+    clampf(&state->blend,    0.01f, 1.0f);
+    clampf(&state->drive,    0.01f, 10.0f);
+}
+
 static void wavefolder_draw_ui(Module *m, int y, int x) {
     Wavefolder *state = (Wavefolder*)m->state;
 
@@ -80,17 +86,6 @@ static void wavefolder_draw_ui(Module *m, int y, int x) {
     mvprintw(y, x, "[Wavefolder:%s] fold: %.2f | Blend: %.2f | Drive: %.2f", m->name, fold_amt, blend, drive);
     mvprintw(y+1, x, "Real-time keys: -/= (fold), _/+ (blend), [/] (drive)");
     mvprintw(y+2, x, "Command mode: :1 [fold], :2 [blend], :3 [drive]");
-}
-
-static void clamp_params(Wavefolder *state) {
-    if (state->fold_amt < 0.01f) state->fold_amt = 0.01f;
-    if (state->fold_amt > 5.0f)  state->fold_amt = 5.0f;
-
-    if (state->blend < 0.01f) state->blend = 0.01f;
-    if (state->blend > 1.0f)  state->blend = 1.0f;
-
-    if (state->drive < 0.01f) state->drive = 0.01f;
-    if (state->drive > 10.0f) state->drive = 10.0f;
 }
 
 static void wavefolder_handle_input(Module *m, int key) {

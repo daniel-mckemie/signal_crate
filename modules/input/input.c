@@ -7,11 +7,6 @@
 #include "util.h"
 #include "input.h"
 
-static void clamp_params(InputState* state) {
-    if (state->gain < 0.0f) state->gain = 0.0f;
-    if (state->gain > 1.0f) state->gain = 1.0f;
-}
-
 static void input_process(Module* m, float* in, unsigned long frames) {
     InputState* state = (InputState*)m->state;
     pthread_mutex_lock(&state->lock);
@@ -21,6 +16,10 @@ static void input_process(Module* m, float* in, unsigned long frames) {
     for (unsigned long i = 0; i < frames; i++) {
 		m->output_buffer[i] = gain * in[i];
     }
+}
+
+static void clamp_params(InputState* state) {
+    clampf(&state->gain, 0.0f, 1.0f);
 }
 
 static void input_draw_ui(Module* m, int y, int x) {

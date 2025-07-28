@@ -65,13 +65,9 @@ static void ampmod_process(Module* m, float* in, unsigned long frames) {
 }
 
 static void clamp_params(AmpMod *state) {
-    if (state->car_amp < 0.0f) state->car_amp = 0.0f;
-    if (state->car_amp > 1.0f) state->car_amp = 1.0f;
-
-    if (state->depth < 0.0f) state->depth = 0.0f;
-    if (state->depth > 1.0f) state->depth = 1.0f;
-    if (state->freq < 0.01f) state->freq = 0.01f;
-	if (state->freq > state->sample_rate * 0.45f) state->freq = state->sample_rate * 0.45f;
+	clampf(&state->car_amp, 0.0f, 1.0f);
+    clampf(&state->depth,   0.0f, 1.0f);
+    clampf(&state->freq,    0.01f, state->sample_rate * 0.45f);
 }
 
 static void ampmod_draw_ui(Module* m, int y, int x) {

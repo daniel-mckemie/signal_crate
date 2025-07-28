@@ -56,12 +56,3 @@ char* trim_whitespace(char* str) {
     return str;
 }
 
-void destroy_base_module(Module* m) {
-    if (!m) return;
-
-    if (m->state) free(m->state);
-    if (m->name)  free((void*)m->name);
-    if (m->output_buffer) free(m->output_buffer);
-    free(m);
-}
-

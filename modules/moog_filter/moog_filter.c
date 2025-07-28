@@ -72,6 +72,11 @@ static void moog_filter_process(Module *m, float* in, unsigned long frames) {
 	}
 }
 
+static void clamp_params(MoogFilter *state) {
+	clampf(&state->cutoff, 10.0f, state->sample_rate * 0.45f);
+	clampf(&state->resonance, 0.0f, 4.2f);
+}
+
 static void moog_filter_draw_ui(Module *m, int y, int x) {
     MoogFilter *state = (MoogFilter*)m->state;
 	const char *filt_names[] = {"LP", "HP", "BP", "Notch", "Res"};
@@ -88,14 +93,6 @@ static void moog_filter_draw_ui(Module *m, int y, int x) {
     mvprintw(y, x, "[Moog Filter:%s] Cutoff: %.2f | Res: %.2f | type: %s", m->name, co, res, filt_names[filt_type]);
     mvprintw(y+1, x, "Real-time keys: -/= (cutoff), _/+ (res)");
     mvprintw(y+2, x, "Command mode: :1 [cutoff], :2 [res] f: [type]");
-}
-
-static void clamp_params(MoogFilter *state) {
-	// Set boundaries for params
-	if (state->cutoff < 10.0f) state->cutoff = 10.0f;
-	if (state->cutoff > state->sample_rate * 0.45f) state->cutoff = state->sample_rate * 0.45f;
-	if (state->resonance < 0.0f) state->resonance = 0.0f;
-	if (state->resonance > 4.2f) state->resonance = 4.2f;
 }
 
 static void moog_filter_handle_input(Module *m, int key) {

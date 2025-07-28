@@ -30,7 +30,9 @@ typedef struct Module {
 	const char* control_input_params[MAX_CONTROL_INPUTS];
 } Module;
 
+void clampf(float* val, float min, float max);
 void destroy_base_module(struct Module* m);
+
 
 #endif
 

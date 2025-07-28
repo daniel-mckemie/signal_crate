@@ -84,6 +84,12 @@ static void c_env_fol_process_control(Module* m) {
 	}
 }
 
+static void clamp_params(CEnvFol* state) {
+    clampf(&state->decay_ms, 1.0f, 5000.0f);
+    clampf(&state->sens,     0.01f, 1.0f);
+    clampf(&state->depth,    0.0f, 1.0f);
+}
+
 static void c_env_fol_draw_ui(Module* m, int y, int x) {
     CEnvFol* state = (CEnvFol*)m->state;
 
@@ -98,15 +104,6 @@ static void c_env_fol_draw_ui(Module* m, int y, int x) {
     mvprintw(y,   x, "[EnvFol:%s] Env: %.3f | dec: %.1fms sens: %.2f depth: %.2f", m->name, val, dec, sensitivity, depth);
     mvprintw(y+1, x, "Real-time keys: -/= (dec), _/+ (sens), d/D (d)");
     mvprintw(y+2, x, "Command mode: :1 [dec], :2 [sens], :d [depth]");
-}
-
-static void clamp_params(CEnvFol* state) {
-    if (state->decay_ms < 1.0f) state->decay_ms = 1.0f;
-    if (state->decay_ms > 5000.0f) state->decay_ms = 5000.0f;
-	if (state->sens < 0.01f) state->sens = 0.01f;
-	if (state->sens > 1.0f) state->sens = 1.0f;
-	if (state->depth < 0.0f) state->depth = 0.0f;
-	if (state->depth > 1.0f) state->depth = 1.0f;
 }
 
 static void c_env_fol_handle_input(Module* m, int key) {

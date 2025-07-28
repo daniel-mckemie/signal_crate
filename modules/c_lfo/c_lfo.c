@@ -80,6 +80,13 @@ static void c_lfo_process_control(Module* m) {
     }
 }
 
+static void clamp_params(CLFO* s) {
+    clampf(&s->frequency, 0.001f, 100.0f);
+    clampf(&s->amplitude, 0.0f, 1.0f);
+    clampf(&s->depth,     0.0f, 1.0f);
+}
+
+
 static void c_lfo_draw_ui(Module* m, int y, int x) {
     CLFO* state = (CLFO*)m->state;
     const char* names[] = {"Sine", "Saw", "Square", "Triangle"};
@@ -97,15 +104,6 @@ static void c_lfo_draw_ui(Module* m, int y, int x) {
     mvprintw(y,   x, "[LFO:%s] Freq: %.3f Hz | Amp: %.2f | Depth: %.2f | Wave: %s", m->name, freq, amp, depth, names[wf]);
     mvprintw(y+1, x, "Real-time keys: -/= (freq), _/+ (amp), d/D (depth), w (wave{");
     mvprintw(y+2, x, "Command mode: :1 [freq], :2 [amp], :d [depth]");
-}
-
-static void clamp_params(CLFO* s) {
-    if (s->frequency < 0.001f) s->frequency = 0.001f;
-    if (s->frequency > 100.0f) s->frequency = 100.0f;
-    if (s->amplitude < 0.0f) s->amplitude = 0.0f;
-    if (s->amplitude > 1.0f) s->amplitude = 1.0f;
-	if (s->depth < 0.0f) s->depth = 0.0f;
-	if (s->depth > 1.0f) s->depth = 1.0f;
 }
 
 static void c_lfo_handle_input(Module* m, int key) {

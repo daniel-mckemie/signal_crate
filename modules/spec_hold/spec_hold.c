@@ -20,13 +20,6 @@ static void init_hann_window() {
 	}
 }
 
-static void clamp_params(SpecHold* state) {
-	if (state->pivot_hz < 1.0f) state->pivot_hz = 1.0f;
-	if (state->pivot_hz > state->sample_rate * 0.45f) state->pivot_hz = state->pivot_hz * 0.45f;
-	if (state->tilt < -1.0f) state->tilt = -1.0f;
-	if (state->tilt >  1.0f) state->tilt = 1.0f;
-}
-
 static void spec_hold_process(Module* m, float* in, unsigned long frames) {
 	SpecHold* state = (SpecHold*)m->state;
 
@@ -122,6 +115,11 @@ static void spec_hold_process(Module* m, float* in, unsigned long frames) {
 	memcpy(m->output_buffer, state->output_buffer, sizeof(float) * frames);
 	memmove(state->output_buffer, state->output_buffer + frames, sizeof(float) * (FFT_SIZE - frames));
 	memset(state->output_buffer + (FFT_SIZE - frames), 0, sizeof(float) * frames);
+}
+
+static void clamp_params(SpecHold* state) {
+    clampf(&state->pivot_hz, 1.0f, state->sample_rate * 0.45f);
+    clampf(&state->tilt, -1.0f, 1.0f);
 }
 
 static void spec_hold_draw_ui(Module* m, int y, int x) {

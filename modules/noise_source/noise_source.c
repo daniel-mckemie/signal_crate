@@ -50,6 +50,10 @@ static void noise_source_process(Module* m, float* in, unsigned long frames) {
 	}
 }
 
+static void clamp_params(NoiseSource *state) {
+    clampf(&state->amplitude, 0.0f, 1.0f);
+}
+
 static void noise_source_draw_ui(Module *m, int y, int x) {
 	NoiseSource *state = (NoiseSource*)m->state;
 	const char *noise_names[] = {"White", "Pink", "Brown"};
@@ -65,11 +69,6 @@ static void noise_source_draw_ui(Module *m, int y, int x) {
 	mvprintw(y, x, "[Noise Source:%s] Amp: %.2f Hz | Type: %s", m->name, amp, noise_names[noise_type]);
 	mvprintw(y+1, x,   "Real-time keys: -/= (amp), n: (type)");
 	mvprintw(y+2, x,   "Command mode: :1 [amp], :n [type]");
-}
-
-static void clamp_params(NoiseSource *state) {
-	if (state->amplitude < 0.0f) state->amplitude = 0.0f;
-	if (state->amplitude > 1.0f) state->amplitude = 1.0f;
 }
 
 static void noise_source_handle_input(Module *m, int key) {

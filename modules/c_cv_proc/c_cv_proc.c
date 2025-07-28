@@ -68,9 +68,9 @@ static void c_cv_proc_process_control(Module* m) {
 }
 
 static void clamp_params(CCVProc* s) {
-    s->k = fminf(fmaxf(s->k, -2.0f), 2.0f);
-    s->m = fminf(fmaxf(s->m, 0.0f), 1.0f);
-    s->offset = fminf(fmaxf(s->offset, -1.0f), 1.0f);
+    clampf(&s->k,     -2.0f,  2.0f);
+    clampf(&s->m,      0.0f,  1.0f);
+    clampf(&s->offset, -1.0f, 1.0f);
 }
 
 static void c_cv_proc_draw_ui(Module* m, int y, int x) {

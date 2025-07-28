@@ -62,14 +62,9 @@ static void ringmod_process(Module* m, float* in, unsigned long frames) {
 }
 
 static void clamp_params(RingMod *state) {
-    if (state->car_amp < 0.0f) state->car_amp = 0.0f;
-    if (state->car_amp > 1.0f) state->car_amp = 1.0f;
-
-    if (state->mod_amp < 0.0f) state->mod_amp = 0.0f;
-    if (state->mod_amp > 1.0f) state->mod_amp = 1.0f;
-
-	if (state->mod_freq < 0.1f) state->mod_freq = 0.1f;
-    if (state->mod_freq > state->sample_rate * 0.45f) state->mod_freq = state->sample_rate * 0.45;
+    clampf(&state->car_amp, 0.0f, 1.0f);
+    clampf(&state->mod_amp, 0.0f, 1.0f);
+    clampf(&state->mod_freq, 0.1f, state->sample_rate * 0.45f);
 }
 
 static void ringmod_draw_ui(Module* m, int y, int x) {

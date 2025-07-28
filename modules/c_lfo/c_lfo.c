@@ -49,6 +49,7 @@ static void c_lfo_process_control(Module* m) {
     state->display_amp = amp;
 	state->display_depth = depth;
 
+	const float* sine_table = get_sine_table();
     for (unsigned long i = 0; i < FRAMES_PER_BUFFER; i++) {
         float t = state->phase / TWO_PI;
         float value = 0.0f;

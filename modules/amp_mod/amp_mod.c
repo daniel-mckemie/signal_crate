@@ -47,6 +47,7 @@ static void ampmod_process(Module* m, float* in, unsigned long frames) {
 	state->display_depth = depth;
 
 	int idx;
+	const float* sine_table = get_sine_table();
     for (unsigned long i = 0; i < frames; i++) {
 		idx = (int)(phase / TWO_PI * SINE_TABLE_SIZE) % SINE_TABLE_SIZE;
 		float car = in[i]; 

@@ -42,6 +42,7 @@ static void vco_process(Module *m, float* in, unsigned long frames) {
 
     float phs = state->phase;
 	int idx;
+	const float* sine_table = get_sine_table();
     for (unsigned long i = 0; i < frames; i++) {
         float value = 0.0f;
 		float smoothed_amp = process_smoother(&state->smooth_amp, amp);

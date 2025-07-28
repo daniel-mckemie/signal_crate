@@ -93,13 +93,13 @@ static void c_lfo_draw_ui(Module* m, int y, int x) {
     wf = state->waveform;
     pthread_mutex_unlock(&state->lock);
 
-    mvprintw(y,   x, "[LFO:%s] Freq: %.2f Hz | Amp: %.2f | Depth: %.2f | Wave: %s", m->name, freq, amp, depth, names[wf]);
+    mvprintw(y,   x, "[LFO:%s] Freq: %.3f Hz | Amp: %.2f | Depth: %.2f | Wave: %s", m->name, freq, amp, depth, names[wf]);
     mvprintw(y+1, x, "Real-time keys: -/= (freq), _/+ (amp), d/D (depth), w (wave{");
     mvprintw(y+2, x, "Command mode: :1 [freq], :2 [amp], :d [depth]");
 }
 
 static void clamp_params(CLFO* s) {
-    if (s->frequency < 0.01f) s->frequency = 0.01f;
+    if (s->frequency < 0.001f) s->frequency = 0.001f;
     if (s->frequency > 100.0f) s->frequency = 100.0f;
     if (s->amplitude < 0.0f) s->amplitude = 0.0f;
     if (s->amplitude > 1.0f) s->amplitude = 1.0f;
@@ -115,8 +115,8 @@ static void c_lfo_handle_input(Module* m, int key) {
 
     if (!s->entering_command) {
         switch (key) {
-            case '=': s->frequency += 0.1f; handled = 1; break;
-            case '-': s->frequency -= 0.1f; handled = 1; break;
+            case '=': s->frequency += 0.01f; handled = 1; break;
+            case '-': s->frequency -= 0.01f; handled = 1; break;
             case '+': s->amplitude += 0.01f; handled = 1; break;
             case '_': s->amplitude -= 0.01f; handled = 1; break;
 			case 'd': s->depth += 0.01f; handled = 1; break;

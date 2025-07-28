@@ -9,7 +9,6 @@
 #include "util.h"
 
 
-
 static void c_asr_process_control(Module* m) {
     CASR* s = (CASR*)m->state;
 
@@ -25,6 +24,7 @@ static void c_asr_process_control(Module* m) {
 
     // Step 2: Modulate with control inputs
     float mod_depth = 1.0f;
+	float gate_input = 0.0f;
     for (int j = 0; j < m->num_control_inputs; j++) {
         if (!m->control_inputs[j] || !m->control_input_params[j]) continue;
 
@@ -59,8 +59,18 @@ static void c_asr_process_control(Module* m) {
         } else if (strcmp(param, "depth") == 0) {
             float mod_range = (1.0f - s->depth) * mod_depth;
             depth = s->depth + norm * mod_range;
+		} else if (strcmp(param, "gate") == 0) {
+			gate_input = control;
 		}
     }
+
+	bool gate_now = (gate_input >= s->threshold_gate);
+
+	if (gate_now && !s->gate_prev && s->state == ENV_IDLE) {
+		s->state = ENV_ATTACK;
+		s->timer = 0.0f;
+	}
+	s->gate_prev = gate_now;
 
 	sus = fminf(fmaxf(sus, 0.01f), 1.0f);
 	depth = fminf(fmaxf(depth, 0.0f), 1.0f);
@@ -94,8 +104,14 @@ static void c_asr_process_control(Module* m) {
 
 				if (s->envelope_out >= 1.0f - 1e-4f) {
 					s->envelope_out = 1.0f;
-					s->state = ENV_SUSTAIN;
-					s->timer = 0.0f;
+					if (s->cycle) {
+						s->release_start_level = s->envelope_out;
+						s->state = ENV_RELEASE;
+						s->timer = 0.0f;
+					} else {
+						s->state = ENV_SUSTAIN;
+						s->timer = 0.0f;
+					}
 				}
 				break;
 			}
@@ -153,9 +169,9 @@ static void c_asr_process_control(Module* m) {
 static void c_asr_draw_ui(Module* m, int y, int x) {
     CASR* s = (CASR*)m->state;
     pthread_mutex_lock(&s->lock);
-    mvprintw(y, x,   "[ASR:%s] att: %.2fs | rel: %.2fs | depth: %.2f | %s | %s", m->name, s->display_att, s->display_rel, s->display_depth, s->short_mode ? "short" : "long", s->display_cycle ? "cyc" : "trig");
-    mvprintw(y+1, x, "Keys: t = trig, c = cycle, :att -/=, :rel _/+, :d/D [depth]");
-    mvprintw(y+2, x, "Command: :1 [att], :2 [rel], :d[depth], :l [long/short]");
+    mvprintw(y, x,   "[ASR:%s] att: %.2fs | rel: %.2fs | depth: %.2f | gate: %.2f | %s | %s", m->name, s->display_att, s->display_rel, s->display_depth, s->threshold_gate, s->short_mode ? "s" : "l", s->display_cycle ? "c" : "t");
+    mvprintw(y+1, x, "Keys: t=trig, c=cycle, att -/=, rel _/+, gate [/], d/D [depth]");
+    mvprintw(y+2, x, "Command: :1 [att], :2 [rel], :3 [g_thresh], :d[depth], :m [s/l mode]");
     pthread_mutex_unlock(&s->lock);
 }
 
@@ -177,6 +193,9 @@ static void clamp_params(CASR* s) {
 
     if (s->depth < 0.0f)  s->depth = 0.0f;
     if (s->depth > 1.0f)  s->depth = 1.0f;
+
+    if (s->threshold_gate < 0.0f)  s->threshold_gate = 0.0f;
+    if (s->threshold_gate > 1.0f)  s->threshold_gate = 1.0f;
 }
 
 static void c_asr_handle_input(Module* m, int key) {
@@ -186,30 +205,42 @@ static void c_asr_handle_input(Module* m, int key) {
 
     if (!s->entering_command) {
         switch (key) {
-			case 't':
-			    if (s->state == ENV_IDLE) {
-				s->state = ENV_ATTACK;
-				s->timer = 0.0f;
-			}
-			s->trigger_held = true;
-			handled = 1;
-			break;
-			case 'c':
+			case 't':  // toggle to triggered mode
 				if (s->cycle) {
-					s->cycle_stop_requested = true;  // queue stop
+					s->cycle = false;
 					s->display_cycle = false;
-				} else {
+					s->cycle_stop_requested = true;
+				} else if (s->state == ENV_IDLE) {
+					s->state = ENV_ATTACK;
+					s->timer = 0.0f;
+				}
+				s->trigger_held = true;
+				handled = 1;
+				break;
+			case 'c':  // toggle to cycle mode
+				if (!s->cycle) {
 					s->cycle = true;
 					s->display_cycle = true;
+					s->cycle_stop_requested = false;
+					s->trigger_held = true;
+					if (s->state == ENV_IDLE) {
+						s->state = ENV_ATTACK;
+						s->timer = 0.0f;
+					}
+				} else {
+					s->cycle_stop_requested = true;  // queue stop after release
+					s->display_cycle = false;
 				}
 				handled = 1;
 				break;
 
-            case 'l': s->short_mode = !s->short_mode; handled = 1; break;
+			case 'm': s->short_mode = !s->short_mode; handled = 1; break;
             case '-': s->attack_time -= 0.1f; handled = 1; break;
             case '=': s->attack_time += 0.1f; handled = 1; break;
             case '_': s->release_time -= 0.1f; handled = 1; break;
             case '+': s->release_time += 0.1f; handled = 1; break;
+            case '[': s->threshold_gate -= 0.1f; handled = 1; break;
+            case ']': s->threshold_gate += 0.1f; handled = 1; break;
             case 'd': s->depth -= 0.01f; handled = 1; break;
             case 'D': s->depth += 0.01f; handled = 1; break;
             case ':':
@@ -227,6 +258,7 @@ static void c_asr_handle_input(Module* m, int key) {
             if (sscanf(s->command_buffer, "%c %f", &type, &val) == 2) {
                 if (type == '1') s->attack_time = val;
 				else if (type == '2') s->release_time = val;
+				else if (type == '3') s->threshold_gate = val;
 				else if (type == 'd') s->depth = val;
             }
             handled = 1;
@@ -274,6 +306,8 @@ static void c_asr_set_osc_param(Module* m, const char* param, float value) {
         }
     } else if (strcmp(param, "depth") == 0) {
 		s->depth = value;
+    } else if (strcmp(param, "gate") == 0) {
+		s->threshold_gate = value;
 	}
     pthread_mutex_unlock(&s->lock);
 }
@@ -306,10 +340,12 @@ Module* create_module(const char* args, float sample_rate) {
     s->sustain_level = 1.0f;
     s->envelope_out = 0.0f;
 	s->depth = depth;
+	s->gate_prev = false;
     s->sample_rate = sample_rate;
     s->short_mode = true;
     s->threshold_trigger = 0.5f;
     s->threshold_cycle = 0.5f;
+	s->threshold_gate = 0.5f;
     pthread_mutex_init(&s->lock, NULL);
     init_smoother(&s->smooth_att, 0.75f);
     init_smoother(&s->smooth_rel, 0.75f);

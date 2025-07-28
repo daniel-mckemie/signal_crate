@@ -25,11 +25,13 @@ typedef struct {
 	bool cycle_stop_requested;
 	bool trigger_held;
     bool short_mode;
+	bool gate_prev;
 
 	float attack_start_level;
 	float release_start_level;
     float threshold_trigger;
     float threshold_cycle;
+	float threshold_gate;
 
     // Smoothed control inputs
     CParamSmooth smooth_att;

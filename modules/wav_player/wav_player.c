@@ -12,12 +12,13 @@
 
 static void player_process(Module* m, float* in, unsigned long frames) {
 	Player* state = (Player*)m->state;
-	float pos, speed;
+	float pos, speed, amp;
 
 	pthread_mutex_lock(&state->lock);
 	unsigned long max_frames = state->num_frames;
 	pos = state->playing ? state->play_pos : state->external_play_pos;
 	speed = process_smoother(&state->smooth_speed, state->playback_speed);
+	amp = process_smoother(&state->smooth_amp, state->amp);
 	pthread_mutex_unlock(&state->lock);
 
 	// Control input modulation
@@ -32,11 +33,15 @@ static void player_process(Module* m, float* in, unsigned long frames) {
 		if (strcmp(param, "speed") == 0) {
 			float mod_range = (4.0f - state->playback_speed) * mod_depth;
 			speed = state->playback_speed + norm * mod_range;
+		} else if (strcmp(param, "amp") == 0) {
+			float mod_range = (1.0f - state->amp) * mod_depth;
+			amp = state->amp + norm * mod_range;
 		}
 	}
 
 	state->display_pos = pos;
 	state->display_speed = speed;
+	state->display_amp = amp;
 
 	if (pos < 0) pos = 0;
 	if (pos > max_frames - 2) pos = max_frames - 2;
@@ -48,7 +53,8 @@ static void player_process(Module* m, float* in, unsigned long frames) {
 
 		float s1 = state->data[i1];
 		float s2 = state->data[i2];
-		m->output_buffer[i] = (1.0f - frac) * s1 + frac * s2;
+		float sample = (1.0f - frac) * s1 + frac * s2;
+		m->output_buffer[i] = sample * amp;
 
 		if (state->playing) {
 			pos += speed * (state->file_rate / state->sample_rate);
@@ -64,7 +70,7 @@ static void player_process(Module* m, float* in, unsigned long frames) {
 	}
 	
 	pthread_mutex_unlock(&state->lock);
-
+	
 }
 
 static void clamp_params(Player* state) {
@@ -74,6 +80,8 @@ static void clamp_params(Player* state) {
 	if (state->play_pos > state->num_frames - 1) state->play_pos = state->num_frames - 1;
 	if (state->playback_speed < 0.1f) state->playback_speed = 0.1f;
 	if (state->playback_speed > 4.0f) state->playback_speed = 4.0f;
+	if (state->amp < 0.0f) state->amp = 0.00f;
+	if (state->amp > 1.0f) state->amp = 1.0f;
 }
 
 static void player_draw_ui(Module* m, int y, int x) {
@@ -82,6 +90,7 @@ static void player_draw_ui(Module* m, int y, int x) {
 	pthread_mutex_lock(&state->lock);
 	float pos = state->display_pos;
 	float speed = state->display_speed;
+	float amp = state->display_amp;
 	float dur_sec = (float)state->num_frames / state->file_rate;
 	float pos_sec = pos / state->file_rate;
 	bool is_playing = state->playing;
@@ -90,9 +99,9 @@ static void player_draw_ui(Module* m, int y, int x) {
 	cmd[sizeof(cmd) - 1] = '\0';
 	pthread_mutex_unlock(&state->lock);
 
-	mvprintw(y,   x, "[Player:%s] Pos: %.2f sec / %.2f sec (%s) | Speed: %.2fx", m->name, pos_sec, dur_sec, is_playing ? "Playing" : "Stopped", speed);
+	mvprintw(y,   x, "[Player:%s] Pos: %.2f sec / %.2f sec (%s) | Speed: %.2fx | Amp: %.2f", m->name, pos_sec, dur_sec, is_playing ? "Playing" : "Stopped", speed, amp);
 	mvprintw(y+1, x, "Keys: -/= to scrub | _/+ (speed) | p=play, s=stop"); 
-	mvprintw(y+2, x, "Cmd: :1=pos :2=speed"); 
+	mvprintw(y+2, x, "Cmd: :1=pos :2=speed :3=amp"); 
 	if (cmd[0]) mvprintw(y+3, x, "%s", cmd);
 }
 
@@ -104,10 +113,12 @@ static void player_handle_input(Module* m, int key) {
 
     if (!state->entering_command) {
         switch (key) {
-            case '-': state->play_pos -= state->sample_rate * 0.1f; handled = 1; break;
+			case '-': state->play_pos -= state->sample_rate * 0.1f; handled = 1; break;
             case '=': state->play_pos += state->sample_rate * 0.1f; handled = 1; break;
             case '_': state->playback_speed -= 0.01f; handled = 1; break;
             case '+': state->playback_speed += 0.01f; handled = 1; break;
+            case '[': state->amp -= 0.01f; handled = 1; break;
+            case ']': state->amp += 0.01f; handled = 1; break;
             case 'p': state->playing = true;  handled = 1; break;
             case 's': state->playing = false; handled = 1; break;
             case ':':
@@ -130,10 +141,10 @@ static void player_handle_input(Module* m, int key) {
                     state->play_pos = new_pos;
                     state->external_play_pos = new_pos;
                 } else if (type == '2') {
-                    if (val < 0.1f) val = 0.1f;
-                    if (val > 4.0f) val = 4.0f;
                     state->playback_speed = val;
-                }
+                } else if (type == '3') {
+					state->amp = val;
+				}
             }
             state->command_index = 0;
             state->command_buffer[0] = '\0';
@@ -162,9 +173,10 @@ static void player_set_osc_param(Module* m, const char* param, float value) {
 	Player* state = (Player*)m->state;
 	pthread_mutex_lock(&state->lock);
 	if (strcmp(param, "speed") == 0) {
-		if (value < 0.1f) value = 0.01f;
-		if (value > 4.0f) value = 4.0f;
 		state->playback_speed = value;
+	}
+	if (strcmp(param, "amp") == 0) {
+		state->amp = value;
 	}
 	clamp_params(state);
 	pthread_mutex_unlock(&state->lock);
@@ -214,9 +226,13 @@ Module* create_module(const char* args, float sample_rate) {
 	sf_close(f);
 	
 	float playback_speed = 1.0f;
+	float amp = 1.0f;
 
 	if (args && strstr(args, "speed=")) {
         sscanf(strstr(args, "speed="), "speed=%f", &playback_speed);
+    }
+	if (args && strstr(args, "amp=")) {
+        sscanf(strstr(args, "amp="), "amp=%f", &amp);
     }
 
 	Player* state = calloc(1, sizeof(Player));
@@ -228,9 +244,11 @@ Module* create_module(const char* args, float sample_rate) {
 	state->external_play_pos = 0.0f;
 	state->play_pos = 0.0f;
 	state->playback_speed = playback_speed;
+	state->amp = amp;
 	state->playing = true;
 	pthread_mutex_init(&state->lock, NULL);
 	init_smoother(&state->smooth_speed, 0.75f);
+	init_smoother(&state->smooth_amp, 0.75f);
 
 	Module* m = calloc(1, sizeof(Module));
 	m->name = "player";

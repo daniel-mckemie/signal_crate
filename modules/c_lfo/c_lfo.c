@@ -102,7 +102,7 @@ static void c_lfo_draw_ui(Module* m, int y, int x) {
     pthread_mutex_unlock(&state->lock);
 
     mvprintw(y,   x, "[LFO:%s] Freq: %.3f Hz | Amp: %.2f | Depth: %.2f | Wave: %s", m->name, freq, amp, depth, names[wf]);
-    mvprintw(y+1, x, "Real-time keys: -/= (freq), _/+ (amp), d/D (depth), w (wave{");
+    mvprintw(y+1, x, "Real-time keys: -/= (freq), _/+ (amp), d/D (depth), w (wave)");
     mvprintw(y+2, x, "Command mode: :1 [freq], :2 [amp], :d [depth]");
 }
 

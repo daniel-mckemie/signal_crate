@@ -17,6 +17,7 @@ static void looper_process(Module* m, float* in, unsigned long frames) {
     unsigned long loop_start = state->loop_start;
     unsigned long loop_end = state->loop_end;
     float playback_speed = process_smoother(&state->smooth_speed, state->playback_speed);
+    float amp = process_smoother(&state->smooth_amp, state->amp);
     LooperState current_state = state->looper_state;
     pthread_mutex_unlock(&state->lock);
 
@@ -31,10 +32,14 @@ static void looper_process(Module* m, float* in, unsigned long frames) {
         if (strcmp(param, "speed") == 0) {
 			float mod_range = (4.0f - state->playback_speed) * mod_depth;
             playback_speed = state->playback_speed + norm * mod_range; 
-        }
+        } else if (strcmp(param, "amp") == 0) {
+			float mod_range = (1.0f - state->amp) * mod_depth;
+            amp = state->amp + norm * mod_range; 
+		}
     }
 
 	state->display_playback_speed = playback_speed;
+	state->display_amp = amp;
 
     for (unsigned long i = 0; i < frames; i++) {
 		float input = in[i];
@@ -85,7 +90,7 @@ static void looper_process(Module* m, float* in, unsigned long frames) {
                 break;
         }
 
-        m->output_buffer[i] = output;
+        m->output_buffer[i] = output * amp;
     }
 
     pthread_mutex_lock(&state->lock);
@@ -102,6 +107,7 @@ static void clamp_params(Looper *state) {
     if (state->loop_end < state->loop_start)
         state->loop_end = state->loop_start + 1;
     clampf(&state->playback_speed, 0.1f, 4.0f);
+    clampf(&state->amp, 0.0, 1.0f);
 }
 
 
@@ -116,6 +122,7 @@ static void looper_draw_ui(Module* m, int y, int x) {
 
     LooperState lstate = state->looper_state;
     float speed = state->display_playback_speed;
+    float amp = state->display_amp;
     float sr = state->sample_rate;
 
     float start_sec = state->loop_start / sr;
@@ -142,10 +149,10 @@ static void looper_draw_ui(Module* m, int y, int x) {
 
     mvprintw(y,     x, "[Looper:%s] State: %s | Speed: %.2fx", m->name, state_names[lstate], speed);
     mvprintw(y + 1, x, "         Loop Range: [%.2f -> %.2f] sec", start_sec, end_sec);
-    mvprintw(y + 2, x, "         Current Position: %.2f sec", pos_sec);
+    mvprintw(y + 2, x, "         Position: %.2f sec | Amp: %.2f", pos_sec, amp);
     mvprintw(y + 3, x, "Keys: -/= (start pt), _/+ (end pt), [/] (speed)");
-    mvprintw(y + 4, x, "State keys: r(record), p(play), o(overdub), s(stop)");
-    mvprintw(y + 5, x, "Cmd Mode: :1=start, :2=end, :3=speed");
+    mvprintw(y + 4, x, "State: r(rec), p(play), o(odub), s(stop)");
+    mvprintw(y + 5, x, "Cmd Mode: :1=start, :2=end, :3=speed, :4=amp");
 }
 
 static void looper_handle_input(Module* m, int ch) {
@@ -162,6 +169,7 @@ static void looper_handle_input(Module* m, int ch) {
             if (type == '1') state->loop_start = (unsigned long)(val * state->sample_rate);
             else if (type == '2') state->loop_end = (unsigned long)(val * state->sample_rate);
             else if (type == '3') state->playback_speed = val;
+            else if (type == '4') state->amp = val;
 
             state->entering_command = false;
             state->command_index = 0;
@@ -187,6 +195,8 @@ static void looper_handle_input(Module* m, int ch) {
 			case '_': state->loop_end -= (unsigned long)(0.1 * state->sample_rate); handled=1; break;
 			case ']': state->playback_speed += 0.05; handled=1; break;
 			case '[': state->playback_speed -= 0.05; handled=1; break;
+			case '}': state->amp += 0.01; handled=1; break;
+			case '{': state->amp -= 0.01; handled=1; break;
             case ':':
                 state->entering_command = true;
                 state->command_index = 0;
@@ -214,6 +224,8 @@ static void looper_set_osc_param(Module* m, const char* param, float value) {
         float min = 0.1f, max = 4.0f;
         float norm = fminf(fmaxf(value, 0.0f), 1.0f);
         state->playback_speed = min * powf(max / min, norm);
+    } else if (strcmp(param, "amp") == 0) {
+		state->amp = value;
     } else if (strcmp(param, "start") == 0) {
         state->loop_start = (unsigned long)(value * state->sample_rate);
     } else if (strcmp(param, "end") == 0) {
@@ -243,12 +255,16 @@ static void looper_destroy(Module* m) {
 Module* create_module(const char* args, float sample_rate) {
 	float loop_length = 10.0f;
 	float playback_speed = 1.0f;
+	float amp = 1.0f;
 
     if (args && strstr(args, "length=")) {
         sscanf(strstr(args, "length="), "length=%f", &loop_length);
 	}
 	if (args && strstr(args, "speed=")) {
         sscanf(strstr(args, "speed="), "speed=%f", &playback_speed);
+    }
+	if (args && strstr(args, "amp=")) {
+        sscanf(strstr(args, "amp="), "amp=%f", &amp);
     }
 
     Looper* state = calloc(1, sizeof(Looper));
@@ -257,13 +273,15 @@ Module* create_module(const char* args, float sample_rate) {
 	state->buffer = calloc(state->buffer_len, sizeof(float));														  
     state->loop_start = 0;
     state->loop_end = (unsigned long)(sample_rate * loop_length); 
-    state->playback_speed = 1.0f;
+    state->playback_speed = playback_speed;
+	state->amp = amp;
 	state->write_pos = 0;
     pthread_mutex_init(&state->lock, NULL);
 	init_sine_table();
     init_smoother(&state->smooth_start, 0.75f);
     init_smoother(&state->smooth_end, 0.75f);
     init_smoother(&state->smooth_speed, 0.75f);
+    init_smoother(&state->smooth_amp, 0.75f);
     clamp_params(state);
 
     Module* m = calloc(1, sizeof(Module));

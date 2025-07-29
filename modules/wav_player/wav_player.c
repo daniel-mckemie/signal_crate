@@ -95,7 +95,7 @@ static void player_draw_ui(Module* m, int y, int x) {
 	cmd[sizeof(cmd) - 1] = '\0';
 	pthread_mutex_unlock(&state->lock);
 
-	mvprintw(y,   x, "[Player:%s] Pos: %.2f sec / %.2f sec (%s) | Speed: %.2fx | Amp: %.2f", m->name, pos_sec, dur_sec, is_playing ? "Playing" : "Stopped", speed, amp);
+	mvprintw(y,   x, "[Player:%s] %.2f s / %.2f s (%s) | Spd: %.2fx | Amp: %.2f", m->name, pos_sec, dur_sec, is_playing ? "P" : "S", speed, amp);
 	mvprintw(y+1, x, "Keys: -/= to scrub | _/+ (speed) | p=play, s=stop"); 
 	mvprintw(y+2, x, "Cmd: :1=pos :2=speed :3=amp"); 
 	if (cmd[0]) mvprintw(y+3, x, "%s", cmd);

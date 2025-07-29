@@ -10,6 +10,8 @@
 #define FRAMES_PER_BUFFER 512
 #endif
 
+float randf(); // random generator
+
 typedef struct {
 	float a;
 	float b;

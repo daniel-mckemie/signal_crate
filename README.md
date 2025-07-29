@@ -28,12 +28,14 @@ you want to.
 ##  Audio Modules
 
 ### **System Input**
+`input`
 Mono input from external sources.  
 - `amp`
 
 ---
 
 ### **Amplitude Modulator**
+`amp_mod`
 Single input, sine wave as internal modulator.  
 - `freq`
 - `car_amp`  
@@ -42,6 +44,7 @@ Single input, sine wave as internal modulator.
 ---
 
 ### **Delay**
+`delay`
 Basic delay line.  
 - `time`  
 - `mix`  
@@ -50,6 +53,7 @@ Basic delay line.
 ---
 
 ### **Frequency Modulator**
+`fm_mod`
 Single input, sine wave as internal modulator.  
 - `mod_freq`
 - `index`  
@@ -57,6 +61,7 @@ Single input, sine wave as internal modulator.
 ---
 
 ### **Looper**
+`looper`
 10-second (default) looper
 - `speed` = passable as constructor
 - `start`
@@ -69,6 +74,7 @@ Single input, sine wave as internal modulator.
 ---
 
 ### **Moog Ladder Filter**
+`moog_filter`
 Multi-mode resonant filter (LP/HP/BP/Notch).  
 - `cutoff`  
 - `res`  
@@ -77,6 +83,7 @@ Multi-mode resonant filter (LP/HP/BP/Notch).
 ---
 
 ### **Noise Source**
+`noise_source`
 Generates white, pink, or brown noise.  
 - `amp`  
 - `type`
@@ -84,6 +91,7 @@ Generates white, pink, or brown noise.
 ---
 
 ### **Ring Modulator**
+`ring_mod`
 Single input with sine carrier.  
 - `mod_freq`
 - `car_amp`  
@@ -92,6 +100,7 @@ Single input with sine carrier.
 ---
 
 ### **Spectral Hold**
+`spec_hold`
 Freezes spectrum in-place.  
 - `tilt`
 - `pivot`  
@@ -100,12 +109,14 @@ Freezes spectrum in-place.
 ---
 
 ### **VCA**
+`vca`
 Voltage-controlled amplifier.  
 - `gain`
 
 ---
 
 ### **VCO**
+`vco`
 Waveform oscillator.  
 - `freq`  
 - `amp`  
@@ -114,6 +125,7 @@ Waveform oscillator.
 ---
 
 ### **Wavefolder**
+`wavefolder`
 Adds wavefolding distortion.  
 - `fold`  
 - `blend`  
@@ -122,6 +134,7 @@ Adds wavefolding distortion.
 ---
 
 ### **Wave Player**
+`wav_player`
 Mono WAV playback.  
 - `file` - Specify relative file location, enclose in [ ]...`wav_player([file=sound.wav], speed=ctrl) as out`
 - `speed`
@@ -131,6 +144,7 @@ Mono WAV playback.
 ## Control Modules
 
 ### **ASR Envelope**
+`c_asr`
 Attack-Sustain-Release envelope generator.  
 - `att`  
 - `cycle`  
@@ -141,6 +155,7 @@ Attack-Sustain-Release envelope generator.
 ---
 
 ### **Envelope Follower**
+`c_env_fol`
 Extracts amplitude envelope.  
 - `in_gain`
 - `dec`  
@@ -149,6 +164,7 @@ Extracts amplitude envelope.
 ---
 
 ### **LFO**
+`c_lfo`
 Low-frequency waveform modulator.  
 - `freq`  
 - `amp`  
@@ -157,7 +173,17 @@ Low-frequency waveform modulator.
 
 ---
 
+### **Fluctating Random Voltages**
+`c_fluct`
+Fluctuating Random Voltages after the Buchla 266
+- `rate`  
+- `depth`  
+- `mode` - noise and random walk
+
+---
+
 ### **CV Processor**
+`c_cv_proc`
 Flexible control signal processor. Modeled after Buchla 257
 `V_a * K + V_b * (1 - M) + M * V_c + V_offset = V_out`
 - `in` (va) = to pass in control signal, must call `c_cv_proc(in=alias)`
@@ -172,6 +198,7 @@ Params controllable via OSC
 ---
 
 ### **CV Monitor**
+`c_cv_monitor`
 Monitors incoming and outgoing signal, and gives extra utils
 - `in` (va) = to pass in control signal, must call `c_cv_monitor(in=alias)`
 - `att` - attenuvert 

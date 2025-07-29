@@ -7,6 +7,10 @@
 #include "util.h"
 #include "module.h"
 
+float randf() {
+	return (float)rand() / (float)RAND_MAX;
+}
+
 static float sine_table[SINE_TABLE_SIZE];
 static int sine_table_initialized = 0;
 

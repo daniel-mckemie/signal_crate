@@ -171,6 +171,18 @@ Params controllable via OSC
 
 ---
 
+### **CV Monitor**
+Monitors incoming and outgoing signal, and gives extra utils
+- `in` (va) = to pass in control signal, must call `c_cv_monitor(in=alias)`
+- `att` - attenuvert 
+- `off` - offset
+
+Params controllable via OSC
+- `k`  
+- `m`  
+- `offset`
+
+---
 ## Loading a Signal Crate
 Arm Signal Crate in the directory with ./SignalCrate or relevant bash script
 

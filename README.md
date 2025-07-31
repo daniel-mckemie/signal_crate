@@ -52,6 +52,15 @@ Basic delay line.
 
 ---
 
+### **Freeverb**
+`freeverb`
+Schroeder reverb
+- `fb`
+- `damp`
+- `wet`
+
+---
+
 ### **Frequency Modulator**
 `fm_mod`
 Single input, sine wave as internal modulator.  

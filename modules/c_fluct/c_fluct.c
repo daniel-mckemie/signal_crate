@@ -80,7 +80,7 @@ static void c_fluct_draw_ui(Module* m, int y, int x) {
     pthread_mutex_unlock(&s->lock);
 
     mvprintw(y,   x, "[Fluct:%s] Rate: %.3f Hz | Depth: %.2f | Mode: %s", m->name, rate, depth, modes[mode]);
-    mvprintw(y+1, x, "Keys: -/= (rate), d/D (depth), m (mode) | Cmd: :1 [rate], :2 [depth]");
+    mvprintw(y+1, x, "Keys: -/= (rate), d/D (depth), m (mode)");
     mvprintw(y+2, x, "Cmd: :1 [rate], :d [depth]");
 }
 

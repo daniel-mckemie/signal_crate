@@ -15,7 +15,7 @@ static void vco_process(Module *m, float* in, unsigned long frames) {
 
 	pthread_mutex_lock(&state->lock);
 	freq = process_smoother(&state->smooth_freq, state->frequency);
-	amp = state->amplitude;
+	amp = process_smoother(&state->smooth_amp, state->amplitude);
 	waveform = state->waveform;
 	pthread_mutex_unlock(&state->lock);
 	
@@ -261,7 +261,6 @@ Module* create_module(const char* args, float sample_rate) {
 	m->handle_input = vco_handle_input;
 	m->set_param = vco_set_osc_param;
 	m->destroy = vco_destroy;
-	m->control_output = NULL;
     return m;
 }
 

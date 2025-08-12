@@ -30,7 +30,7 @@ static void fm_mod_process(Module *m, float* in, unsigned long frames) {
         if (strcmp(param, "mod_freq") == 0) {
 			float mod_range = state->mod_freq * mod_depth;
 			mf = state->mod_freq + norm * mod_range;
-        } else if (strcmp(param, "index") == 0) {
+        } else if (strcmp(param, "idx") == 0) {
 			float mod_range = (10.0f - state->index) * mod_depth;
             idx = state->index + norm * mod_range;
         }
@@ -65,7 +65,7 @@ static void fm_mod_draw_ui(Module *m, int y, int x) {
     idx = state->display_index;
     pthread_mutex_unlock(&state->lock);
 
-    mvprintw(y, x, "[FMMod:%s] Freq %.2f Hz | Index %.2f", m->name, freq, idx);
+    mvprintw(y, x, "[FMMod:%s] mod_freq %.2f Hz | index (idx) %.2f", m->name, freq, idx);
     mvprintw(y+1, x, "Real-time keys: -/= (mod freq), _/+ (idx)");
     mvprintw(y+2, x, "Command mode: :1 [mod freq], :2 [idx]"); 
 }

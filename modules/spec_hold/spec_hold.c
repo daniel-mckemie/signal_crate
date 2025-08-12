@@ -151,8 +151,8 @@ static void spec_hold_handle_input(Module* m, int key) {
         switch (key) {
             case '=': state->pivot_hz += 0.01f; handled = 1; break;
             case '-': state->pivot_hz -= 0.01f; handled = 1; break;
-            case '+': state->tilt += 1.0f; handled = 1; break;
-            case '_': state->tilt -= 1.0f; handled = 1; break;
+            case '+': state->tilt += 0.01f; handled = 1; break;
+            case '_': state->tilt -= 0.01f; handled = 1; break;
             case 'f': state->freeze = !state->freeze; handled = 1; break;
             case ':':
                 state->entering_command = true;

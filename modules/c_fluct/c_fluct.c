@@ -9,7 +9,7 @@
 #include "util.h"
 
 static void clamp_params(CFluct* s) {
-    clampf(&s->rate, 0.01f, 20.0f);
+    clampf(&s->rate, 0.001f, 20.0f);
     clampf(&s->depth, 0.0f, 1.0f);
 }
 
@@ -91,8 +91,8 @@ static void c_fluct_handle_input(Module* m, int key) {
     pthread_mutex_lock(&s->lock);
     if (!s->entering_command) {
         switch (key) {
-            case '=': s->rate += 0.1f; handled = 1; break;
-            case '-': s->rate -= 0.1f; handled = 1; break;
+            case '=': s->rate += 0.01f; handled = 1; break;
+            case '-': s->rate -= 0.01f; handled = 1; break;
             case 'D': s->depth += 0.01f; handled = 1; break;
             case 'd': s->depth -= 0.01f; handled = 1; break;
             case 'm': s->mode = (s->mode + 1) % 2; handled = 1; break;
@@ -149,9 +149,9 @@ static void c_fluct_destroy(Module* m) {
 }
 
 Module* create_module(const char* args, float sample_rate) {
-    float rate = 1.0f;
+    float rate = 1.00f;
     float depth = 0.5f;
-	FluctMode mode = FLUCT_NOISE;
+	FluctMode mode = FLUCT_WALK;
 
 	if (args && strstr(args, "rate=")) {
         sscanf(strstr(args, "rate="), "rate=%f", &rate);

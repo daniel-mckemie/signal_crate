@@ -195,7 +195,7 @@ Module* create_module(const char* args, float sample_rate) {
         else if (strcmp(filt_str, "HP") == 0) filt_type = HIGHPASS;
         else if (strcmp(filt_str, "BP") == 0) filt_type = BANDPASS;
         else if (strcmp(filt_str, "notch") == 0) filt_type = NOTCH;
-        else if (strcmp(filt_str, "resonant") == 0) filt_type = RESONANT;
+        else if (strcmp(filt_str, "res") == 0) filt_type = RESONANT;
         else fprintf(stderr, "[moog_filter] Unknown type: '%s'\n", filt_str);
     }
 

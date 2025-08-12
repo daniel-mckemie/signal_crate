@@ -315,11 +315,11 @@ Example usage in `./SignalCrate`:
 ```bash
 vco as vco1  
 vco as vco2  
-output(vco1,vco2) as out
+vca(vco1,vco2) as out
 ```
 Your layout will target each oscillator. But the alias must match your layout!
 
-All modules expect -1.0f-1.0f and all OSC params are designed to work with 0-1.
+All modules expect -1.0f - 1.0f and all OSC params are designed to work with 0-1.
 For example, if you have a slider `/vco1/freq` setting 0-1 automatically gives you
 the required range as a lograthmic control.
 

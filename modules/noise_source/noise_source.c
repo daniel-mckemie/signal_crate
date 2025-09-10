@@ -34,6 +34,7 @@ static void noise_source_process(Module* m, float* in, unsigned long frames) {
 			amp = state->amplitude + norm * mod_range;
 		}
 	}
+	amp = fminf(fmaxf(amp, 0.0f), 1.0f);
 
 	state->display_amp = amp;
 	

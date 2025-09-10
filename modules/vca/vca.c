@@ -30,7 +30,8 @@ static void vca_process(Module* m, float* in, unsigned long frames) {
 			gain = state->gain + norm * mod_range;
 		}
 	}
-
+	
+	gain = fminf(fmaxf(gain, 0.0f), 1.0f);
 	state->display_gain = gain;
 
 	for (unsigned long i = 0; i < frames; i++) {

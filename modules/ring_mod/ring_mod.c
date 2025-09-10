@@ -30,7 +30,7 @@ static void ringmod_process(Module* m, float* in, unsigned long frames) {
 
 		if (strcmp(param, "mod_freq") == 0) {
 			float mod_range = state->mod_freq * mod_depth;
-			mod_freq = state-> mod_freq + norm * mod_range;
+			mod_freq = state->mod_freq + norm * mod_range;
 		} else if (strcmp(param, "car_amp") == 0) {
 			float mod_range = (1.0f - state->car_amp) * mod_depth;
 			car_amp = state->car_amp + norm * mod_range;
@@ -40,6 +40,8 @@ static void ringmod_process(Module* m, float* in, unsigned long frames) {
 		}
 	}
 
+	car_amp = fminf(fmaxf(car_amp, 0.0f), 1.0f);
+	mod_amp = fminf(fmaxf(mod_amp, 0.0f), 1.0f);
 	state->display_mod_freq = mod_freq;
 	state->display_car_amp = car_amp;
 	state->display_mod_amp = mod_amp;

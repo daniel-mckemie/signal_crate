@@ -45,6 +45,7 @@ static void c_lfo_process_control(Module* m) {
 
     if (!m->control_output) return;
 
+	amp = fminf(fmaxf(amp, 0.0f), 1.0f);
     state->display_freq = freq;
     state->display_amp = amp;
 	state->display_depth = depth;

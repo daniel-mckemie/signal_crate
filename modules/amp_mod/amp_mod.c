@@ -41,6 +41,7 @@ static void ampmod_process(Module* m, float* in, unsigned long frames) {
 
 		}
 	}
+	car_amp = fminf(fmaxf(car_amp, 0.0f), 1.0f);
 
 	state->display_freq = freq;
 	state->display_car_amp = car_amp;
@@ -99,10 +100,10 @@ static void ampmod_handle_input(Module* m, int key) {
         switch (key) {
             case '=': state->freq += 0.05f; handled = 1; break;
             case '-': state->freq -= 0.05f; handled = 1; break;
-            case '+': state->car_amp += 0.05f; handled = 1; break;
-            case '_': state->car_amp -= 0.05f; handled = 1; break;
-            case ']': state->depth += 0.05f; handled = 1; break;
-			case '[': state->depth -= 0.05f; handled = 1; break;
+            case '+': state->car_amp += 0.01; handled = 1; break;
+            case '_': state->car_amp -= 0.01f; handled = 1; break;
+            case ']': state->depth += 0.01f; handled = 1; break;
+			case '[': state->depth -= 0.01f; handled = 1; break;
             case ':':
                 state->entering_command = true;
                 memset(state->command_buffer, 0, sizeof(state->command_buffer));

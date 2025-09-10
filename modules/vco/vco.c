@@ -36,6 +36,7 @@ static void vco_process(Module *m, float* in, unsigned long frames) {
 			amp = state->amplitude + norm * mod_range;
 		}
 	}
+	amp = fminf(fmaxf(amp, 0.0f), 1.0f);
 	
 	state->display_freq = freq;
 	state->display_amp = amp;
@@ -45,7 +46,6 @@ static void vco_process(Module *m, float* in, unsigned long frames) {
 	const float* sine_table = get_sine_table();
     for (unsigned long i = 0; i < frames; i++) {
         float value = 0.0f;
-		float smoothed_amp = process_smoother(&state->smooth_amp, amp);
 		idx = (int)(phs / TWO_PI * SINE_TABLE_SIZE) % SINE_TABLE_SIZE;
         switch (waveform) {
             case WAVE_SINE:     value = sine_table[idx]; break;
@@ -77,7 +77,7 @@ static void vco_process(Module *m, float* in, unsigned long frames) {
 								}
 
         }
-        m->output_buffer[i] = smoothed_amp * value;
+        m->output_buffer[i] = amp * value;
 		phs += TWO_PI * freq / state->sample_rate;
 		if (phs >= TWO_PI) phs -= TWO_PI;
 		state->phase = phs;  // store back in state
@@ -95,7 +95,7 @@ static void clamp_params(VCO *state) {
 		case RANGE_SUPER: max_freq = state->sample_rate * 0.45; break;
     }
 	clampf(&state->frequency, min_freq, max_freq);
-    clampf(&state->amplitude, 0.0f, 1.0f);
+    clampf(&state->amplitude, 0.00f, 1.00f);
 }
 
 
@@ -249,7 +249,7 @@ Module* create_module(const char* args, float sample_rate) {
 	pthread_mutex_init(&state->lock, NULL);
 	init_sine_table();
     init_smoother(&state->smooth_freq, 0.75f);
-    init_smoother(&state->smooth_amp, 0.95f);
+    init_smoother(&state->smooth_amp, 0.25f);
     clamp_params(state);
 
     Module *m = calloc(1, sizeof(Module));

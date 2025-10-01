@@ -138,7 +138,9 @@ static void c_fluct_set_osc_param(Module* m, const char* param, float value) {
     else if (strcmp(param, "depth") == 0)
         s->depth = value;
     else if (strcmp(param, "mode") == 0)
-        s->mode = (value > 0.5f) ? FLUCT_WALK : FLUCT_NOISE;
+        if (value > 0.5f) {
+			s->mode = (s->mode == FLUCT_WALK) ? FLUCT_NOISE : FLUCT_WALK;
+		}
     pthread_mutex_unlock(&s->lock);
 }
 

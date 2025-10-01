@@ -2,7 +2,6 @@
 #define NOISE_SOURCE_H
 
 #include <pthread.h>
-#include "module.h"
 #include "util.h"
 #include "pink_filter.h"
 #include "brown_noise.h"

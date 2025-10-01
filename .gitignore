@@ -1,5 +1,5 @@
 #Ignore binary
-SignalCrate/
+SignalCrate
 
 #Ignore build artifacts
 *.dylib

@@ -1,4 +1,4 @@
-MODULE_NAME = moog_filter
+MODULE_NAME = res_bank
 MODULE_DIR = ../..
 
 SRC = $(MODULE_NAME).c
@@ -14,3 +14,5 @@ $(MODULE_NAME).dylib: $(SRC) $(UTIL)
 
 clean:
 	rm -f *.dylib
+
+

@@ -7,7 +7,7 @@
 #define SINE_TABLE_SIZE 2048
 
 #ifndef FRAMES_PER_BUFFER
-#define FRAMES_PER_BUFFER 512
+#define FRAMES_PER_BUFFER 64
 #endif
 
 float randf(); // random generator

@@ -158,7 +158,8 @@ static void moog_filter_set_osc_param(Module* m, const char* param, float value)
 		float hz = min_hz * powf(max_hz / min_hz, norm);  // exponential mapping
         state->cutoff = hz;
     } else if (strcmp(param, "res") == 0) {
-        state->resonance = value;
+		float norm = fminf(fmaxf(value, 0.0f), 1.0f);
+        state->resonance = norm * 4.2f;
     } else if (strcmp(param, "type") == 0) {
 		if (value > 0.5f) {
 			state->filt_type = (FilterType)((state->filt_type + 1) % 5);

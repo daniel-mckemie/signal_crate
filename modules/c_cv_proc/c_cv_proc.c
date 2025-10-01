@@ -142,11 +142,13 @@ static void c_cv_proc_set_osc_param(Module* m, const char* param, float value) {
     pthread_mutex_lock(&s->lock);
 
     if (strcmp(param, "k") == 0) {
-        s->k = fminf(fmaxf(value, -2.0f), 2.0f);         // Gain for va
+		float mapped = (value * 4.0f) - 2.0f;
+        s->k = fminf(fmaxf(mapped, -2.0f), 2.0f);         // Gain for va
     } else if (strcmp(param, "m") == 0) {
         s->m = fminf(fmaxf(value, 0.0f), 1.0f);          // Crossfade between vb and vc
     } else if (strcmp(param, "offset") == 0) {
-        s->offset = fminf(fmaxf(value, -1.0f), 1.0f);    // Output bias
+		float mapped = (value * 2.0f) - 1.0f;
+        s->offset = fminf(fmaxf(mapped, -1.0f), 1.0f);    // Output bias
     } else {
         fprintf(stderr, "[c_cv_proc] Unknown OSC param: %s\n", param);
     }

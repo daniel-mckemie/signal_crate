@@ -11,7 +11,7 @@
 #include "util.h"
 #include "osc.h"
 
-float sample_rate = 44100.0f;
+float sample_rate = 48000.0f;
 
 static int audio_callback(const void* input, void* output,
                           unsigned long framesPerBuffer,

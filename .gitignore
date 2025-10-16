@@ -13,5 +13,6 @@ SignalCrate
 *.swp
 *.txt
 *.wav
+*.png
 ./show_0806
 .DS_Store

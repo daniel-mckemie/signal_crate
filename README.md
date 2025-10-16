@@ -1,9 +1,8 @@
 # Signal Crate
-Signal Crate is a terminal application written entirely in C. It's purpose
-is in creating a modular environment for live performance that is lightweight
-and easily expandable. Blending the worlds of scripted event programming with
-modular synthesizer design. All modules are controllable via the computer keyboard,
-one another, or using OSC.
+Signal Crate is a terminal application written entirely in C for live audio processing
+and performance that is lightweight and easily expandable. Blending the worlds of scripted 
+event programming with modular synthesizer design. All modules are controllable via the 
+computer keyboard, one another, or using OSC.
 
 This does not yet have a build file, but if you are interested in using or developing
 for the environment, I can certainly make one and help set it up. Currently only runs
@@ -84,10 +83,10 @@ Single input, sine wave as internal modulator.
 
 ### **Moog Ladder Filter**
 `moog_filter`
-Multi-mode resonant filter (LP/HP/BP/Notch).  
+Multi-mode resonant filter (Lowpass/Highpass/Bandpass/Notch/Resonant).  
 - `cutoff`  
 - `res`  
-- `filt_type` (LP, HP, BP, notch, resonant)
+- `filt_type` (LP, HP, BP, notch, res)
 
 ---
 
@@ -96,6 +95,21 @@ Multi-mode resonant filter (LP/HP/BP/Notch).
 Generates white, pink, or brown noise.  
 - `amp`  
 - `type`
+
+---
+
+### **Resonant Filter Bank**
+`res_bank`
+Parallel band-pass filter bank.
+- `mix`
+- `q`  
+- `lo`
+- `hi`
+- `bands`
+- `tilt`
+- `odd`
+- `drive`
+- `regen`
 
 ---
 

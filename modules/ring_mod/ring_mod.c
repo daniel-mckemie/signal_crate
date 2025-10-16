@@ -63,7 +63,7 @@ static void ringmod_process(Module* m, float* in, unsigned long frames) {
     pthread_mutex_unlock(&state->lock);
 }
 
-static void clamp_params(RingMod *state) {
+static void clamp_params(RingMod* state) {
     clampf(&state->car_amp, 0.0f, 1.0f);
     clampf(&state->mod_amp, 0.0f, 1.0f);
     clampf(&state->mod_freq, 0.1f, state->sample_rate * 0.45f);

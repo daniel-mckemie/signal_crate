@@ -119,8 +119,8 @@ static void c_lfo_handle_input(Module* m, int key) {
             case '-': s->frequency -= 0.01f; handled = 1; break;
             case '+': s->amplitude += 0.01f; handled = 1; break;
             case '_': s->amplitude -= 0.01f; handled = 1; break;
-			case 'd': s->depth += 0.01f; handled = 1; break;
-			case 'D': s->depth -= 0.01f; handled = 1; break;
+			case 'D': s->depth += 0.01f; handled = 1; break;
+			case 'd': s->depth -= 0.01f; handled = 1; break;
             case 'w': s->waveform = (s->waveform + 1) % 4; handled = 1; break;
             case ':':
                 s->entering_command = true;

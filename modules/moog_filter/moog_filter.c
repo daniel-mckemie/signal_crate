@@ -19,17 +19,16 @@ static void moog_filter_process(Module *m, float* in, unsigned long frames) {
 	filt_type = state->filt_type;
 	pthread_mutex_unlock(&state->lock); // Unlock thread
 	
-	float mod_depth = 1.0f;
 	for (int i = 0; i < m->num_control_inputs; i++) {
 		if (!m->control_inputs[i] || !m->control_input_params[i]) continue;
 		const char* param = m->control_input_params[i];
 		float control = *(m->control_inputs[i]);
 		float norm = fminf(fmaxf(control, -1.0f), 1.0f);
 		if (strcmp(param, "cutoff") == 0) {
-			float mod_range = state->cutoff * mod_depth;
+			float mod_range = state->cutoff;
 			co = state->cutoff + norm * mod_range;
 		} else if (strcmp(param, "res") == 0) {
-			float mod_range = (4.2f - state->resonance) * mod_depth;
+			float mod_range = (4.2f - state->resonance);
 			res = state->resonance + norm * mod_range;
 		}
 	}
@@ -44,10 +43,10 @@ static void moog_filter_process(Module *m, float* in, unsigned long frames) {
 		float input_sample = in[i];
 
 		if (!isfinite(input_sample)) input_sample = 0.0f;
-		float x = tanhf(input_sample);                       // Input limiter
+		float x = tanhf(input_sample); // Input limiter
 
-		x -= k * state->z[3];                         // Feedback line
-		x = tanhf(x);								  // Soft saturation
+		x -= k * state->z[3]; // Feedback line
+		x = tanhf(x); // Soft saturation
 
 		state->z[0] += g * (x - state->z[0]);
 		state->z[1] += g * (state->z[0] - state->z[1]);

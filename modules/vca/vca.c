@@ -3,7 +3,6 @@
 #include <pthread.h>
 #include <ncurses.h>
 #include <math.h>
-#include <stdatomic.h>
 
 #include "module.h"
 #include "util.h"
@@ -12,10 +11,12 @@
 static void vca_process(Module* m, float* in, unsigned long frames) {
     VCAState* state = (VCAState*)m->state;
     float* out = m->output_buffer;
-	
-	float base_gain = atomic_load_explicit(&state->gain, memory_order_acquire);
-	float gain = base_gain;
+	float gain;
 
+    pthread_mutex_lock(&state->lock);
+	gain = state->gain;
+    pthread_mutex_unlock(&state->lock);
+	
 	float mod_depth = 1.0f;
 	for (int i = 0; i < m->num_control_inputs; i++) {
 		if (!m->control_inputs[i] || !m->control_input_params[i]) continue;
@@ -25,32 +26,31 @@ static void vca_process(Module* m, float* in, unsigned long frames) {
 		float norm = fminf(fmaxf(control, -1.0f), 1.0f);
 
 		if (strcmp(param, "gain") == 0) {
-			float mod_range = (1.0f - base_gain) * mod_depth;
-			gain = base_gain + norm * mod_range;
+			float mod_range = (1.0f - state->gain) * mod_depth;
+			gain = state->gain + norm * mod_range;
 		}
 	}
 	
 	gain = fminf(fmaxf(gain, 0.0f), 1.0f);
+	state->display_gain = gain;
 
-	float last_smoothed = gain;
 	for (unsigned long i = 0; i < frames; i++) {
 		float smoothed_gain = process_smoother(&state->smooth_gain, gain);
-		last_smoothed = smoothed_gain;
+
         out[i] = smoothed_gain * in[i];
     }
-	atomic_store_explicit(&state->display_gain, last_smoothed, memory_order_release);
 }
 
 static void clamp_params(VCAState* state) {
-	float g = atomic_load_explicit(&state->gain, memory_order_relaxed);
-    clampf(&g, 0.0f, 1.0f);
-	atomic_store_explicit(&state->gain, g, memory_order_release);
+    clampf(&state->gain, 0.0f, 1.0f);
 }
 
 static void vca_draw_ui(Module* m, int y, int x) {
     VCAState* state = (VCAState*)m->state;
 
-	float gain = atomic_load_explicit(&state->display_gain, memory_order_acquire);
+    pthread_mutex_lock(&state->lock);
+    float gain = state->display_gain;
+    pthread_mutex_unlock(&state->lock);
 
     mvprintw(y,   x, "[VCA:%s] Gain: %.2f", m->name, gain);
     mvprintw(y+1, x, "Real-time keys: -/= gain");
@@ -65,16 +65,8 @@ static void vca_handle_input(Module* m, int key) {
 
     if (!state->entering_command) {
         switch (key) {
-            case '-': {
-						  float g = atomic_load_explicit(&state->gain, memory_order_relaxed);
-						  g -= 0.01f; atomic_store_explicit(&state->gain, g, memory_order_release);
-						  handled = 1; break;
-					  }
-            case '=': {
-						  float g = atomic_load_explicit(&state->gain, memory_order_relaxed);
-						  g += 0.01f; atomic_store_explicit(&state->gain, g, memory_order_release);
-						  handled = 1; break;
-					  }
+            case '-': state->gain -= 0.01f; handled = 1; break;
+            case '=': state->gain += 0.01f; handled = 1; break;
             case ':':
                 state->entering_command = true;
                 memset(state->command_buffer, 0, sizeof(state->command_buffer));
@@ -88,9 +80,7 @@ static void vca_handle_input(Module* m, int key) {
             char type;
             float val;
             if (sscanf(state->command_buffer, "%c %f", &type, &val) == 2) {
-                if (type == '1') {
-					atomic_store_explicit(&state->gain, val, memory_order_release);
-				}
+                if (type == '1') state->gain = val;
             }
             handled = 1;
         } else if (key == 27) {
@@ -109,6 +99,7 @@ static void vca_handle_input(Module* m, int key) {
 
     // Clamp
     if (handled) clamp_params(state);
+	state->display_gain = state->gain;
 
     pthread_mutex_unlock(&state->lock);
 }
@@ -118,8 +109,7 @@ static void vca_set_osc_param(Module* m, const char* param, float value) {
     pthread_mutex_lock(&state->lock);
 
     if (strcmp(param, "gain") == 0) {
-		float v = fmaxf(value, 0.0f);
-		atomic_store_explicit(&state->gain, v, memory_order_release);
+        state->gain = fmaxf(value, 0.0f);
     } else {
         fprintf(stderr, "[vca] Unknown OSC param: %s\n", param);
     }
@@ -140,10 +130,9 @@ Module* create_module(const char* args, float sample_rate) {
     }
 
     VCAState* state = calloc(1, sizeof(VCAState));
-	atomic_store_explicit(&state->gain, gain, memory_order_relaxed);
-	atomic_store_explicit(&state->display_gain, gain, memory_order_relaxed);
+    state->gain = gain;
     pthread_mutex_init(&state->lock, NULL);
-	init_smoother(&state->smooth_gain, 1.0f / (0.005f * sample_rate));
+	init_smoother(&state->smooth_gain, 0.75);
 
     Module* m = calloc(1, sizeof(Module));
     m->name = "vca";  // IMPORTANT: engine uses "out" for final audio

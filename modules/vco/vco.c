@@ -241,7 +241,7 @@ Module* create_module(const char* args, float sample_rate) {
     state->frequency = freq;
     state->amplitude = amp;
     state->waveform = wave;
-	state->range_mode = RANGE_LOW;
+	state->range_mode = RANGE_FULL;
 	state->phase = 0.0f;
 	state->tri_state = 0.0f;
     state->sample_rate = sample_rate;

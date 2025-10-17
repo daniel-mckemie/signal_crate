@@ -60,21 +60,33 @@ static void run_script_command(ScriptBox* s, const char* cmd) {
 	float scaled = val;
 
 	// Apply logarithmic scaling for frequency-like parameters
-	if (strcmp(param, "freq") == 0 || strcmp(param, "frequency") == 0) {
+	if (strcmp(param, "freq") == 0 ||
+			strcmp(param, "cutoff") == 0) {
 		// Convert Hz to 0–1 control (inverse of VCO mapping)
-		const float fmin = 20.0f;
-		const float fmax = 20000.0f; // or whatever your engine’s top range is
+		float fmin = 20.0f;
+		// float fmax = s->sample_rate * 0.5f; // Needs some tooling to be dynamic to sample_rate. Keep for now
+		float fmax = 20000.0f;
 		if (val < fmin) val = fmin;
 		if (val > fmax) val = fmax;
 		scaled = logf(val / fmin) / logf(fmax / fmin);
-	}
-	else {
+	} else if (strcmp(param, "mod_freq") == 0) { // AMP MOD is "freq", needs label adjusting or just deal with the quirk
+		float fmin = 0.01f;
+		float fmax = 20000.0f;
+		if (val < fmin) val = fmin;
+		if (val > fmax) val = fmax;
+		scaled = logf(val / fmin) / logf(fmax / fmin);
+	} else {
 		// Linear normalization between min and max
 		if (b > a)
 			scaled = (val - a) / (b - a);
 		else
 			scaled = val;
 	}
+
+	// CREATE OTHER SCALES...
+	// -1-1.0f
+	// Buttons? Like filter modes and vco range? Or no...
+
 
 	// Clamp safety
 	if (scaled < 0.f) scaled = 0.f;
@@ -123,6 +135,7 @@ static void script_box_destroy(Module* m) {
 Module* create_module(const char* args, float sample_rate) {
     (void)args; (void)sample_rate;
     ScriptBox* s = calloc(1, sizeof(ScriptBox));
+	s->sample_rate = sample_rate;
     pthread_mutex_init(&s->lock, NULL);
 
     Module* m = calloc(1, sizeof(Module));

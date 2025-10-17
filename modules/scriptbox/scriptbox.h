@@ -5,6 +5,8 @@
 
 typedef struct {
     pthread_mutex_t lock;
+	float sample_rate;
+	
     char command_buffer[256];
     int command_index;
     int entering_command;

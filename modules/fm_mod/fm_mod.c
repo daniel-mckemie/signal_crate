@@ -124,7 +124,7 @@ static void fm_mod_set_osc_param(Module* m, const char* param, float value) {
     pthread_mutex_lock(&state->lock);
 
     if (strcmp(param, "mod_freq") == 0) {
-        float min_hz = 1.0f;
+        float min_hz = 0.01f;
         float max_hz = 20000.0f;
         float norm = fminf(fmaxf(value, 0.0f), 1.0f); // clamp
         float hz = min_hz * powf(max_hz / min_hz, norm);

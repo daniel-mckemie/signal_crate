@@ -56,6 +56,7 @@ lo_server_thread start_osc_server(void) {
 			// Save current port for UI display
 			snprintf(current_osc_port, sizeof(current_osc_port), "%s", port_str);
             printf("[osc] OSC server started on port %s\n", port_str);
+			setenv("SIGNAL_CRATE_OSC_PORT", port_str, 1);
             return st;
         }
     }

@@ -89,10 +89,9 @@ static inline float soft_sat(float x, float drive) {
 
 static void res_bank_process(Module* m, float* in, unsigned long frames) {
     ResBank* s = (ResBank*)m->state;
-
-    // Pull smoothed params under lock (like your other modules)
     float mix, q, lo, hi, tilt, odd, drive, regen;
     int bands;
+	
     pthread_mutex_lock(&s->lock);
     mix   = process_smoother(&s->smooth_mix,   s->mix);
     q     = process_smoother(&s->smooth_q,     s->q);
@@ -105,6 +104,44 @@ static void res_bank_process(Module* m, float* in, unsigned long frames) {
     bands = s->bands;
 	if (fabsf(q - s->display_q) > 0.01f) s->need_coeffs = 1;
     pthread_mutex_unlock(&s->lock);
+
+	float mod_depth = 1.0f;
+	for (int i=0; i<m->num_control_inputs; i++) {
+		if (!m->control_inputs[i] || !m->control_input_params[i]) continue;
+
+		const char* param= m->control_input_params[i];
+		float control = *(m->control_inputs[i]);
+		float norm = fminf(fmaxf(control, -1.0f), 1.0f);
+
+		if (strcmp(param, "mix") == 0) {
+			float mod_range = (1.0f - s->mix) * mod_depth;
+			mix = s->mix + norm * mod_range;
+		} else if (strcmp(param, "q") == 0) {
+			float mod_range = (1.0f - s->q) * mod_depth;
+			q = s->q + norm * mod_range;
+		} else if (strcmp(param, "lo") == 0) {
+			float mod_range = s->lo_hz * mod_depth;
+			lo = s->lo_hz + norm * mod_range;
+		} else if (strcmp(param, "hi") == 0) {
+			float mod_range = s->hi_hz * mod_depth;
+			hi = s->hi_hz + norm * mod_range;
+		} else if (strcmp(param, "tilt") == 0) {
+			float mod_range = (2.0f - fabsf(s->tilt)) * mod_depth;
+			tilt = s->tilt + norm * mod_range;
+		} else if (strcmp(param, "odd") == 0) {
+			float mod_range = (2.0f - fabsf(s->odd)) * mod_depth;
+			odd = s->odd + norm * mod_range;
+		} else if (strcmp(param, "drive") == 0) {
+			float mod_range = (1.0f - s->drive) * mod_depth;
+			drive = s->drive + norm * mod_range;
+		} else if (strcmp(param, "regen") == 0) {
+			float mod_range = (1.0f - s->regen) * mod_depth;
+			regen = s->regen + norm * mod_range;
+		} else if (strcmp(param, "bands") == 0) {
+			float mod_range = (RES_MAX_BANDS - s->bands) * mod_depth;
+			bands = s->bands + norm * mod_range;
+		}
+	}
 
     // cache for UI
     s->display_mix = mix;
@@ -165,7 +202,7 @@ static void res_bank_draw_ui(Module* m, int y, int x) {
     if (s->entering_command) snprintf(cmd, sizeof(cmd), ":%s", s->command_buffer);
     pthread_mutex_unlock(&s->lock);
 
-    mvprintw(y,   x, "[ResBank:%s] mix:%.2f q:%.2f lo:%.0f hi:%.0f bands:%d tilt:%.2f odd:%.2f drv:%.2f rgn:%.2f",
+    mvprintw(y,   x, "[ResBank:%s] mix:%.2f q:%.1f lo:%.0f hi:%.0f bands:%d tilt:%.2f odd:%.2f drv:%.2f rgn:%.2f",
              m->name, mix, q, lo, hi, bands, tilt, odd, drive, regen);
     mvprintw(y+1, x, "Real-time: -/= mix, _/+ q, [/] lo, {/} hi, ;/\' bands, ?/\" tilt, ,/. odd, </> drive, 9/0 regen");
     mvprintw(y+2, x, "Cmd mode :1 [mix] :2 [q] :3 [lo] :4 [hi] :5 [bands] :6 [tilt] :7 [odd] :8 [drive] :9 [rgn]");

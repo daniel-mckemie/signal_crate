@@ -2,6 +2,7 @@
 #define ENGINE_H
 
 #include "module.h"
+#include "scheduler.h"
 
 typedef struct {
     char name[32];

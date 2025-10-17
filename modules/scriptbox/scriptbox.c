@@ -4,9 +4,20 @@
 #include <pthread.h>
 #include <ncurses.h>
 #include <lo/lo.h>
+
 #include "scriptbox.h"
 #include "module.h"
 #include "util.h"
+#include "scheduler.h"
+
+static void run_script_command(ScriptBox* s, const char* cmd);
+
+// Callback implementation — re-runs the script line
+void run_script_line_cb(void* userdata) {
+    ScriptEvent* e = (ScriptEvent*)userdata;
+    ScriptBox* s = (ScriptBox*)e->scriptbox_ptr;
+    run_script_command(s, e->script_line);
+}
 
 static void script_box_process_control(Module* m) {
     // no continuous output — only dispatches commands
@@ -69,41 +80,74 @@ static void send_osc(const char* alias, const char* param, float value) {
 }
 
 static void run_script_command(ScriptBox* s, const char* cmd) {
-    char func[32], alias[64], param[64];
+    char func[32], alias[64], param[64], fifth[64] = {0};
     float a = 0.f, b = 0.f;
-    int n = sscanf(cmd, "%31[^ (](%f,%f,%63[^,],%63[^)])", func, &a, &b, alias, param);
+
+    // Try parsing up to 5 args (optional fifth may be "~interval")
+    int n = sscanf(cmd, "%31[^ (](%f,%f,%63[^,],%63[^,],%63[^)])",
+                   func, &a, &b, alias, param, fifth);
+
     if (n < 4) {
-        snprintf(s->last_result, sizeof(s->last_result), "Parse error");
+        snprintf(s->last_result, sizeof(s->last_result), "Parse error: %s", cmd);
         return;
     }
 
+    // --- Strip any trailing ) or whitespace from alias/param ---
+    for (int i = 0; alias[i]; i++) {
+        if (alias[i] == ')' || alias[i] == '\n' || alias[i] == '\r')
+            alias[i] = '\0';
+    }
+    for (int i = 0; param[i]; i++) {
+        if (param[i] == ')' || param[i] == '\n' || param[i] == '\r')
+            param[i] = '\0';
+    }
+
+    // --- Detect optional ~interval ---
+    double interval_ms = 0.0;
+    if ((n == 6 || n == 5) && fifth[0] == '~')
+        interval_ms = atof(fifth + 1);
+
+    // --- Compute value ---
     float val = 0.f;
-    if (strncmp(func, "rand", 4) == 0 && n == 5)
+    if (strncmp(func, "rand", 4) == 0)
         val = a + randf() * (b - a);
-    else if (strncmp(func, "set", 3) == 0 && n >= 4)
+    else if (strncmp(func, "set", 3) == 0)
         val = a;
     else {
         snprintf(s->last_result, sizeof(s->last_result), "Bad func: %s", func);
         return;
     }
 
-    /* Normalize */
+    // --- Normalize ---
     float scaled = val;
     if (strcmp(param, "freq") == 0 || strcmp(param, "cutoff") == 0) {
         float fmin = 20.0f, fmax = 20000.0f;
         if (val < fmin) val = fmin;
         if (val > fmax) val = fmax;
         scaled = logf(val / fmin) / logf(fmax / fmin);
-    } else {
-        if (b > a) scaled = (val - a) / (b - a);
+    } else if (b > a) {
+        scaled = (val - a) / (b - a);
     }
+
     if (scaled < 0.f) scaled = 0.f;
     if (scaled > 1.f) scaled = 1.f;
 
+    // --- Send OSC to correct alias/param ---
     send_osc(alias, param, scaled);
-    snprintf(s->last_result, sizeof(s->last_result),
-             "sent %s/%s=%.2f (raw %.2f)", alias, param, scaled, val);
+    // snprintf(s->last_result, sizeof(s->last_result),
+    //         "sent %s/%s=%.2f (raw %.2f)", alias, param, scaled, val);
+
+    // --- If ~interval provided, schedule repeats ---
+    if (interval_ms > 0.0) {
+        ScriptEvent* e = malloc(sizeof(ScriptEvent));
+        snprintf(e->script_line, sizeof(e->script_line), "%s", cmd);
+        e->scriptbox_ptr = s;
+        scheduler_add(run_script_line_cb, e, interval_ms);
+        // fprintf(stderr, "[scheduler] '%s' scheduled every %.1f ms\n",
+        //        cmd, interval_ms);
+    }
 }
+
 
 static void script_box_handle_input(Module* m, int key) {
     ScriptBox* s = (ScriptBox*)m->state;
@@ -221,11 +265,18 @@ static void script_box_handle_input(Module* m, int key) {
         strncpy(copy, s->script_text, sizeof(copy));
         pthread_mutex_unlock(&s->lock);
 
-        char* line = strtok(copy, "\n");
-        while (line) {
-            run_script_command(s, line);
-            line = strtok(NULL, "\n");
-        }
+		char* line = strtok(copy, "\n");
+		while (line) {
+			// Trim leading spaces
+			while (*line == ' ' || *line == '\t') line++;
+
+			// Skip comment lines and empty lines
+			if (strncmp(line, "//", 2) != 0 && *line != '\0') {
+				run_script_command(s, line);
+			}
+
+			line = strtok(NULL, "\n");
+		}
 
         pthread_mutex_lock(&s->lock);
         snprintf(s->last_result, sizeof(s->last_result), "script executed");

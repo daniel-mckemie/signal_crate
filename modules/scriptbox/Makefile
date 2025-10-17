@@ -7,7 +7,7 @@ MODULE = $(MODULE_DIR)/module.c
 
 CC = gcc
 CFLAGS = -Wall -O2 -fPIC -I$(MODULE_DIR) -I/opt/homebrew/include
-LDFLAGS = -L/opt/homebrew/lib -dynamiclib -lportaudio -lpthread -lm -lncurses -llo
+LDFLAGS = -L/opt/homebrew/lib -undefined dynamic_lookup -dynamiclib -lportaudio -lpthread -lm -lncurses -llo
 
 $(MODULE_NAME).dylib: $(SRC) $(UTIL)
 	$(CC) $(CFLAGS) -o $(MODULE_NAME).dylib $(SRC) $(UTIL) $(MODULE) $(LDFLAGS)

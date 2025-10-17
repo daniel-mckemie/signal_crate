@@ -258,6 +258,9 @@ void process_audio(float* input, float* output, unsigned long frames) {
 		}
     }
 
+	double block_ms = (1000.0 * frames / sample_rate);
+	scheduler_tick(block_ms);
+
 	for (int i = 0; i < module_count; i++) {
 	    if (strcmp(modules[i].name, "out") == 0) {
 		    memcpy(output, modules[i].module->output_buffer, sizeof(float) * frames);

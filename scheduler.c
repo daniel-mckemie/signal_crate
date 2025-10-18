@@ -20,7 +20,7 @@ void scheduler_add(void (*callback)(void*), void* userdata, double interval_ms) 
     char new_alias[64] = {0}, new_param[64] = {0};
     sscanf(new_e->script_line, "%*[^ (](%*f,%*f,%63[^,],%63[^,]", new_alias, new_param);
 
-    // --- Immediately remove (and free) any existing event with same alias+param ---
+    // --- Cancel any existing event for same alias/param (no free yet) ---
     for (int i = 0; i < sched_count; i++) {
         ScriptEvent* existing_e = (ScriptEvent*)sched_events[i].userdata;
         if (!existing_e) continue;
@@ -29,9 +29,8 @@ void scheduler_add(void (*callback)(void*), void* userdata, double interval_ms) 
         sscanf(existing_e->script_line, "%*[^ (](%*f,%*f,%63[^,],%63[^,]", ex_alias, ex_param);
 
         if (strcmp(ex_alias, new_alias) == 0 && strcmp(ex_param, new_param) == 0) {
-            // mark it as cancelled so tick() ignores it
+            // just mark as cancelled, do NOT free yet
             sched_events[i].cancelled = 1;
-            free(existing_e);
         }
     }
 
@@ -40,7 +39,7 @@ void scheduler_add(void (*callback)(void*), void* userdata, double interval_ms) 
         return;
     }
 
-    // --- Add the new event ---
+    // --- Add new event ---
     ScheduledEvent* e = &sched_events[sched_count++];
     e->callback = callback;
     e->userdata = userdata;
@@ -55,13 +54,15 @@ void scheduler_tick(double block_ms) {
     for (int i = 0; i < sched_count; ) {
         ScheduledEvent* e = &sched_events[i];
 
-        // Skip cancelled events immediately
+        // Clean up cancelled events
         if (e->cancelled) {
-            // Compact list
+            ScriptEvent* se = (ScriptEvent*)e->userdata;
+            if (se) free(se);   // safe to free now
+            // compact array
             for (int j = i; j < sched_count - 1; j++)
                 sched_events[j] = sched_events[j + 1];
             sched_count--;
-            continue; // don't increment i — next event moved down
+            continue;
         }
 
         if (scheduler_time_ms >= e->next_trigger) {

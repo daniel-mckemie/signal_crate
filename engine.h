@@ -9,6 +9,8 @@ typedef struct {
     Module* module;
 } NamedModule;
 
+extern int ui_enabled;
+
 // DAG patching API
 void initialize_engine(const char* patch_text);
 void shutdown_engine(void);

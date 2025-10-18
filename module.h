@@ -2,8 +2,8 @@
 #define MODULE_H
 
 #define MAX_MODULES 8192
-#define MAX_INPUTS 512
-#define MAX_CONTROL_INPUTS 64
+#define MAX_INPUTS 4096
+#define MAX_CONTROL_INPUTS 4096
 
 typedef struct Module {
     const char* name; // Module name for aliases

@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <sys/resource.h>
 #include <time.h>
+#include <unistd.h>
 
 #include "module.h"
 #include "engine.h"
@@ -39,6 +40,12 @@ float get_cpu_percent() {
 }
 
 void ui_loop() {
+	if (!ui_enabled) {
+		fprintf(stderr, "[ui] Skipping UI (disabled by patch flag)\n");
+        while (1) usleep(100000);  // keep audio thread alive
+        return;
+	}
+
     initscr(); set_escdelay(25); cbreak(); noecho();
 	scrollok(stdscr, FALSE);
     keypad(stdscr, TRUE);

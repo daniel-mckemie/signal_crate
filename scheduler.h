@@ -1,7 +1,7 @@
 #ifndef SCHEDULER_H
 #define SCHEDULER_H
 
-#define MAX_EVENTS 128
+#define MAX_EVENTS 8192
 
 typedef struct {
     double interval_ms;

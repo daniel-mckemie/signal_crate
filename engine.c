@@ -7,6 +7,7 @@
 #include "module_loader.h"
 #include "util.h"
 
+int ui_enabled = 1;
 static NamedModule modules[MAX_MODULES];
 static int module_count = 0;
 extern float sample_rate;
@@ -14,7 +15,7 @@ extern float sample_rate;
 typedef struct {
     char modtype[64];
     char alias[64];
-    char input_str[128];
+    char input_str[16384];
 } DeferredPatchLine;
 
 static DeferredPatchLine patch_lines[MAX_MODULES];
@@ -98,16 +99,16 @@ static void connect_control_inputs(Module* m, char** param_names, char** source_
 static void parse_patch_line(const char* line) {
     char modtype[64] = {0};
     char alias[64] = {0};
-    char all_args[256] = {0};  // Full contents inside ( )
-    char create_args[128] = {0};  // [file=snd.wav]
-    char input_str[128] = {0};    // speed=l1
+    char all_args[16384] = {0};      // Full contents inside ( )
+    char create_args[16384] = {0};   // [file=snd.wav]
+    char input_str[16384] = {0};     // speed=l1
 
     if (strstr(line, "(")) {
         sscanf(line, "%[^ (](%[^)]) as %s", modtype, all_args, alias);
 
         // Now separate [ ... ] from the rest
         const char* bracket_start = strchr(all_args, '[');
-        const char* bracket_end = strchr(all_args, ']');
+        const char* bracket_end   = strchr(all_args, ']');
         if (bracket_start && bracket_end && bracket_end > bracket_start) {
             size_t len = bracket_end - bracket_start - 1;
             strncpy(create_args, bracket_start + 1, len);
@@ -115,7 +116,7 @@ static void parse_patch_line(const char* line) {
 
             // Copy rest (after ]) into input_str
             const char* rest = bracket_end + 1;
-            while (*rest == ',' || *rest == ' ') rest++;  // skip any comma/space
+            while (*rest == ',' || *rest == ' ') rest++;  // skip comma/space
             strncpy(input_str, rest, sizeof(input_str) - 1);
             input_str[sizeof(input_str) - 1] = '\0';
         } else {
@@ -136,7 +137,7 @@ static void parse_patch_line(const char* line) {
         return;
     }
 
-	m->name = strdup(alias);
+    m->name = strdup(alias);
 
     NamedModule newmod;
     strncpy(newmod.name, alias, sizeof(newmod.name));
@@ -156,16 +157,30 @@ static void parse_patch_line(const char* line) {
 }
 
 void initialize_engine(const char* patch_text) {
+	ui_enabled = 1; // Default ON
+	if (strstr(patch_text, "no_ui")) {
+        fprintf(stderr, "[engine] UI disabled (no_ui flag found)\n");
+        ui_enabled = 0;
+    }
+
     char* patch = strdup(patch_text);
     char* line = strtok(patch, "\r\n");
 
-    while (line) {
-        char* clean_line = trim_whitespace(line);
-        if (strlen(clean_line) > 0) {
-            parse_patch_line(clean_line);
-        }
-        line = strtok(NULL, "\r\n");
-    }
+	while (line) {
+		char* clean_line = trim_whitespace(line);
+
+		// --- Skip blank lines, comments, and directives like "no_ui"
+		if (strlen(clean_line) == 0 ||
+			clean_line[0] == '#' ||
+			strncmp(clean_line, "//", 2) == 0 ||
+			strncasecmp(clean_line, "no_ui", 5) == 0) {
+			line = strtok(NULL, "\r\n");
+			continue;
+		}
+
+		parse_patch_line(clean_line);
+		line = strtok(NULL, "\r\n");
+	}
 
     // Second pass: connect inputs
     for (int i = 0; i < patch_line_count; i++) {
@@ -173,7 +188,7 @@ void initialize_engine(const char* patch_text) {
         if (!nm) continue;
 
         char* token;
-        char input_buf[128];
+        char input_buf[16384];
         strncpy(input_buf, patch_lines[i].input_str, sizeof(input_buf));
 
         char* audio_inputs[MAX_INPUTS];
@@ -211,7 +226,6 @@ void initialize_engine(const char* patch_text) {
 
     free(patch);
 }
-
 void shutdown_engine(void) {
     for (int i = 0; i < module_count; i++) {
         if (modules[i].module && modules[i].module->destroy)

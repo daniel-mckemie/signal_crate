@@ -27,22 +27,22 @@ static int audio_callback(const void* input, void* output,
         allocated_input = 1;
     }
 
-    process_audio(in, out, framesPerBuffer);  // NEW DAG ENGINE CALL
+    process_audio(in, out, framesPerBuffer);
 
     if (allocated_input) free(in);
     return paContinue;
 }
 
 void handle_signal(int sig) {
-    endwin();  // restore terminal
+    endwin();  // restore terminal if UI is active
     fprintf(stderr, "\n[main] Caught signal %d — clean exit.\n", sig);
     exit(1);
 }
 
 int main(int argc, char** argv) {
-	signal(SIGINT, handle_signal);
-	signal(SIGTERM, handle_signal);
-	signal(SIGSEGV, handle_signal);
+    signal(SIGINT, handle_signal);
+    signal(SIGTERM, handle_signal);
+    signal(SIGSEGV, handle_signal);
 
     Pa_Initialize();
     PaStream* stream;
@@ -53,42 +53,77 @@ int main(int argc, char** argv) {
 
     if (outputDevice == paNoDevice) {
         fprintf(stderr, "No default output device.\n");
+        Pa_Terminate();
         return 1;
     }
 
     const PaDeviceInfo* outputInfo = Pa_GetDeviceInfo(outputDevice);
-    const PaDeviceInfo* inputInfo  = Pa_GetDeviceInfo(inputDevice);
+    const PaDeviceInfo* inputInfo  = (inputDevice != paNoDevice)
+                                    ? Pa_GetDeviceInfo(inputDevice)
+                                    : NULL;
     sample_rate = outputInfo->defaultSampleRate;
 
-    char patch[65536] = {0};
-
+    // --- SAFE PATCH LOADER ---
+    char* patch = NULL;
     if (argc > 1) {
         FILE* f = fopen(argv[1], "r");
         if (!f) {
             fprintf(stderr, "[main] Failed to open patch file: %s\n", argv[1]);
+            Pa_Terminate();
             return 1;
         }
 
-        char line[1024];
-        while (fgets(line, sizeof(line), f)) {
-            if (line[0] == '\n' || line[0] == '\0') continue;
-            strcat(patch, line);
+        fseek(f, 0, SEEK_END);
+        long size = ftell(f);
+        rewind(f);
+
+        patch = (char*)calloc((size_t)size + 1, 1);
+        if (!patch) {
+            fclose(f);
+            fprintf(stderr, "[main] Out of memory.\n");
+            Pa_Terminate();
+            return 1;
         }
 
+        fread(patch, 1, (size_t)size, f);
         fclose(f);
     } else {
-        char line[256];
         printf("Enter patch (end with an empty line):\n");
+        size_t cap = 8192, len = 0;
+        patch = (char*)malloc(cap);
+        if (!patch) {
+            fprintf(stderr, "[main] Out of memory.\n");
+            Pa_Terminate();
+            return 1;
+        }
+        patch[0] = '\0';
 
+        char line[1024];
         while (fgets(line, sizeof(line), stdin)) {
             if (strcmp(line, "\n") == 0) break;
-            strcat(patch, line);
+            size_t L = strlen(line);
+            if (len + L + 1 > cap) {
+                cap *= 2;
+                char* np = realloc(patch, cap);
+                if (!np) {
+                    free(patch);
+                    fprintf(stderr, "[main] Out of memory (stdin read).\n");
+                    Pa_Terminate();
+                    return 1;
+                }
+                patch = np;
+            }
+            memcpy(patch + len, line, L);
+            len += L;
+            patch[len] = '\0';
         }
     }
 
-    initialize_engine(patch);  // NEW DAG PATCH PARSER
+    // --- Initialize engine ---
+    initialize_engine(patch);
+    free(patch);
 
-    // === SAFETY CHECK: Require at least one audio-producing module ===
+    // Safety: ensure we have at least one module producing audio
     bool has_audio = false;
     for (int i = 0; i < get_module_count(); i++) {
         Module* m = get_module(i);
@@ -100,16 +135,18 @@ int main(int argc, char** argv) {
 
     if (!has_audio) {
         fprintf(stderr, "[error] No modules with audio output found. Exiting.\n");
+        Pa_Terminate();
         return 1;
     }
 
+    // Start OSC server if any modules exist
     if (get_module_count() > 0) {
         start_osc_server();
     } else {
-        fprintf(stderr, "No modules loaded. Skipping OSC server start.");
+        fprintf(stderr, "[warn] No modules loaded. Skipping OSC server.\n");
     }
 
-    // Set up PortAudio stream params
+    // --- Configure PortAudio ---
     PaStreamParameters inputParams = {
         .device = inputDevice,
         .channelCount = 1,
@@ -126,7 +163,6 @@ int main(int argc, char** argv) {
         .hostApiSpecificStreamInfo = NULL
     };
 
-    // Open stream
     PaError err = Pa_OpenStream(&stream,
                                 (inputDevice != paNoDevice) ? &inputParams : NULL,
                                 &outputParams,
@@ -135,14 +171,18 @@ int main(int argc, char** argv) {
                                 paClipOff,
                                 audio_callback,
                                 NULL);
+
     if (err != paNoError) {
         fprintf(stderr, "Failed to open stream: %s\n", Pa_GetErrorText(err));
+        Pa_Terminate();
         return 1;
     }
 
     err = Pa_StartStream(stream);
     if (err != paNoError) {
         fprintf(stderr, "Failed to start stream: %s\n", Pa_GetErrorText(err));
+        Pa_CloseStream(stream);
+        Pa_Terminate();
         return 1;
     }
 
@@ -150,21 +190,17 @@ int main(int argc, char** argv) {
     if (info) {
         sample_rate = info->sampleRate;
         printf("Actual stream sample rate: %.2f Hz\n", sample_rate);
-    } else {
-        fprintf(stderr, "Failed to get stream info.\n");
-        return 1;
     }
 
-    // Run the ncurses UI loop
+    // --- Run UI (blocking) ---
     ui_loop();
 
-    // Cleanup
+    // --- Cleanup ---
     Pa_StopStream(stream);
     Pa_CloseStream(stream);
     Pa_Terminate();
 
-    shutdown_engine();  // NEW DAG CLEANUP
-
+    shutdown_engine();
     printf("Clean exit.\n");
     return EXIT_SUCCESS;
 }

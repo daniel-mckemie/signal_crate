@@ -24,7 +24,7 @@ but the input scale is built and again, if that feature is desired, use an inter
 float, so any work on building an interface requires no additional scaling assignments beyond that, unless
 you want to.
 
-##  Audio Modules
+## Audio Modules
 
 ### **System Input**
 `input`
@@ -233,6 +233,24 @@ Params controllable via OSC
 - `offset`
 
 ---
+
+## Script Box
+The Script Box module allows for functions to be declared and targeted throughout the system. The Script Box is armed
+and goes into a separate editor, and here functions can be declared line by line. In the main Signal Crate UI view, the
+module can be run using the `Ctrl+R` command. Every function is equipped to either run as a one-shot or on a cycle. To
+use the cycle feature, the last argument is preceded with a `~` and the value to cycle in milliseconds.
+
+Each function is on their own scheduler and uses OSC to target modules and their params within Signal Crate. A list of 
+available functions is below, along with their arguments.
+
+- `rand` - random number generator (min,max,alias,param)
+
+```bash
+rand(100,1000,vco1,freq)    // Sends a one-shot random value to vco1's frequency param
+rand(0.3,0.6,vco1,amp,~500) // Sends a random value to vco1's amp param every 500ms
+```
+
+
 ## Loading a Signal Crate
 Arm Signal Crate in the directory with ./SignalCrate or relevant bash script
 

@@ -166,7 +166,7 @@ Module* create_module(const char* args, float sample_rate) {
         sscanf(strstr(args, "mode="), "mode=%31s", mode_str);
         if (strcmp(mode_str, "noise") == 0) mode = FLUCT_NOISE;
         else if (strcmp(mode_str, "walk") == 0) mode = FLUCT_WALK;
-        else fprintf(stderr, "[vco] Unknown wave type: '%s'\n", mode_str);
+        else fprintf(stderr, "[c_fluct] Unknown mode type: '%s'\n", mode_str);
     }
 
 

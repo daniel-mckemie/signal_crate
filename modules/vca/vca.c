@@ -8,36 +8,54 @@
 #include "util.h"
 #include "vca.h"
 
-static void vca_process(Module* m, float* in, unsigned long frames) {
+static void vca_process(Module* m, float* in, unsigned long frames)
+{
     VCAState* state = (VCAState*)m->state;
-    float* out = m->output_buffer;
-	float gain;
+    float* inL  = m->inputs[0];
+    float* inR  = m->inputs[1];
+    float* outL = m->output_bufferL;
+    float* outR = m->output_bufferR;
 
+    // Lock once at the top for thread-safe parameter read
     pthread_mutex_lock(&state->lock);
-	gain = state->gain;
+    float base_gain = state->gain;
     pthread_mutex_unlock(&state->lock);
-	
-	float mod_depth = 1.0f;
-	for (int i = 0; i < m->num_control_inputs; i++) {
-		if (!m->control_inputs[i] || !m->control_input_params[i]) continue;
 
-		const char* param = m->control_input_params[i];
-		float control = *(m->control_inputs[i]);
-		float norm = fminf(fmaxf(control, -1.0f), 1.0f);
+    float gain = base_gain;
+    float mod_depth = 1.0f;
 
-		if (strcmp(param, "gain") == 0) {
-			float mod_range = (1.0f - state->gain) * mod_depth;
-			gain = state->gain + norm * mod_range;
-		}
-	}
-	
-	gain = fminf(fmaxf(gain, 0.0f), 1.0f);
-	state->display_gain = gain;
+    // Apply any modulation inputs that target "gain"
+    for (int i = 0; i < m->num_control_inputs; i++) {
+        if (!m->control_inputs[i] || !m->control_input_params[i]) continue;
 
-	for (unsigned long i = 0; i < frames; i++) {
-		float smoothed_gain = process_smoother(&state->smooth_gain, gain);
+        const char* param = m->control_input_params[i];
+        float control = *(m->control_inputs[i]);
+        float norm = fminf(fmaxf(control, -1.0f), 1.0f);
 
-        out[i] = smoothed_gain * in[i];
+        if (strcmp(param, "gain") == 0) {
+            float mod_range = (1.0f - base_gain) * mod_depth;
+            gain = base_gain + norm * mod_range;
+        }
+    }
+
+    gain = fminf(fmaxf(gain, 0.0f), 1.0f);
+    state->display_gain = gain;
+
+    // If no input, output silence
+    if (!inL && !inR) {
+        memset(outL, 0, frames * sizeof(float));
+        memset(outR, 0, frames * sizeof(float));
+        return;
+    }
+
+    // Process each frame
+    for (unsigned long i = 0; i < frames; i++) {
+        float left  = inL ? inL[i] : 0.0f;
+        float right = inR ? inR[i] : left;  // duplicate left if mono
+        float smoothed_gain = process_smoother(&state->smooth_gain, gain);
+
+        outL[i] = smoothed_gain * left;
+        outR[i] = smoothed_gain * right;
     }
 }
 
@@ -137,7 +155,8 @@ Module* create_module(const char* args, float sample_rate) {
     Module* m = calloc(1, sizeof(Module));
     m->name = "vca";  // IMPORTANT: engine uses "out" for final audio
     m->state = state;
-	m->output_buffer = calloc(FRAMES_PER_BUFFER, sizeof(float));  // mono
+	m->output_bufferL = calloc(FRAMES_PER_BUFFER, sizeof(float));  // mono
+	m->output_bufferR = calloc(FRAMES_PER_BUFFER, sizeof(float));  // mono
     m->process = vca_process;
     m->draw_ui = vca_draw_ui;
     m->handle_input = vca_handle_input;

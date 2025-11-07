@@ -274,19 +274,30 @@ void process_audio(float* input, float* output, unsigned long frames) {
 
 	double block_ms = (1000.0 * frames / sample_rate);
 	scheduler_tick(block_ms);
-
+	// --- Final stereo mixdown ---
 	for (int i = 0; i < module_count; i++) {
-	    if (strcmp(modules[i].name, "out") == 0) {
-		    memcpy(output, modules[i].module->output_buffer, sizeof(float) * frames);
+		Module* m = modules[i].module;
+		if (strcmp(modules[i].name, "out") == 0 || strcmp(modules[i].name, "vca") == 0) {
+			float* outL = m->output_bufferL ? m->output_bufferL : m->output_buffer;
+			float* outR = m->output_bufferR ? m->output_bufferR : m->output_buffer;
+			for (unsigned long k = 0; k < frames; k++) {
+				output[k * 2]     = outL[k];
+				output[k * 2 + 1] = outR[k];
+			}
 			return;
 		}
 	}
 
-    if (module_count > 0) {
-        memcpy(output, modules[module_count - 1].module->output_buffer, sizeof(float) * frames);
-    } else {
-        memset(output, 0, sizeof(float) * frames);
-    }
+	// Default fallback: duplicate mono to both channels
+	if (module_count > 0) {
+		float* mono = modules[module_count - 1].module->output_buffer;
+		for (unsigned long k = 0; k < frames; k++) {
+			output[k * 2]     = mono[k];
+			output[k * 2 + 1] = mono[k];
+		}
+	} else {
+		memset(output, 0, sizeof(float) * frames * 2);
+	}
 }
 
 Module* get_module(int index) {

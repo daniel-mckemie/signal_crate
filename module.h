@@ -20,6 +20,8 @@ typedef struct Module {
 	// Audio routing
 	float* inputs[MAX_INPUTS];
 	int num_inputs;
+	float* output_bufferL;
+	float* output_bufferR;
 	float* output_buffer;
 
 	// Control routing

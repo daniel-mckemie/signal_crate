@@ -8,7 +8,8 @@ void destroy_base_module(Module* m) {
 
     if (m->state) free(m->state);
     if (m->name) free((void*)m->name);
-    if (m->output_buffer) free(m->output_buffer);
+    if (m->output_bufferL) free(m->output_bufferL);
+    if (m->output_bufferR) free(m->output_bufferR);
     free(m);
 }
 

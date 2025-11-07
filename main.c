@@ -157,7 +157,7 @@ int main(int argc, char** argv) {
 
     PaStreamParameters outputParams = {
         .device = outputDevice,
-        .channelCount = 1,
+        .channelCount = 2,
         .sampleFormat = paFloat32,
         .suggestedLatency = outputInfo->defaultLowOutputLatency,
         .hostApiSpecificStreamInfo = NULL

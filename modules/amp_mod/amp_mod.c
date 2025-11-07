@@ -25,6 +25,29 @@ static void ampmod_process(Module* m, float* in, unsigned long frames) {
 	float mod_amp = process_smoother(&state->smooth_mod_amp, state->mod_amp);
 	float depth   = process_smoother(&state->smooth_depth,   state->depth);
 	pthread_mutex_unlock(&state->lock);
+	// Non-destructive control input
+	float mod_depth = 1.0f;
+	for (int i = 0; i < m->num_control_inputs; i++) {
+		if (!m->control_inputs[i] || !m->control_input_params[i]) continue;
+
+		const char* param = m->control_input_params[i];
+		float control = *(m->control_inputs[i]);
+		float norm = fminf(fmaxf(control, -1.0f), 1.0f);
+
+		if (strcmp(param, "mod_amp") == 0) {
+			float mod_range = (1.0f - state->mod_amp) * mod_depth;
+			mod_amp = state->mod_amp + norm * mod_range;
+		} else if (strcmp(param, "car_amp") == 0) {
+			float mod_range = (1.0f - state->car_amp) * mod_depth;
+			car_amp = state->car_amp + norm * mod_range;
+		} else if (strcmp(param, "depth") == 0) {
+			float mod_range = (1.0f - state->depth) * mod_depth;
+			depth = state->depth + norm * mod_range;
+
+		}
+	}
+	mod_amp = fminf(fmaxf(mod_amp, 0.0f), 1.0f);
+	car_amp = fminf(fmaxf(car_amp, 0.0f), 1.0f);
 
 	for (unsigned long i = 0; i < frames; i++) {
 		float c = in_car[i] * car_amp;

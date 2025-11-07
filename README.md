@@ -35,8 +35,8 @@ Mono input from external sources.
 
 ### **Amplitude Modulator**
 `amp_mod`
-Double input with control over amp of each signal.
-`amp_mod(in1,in2) as am1
+Dual input with control over amp of each signal.
+`amp_mod(in1,in2) as am1`
 - `car_amp`  
 - `mod_amp`  
 - `depth`  
@@ -116,7 +116,8 @@ Parallel band-pass filter bank.
 
 ### **Ring Modulator**
 `ring_mod`
-Single input with sine carrier.  
+Dual input with mono output
+`ring_mod(in1,in2) as out`
 - `mod_freq`
 - `car_amp`  
 - `mod_amp`  

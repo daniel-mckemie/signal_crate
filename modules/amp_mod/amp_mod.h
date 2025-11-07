@@ -7,20 +7,23 @@
 
 typedef struct {
 	float sample_rate;
-	float phase;
-	float freq;
-	float car_amp;
-	float depth;
 
-	CParamSmooth smooth_freq;
-	CParamSmooth smooth_car_amp;
-	CParamSmooth smooth_depth;
+	// Parameters
+    float car_amp;     // amplitude of input 1
+    float mod_amp;     // amplitude of input 2
+    float depth;    // modulation depth
 
-	pthread_mutex_t lock;
+    // Smoothed versions
+    CParamSmooth smooth_car_amp;
+    CParamSmooth smooth_mod_amp;
+    CParamSmooth smooth_depth;
 
-	float display_freq;
-	float display_car_amp;
-	float display_depth;
+    pthread_mutex_t lock;
+
+    // For UI display
+    float display_car_amp;
+    float display_mod_amp;
+    float display_depth;
 
 	// For command mode input
 	bool entering_command;

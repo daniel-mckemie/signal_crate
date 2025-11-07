@@ -35,9 +35,10 @@ Mono input from external sources.
 
 ### **Amplitude Modulator**
 `amp_mod`
-Single input, sine wave as internal modulator.  
-- `freq`
+Double input with control over amp of each signal.
+`amp_mod(in1,in2) as am1
 - `car_amp`  
+- `mod_amp`  
 - `depth`  
 
 ---
@@ -133,7 +134,8 @@ Freezes spectrum in-place.
 
 ### **VCA**
 `vca`
-Voltage-controlled amplifier.  
+Voltage-controlled amplifier. When used as `vca as out`, can take in two signals and output hard panned stereo.
+`vca(in1,in2) as out`
 - `gain`
 
 ---

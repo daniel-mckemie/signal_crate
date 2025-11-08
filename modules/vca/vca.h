@@ -5,10 +5,13 @@
 #include <stdbool.h>
 
 typedef struct {
-    float gain;              // overall gain
+    float gain;
+	float pan;
 	float display_gain;
+	float display_pan;
 
 	CParamSmooth smooth_gain;
+	CParamSmooth smooth_pan;
 
     // Command mode
     bool entering_command;

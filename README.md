@@ -147,7 +147,9 @@ Freezes spectrum in-place.
 ### **VCA**
 `vca`
 Voltage-controlled amplifier. When used as `vca as out`, can take in two signals and output hard panned stereo.
+Panning enabled [-1,1] for either single or dual signals.
 `vca(in1,in2) as out`
+- `pan`
 - `gain`
 
 ---

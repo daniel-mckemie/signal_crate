@@ -65,8 +65,8 @@ static void fm_mod_draw_ui(Module *m, int y, int x) {
     idx = state->display_index;
     pthread_mutex_unlock(&state->lock);
 
-    mvprintw(y, x, "[FMMod:%s] mod_freq %.2f Hz | index (idx) %.2f", m->name, freq, idx);
-    mvprintw(y+1, x, "Real-time keys: -/= (mod freq), _/+ (idx)");
+    mvprintw(y, x, "[FMMod:%s] mod_freq %.2f Hz | idx %.2f", m->name, freq, idx);
+    mvprintw(y+1, x, "Real-time keys: -/= (mod freq), [/] (idx)");
     mvprintw(y+2, x, "Command mode: :1 [mod freq], :2 [idx]"); 
 }
 
@@ -80,8 +80,8 @@ static void fm_mod_handle_input(Module *m, int key) {
         switch (key) {
             case '=': state->mod_freq += 0.5f; handled = 1; break;
             case '-': state->mod_freq -= 0.5f; handled = 1; break;	
-            case '+': state->index += 0.01f; handled = 1; break;
-            case '_': state->index -= 0.01f; handled = 1; break;
+            case ']': state->index += 0.01f; handled = 1; break;
+            case '[': state->index -= 0.01f; handled = 1; break;
             case ':':
                 state->entering_command = true;
                 memset(state->command_buffer, 0, sizeof(state->command_buffer));

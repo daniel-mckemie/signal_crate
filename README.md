@@ -65,7 +65,7 @@ Schroeder reverb
 `fm_mod`
 Single input, sine wave as internal modulator.  
 - `mod_freq`
-- `index`  
+- `idx`  
 
 ---
 
@@ -96,6 +96,17 @@ Multi-mode resonant filter (Lowpass/Highpass/Bandpass/Notch/Resonant).
 Generates white, pink, or brown noise.  
 - `amp`  
 - `type`
+
+---
+
+### **Phase Modulator**
+`pm_mod`
+Dual input, classic digial PM with base freq setting osc rate of accumulator
+`pm_mod(in1,in2) as pm1`
+- `car_amp`
+- `mod_amp`
+- `base_freq`
+- `idx`
 
 ---
 

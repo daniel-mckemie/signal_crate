@@ -165,16 +165,22 @@ static void vca_destroy(Module* m) {
 Module* create_module(const char* args, float sample_rate) {
 	float gain = 1.0f;
 	float pan = 0.0f;
+	int ch = -1; // default stereo
+
 	if (args && strstr(args, "gain=")) {
         sscanf(strstr(args, "gain="), "gain=%f", &gain);
     }
 	if (args && strstr(args, "pan=")) {
-        sscanf(strstr(args, "pan="), "pan=%f", &gain);
+        sscanf(strstr(args, "pan="), "pan=%f", &pan);
+    }
+	if (args && strstr(args, "ch=")) {
+        sscanf(strstr(args, "ch="), "ch=%d", &ch);
     }
 
     VCAState* state = calloc(1, sizeof(VCAState));
 	state->gain = gain;
     state->pan = pan;
+	state->target_channel = ch; // default = stereo
     pthread_mutex_init(&state->lock, NULL);
 	init_smoother(&state->smooth_gain, 0.75);
 	init_smoother(&state->smooth_pan, 0.75);

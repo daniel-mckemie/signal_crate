@@ -2,15 +2,20 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#include <ctype.h>
+#include <portaudio.h>
 
 #include "engine.h"
 #include "module_loader.h"
 #include "util.h"
+#include "./modules/vca/vca.h"
 
 int ui_enabled = 1;
 static NamedModule modules[MAX_MODULES];
 static int module_count = 0;
+int g_num_output_channels = 2; // default
 extern float sample_rate;
+
 
 typedef struct {
     char modtype[64];
@@ -129,6 +134,16 @@ static void parse_patch_line(const char* line) {
         sscanf(line, "%s", modtype);
         snprintf(alias, sizeof(alias), "%s%d", modtype, module_count);
     }
+
+	// Detect "outN" alias and add channel number as argument (for VCA modules)
+	if (strncmp(alias, "out", 3) == 0 && isdigit(alias[3])) {
+		int ch = atoi(alias + 3);
+		char append[32];
+		snprintf(append, sizeof(append), " ch=%d", ch);
+		strncat(create_args, append, sizeof(create_args) - strlen(create_args) - 1);
+	}
+
+
 
     // Call load_module with create_args
     Module* m = load_module(modtype, sample_rate, create_args);
@@ -274,29 +289,45 @@ void process_audio(float* input, float* output, unsigned long frames) {
 
 	double block_ms = (1000.0 * frames / sample_rate);
 	scheduler_tick(block_ms);
-	// --- Final stereo mixdown ---
+
+	// --- Final multi-channel mixdown ---
+	int num_channels = g_num_output_channels;
+	const PaDeviceInfo* info = Pa_GetDeviceInfo(Pa_GetDefaultOutputDevice());
+	if (info && info->maxOutputChannels > 2)
+		num_channels = info->maxOutputChannels;
+
+	memset(output, 0, sizeof(float) * frames * num_channels);
+
 	for (int i = 0; i < module_count; i++) {
 		Module* m = modules[i].module;
-		if (strcmp(modules[i].name, "out") == 0 || strcmp(modules[i].name, "vca") == 0) {
+
+		if (m->type && strcmp(m->type, "vca") == 0) {
+			// handle channel-mapped VCAs only
+			VCAState* s = (VCAState*)m->state;
+			int ch = (s && s->target_channel > 0 && s->target_channel <= num_channels)
+						? s->target_channel
+						: -1;
+
+			for (unsigned long k = 0; k < frames; k++) {
+				if (ch > 0 && ch <= num_channels)
+					output[k * num_channels + (ch - 1)] = m->output_bufferL[k];
+				else {
+					output[k * num_channels] = m->output_bufferL[k];
+					if (num_channels > 1)
+						output[k * num_channels + 1] = m->output_bufferR[k];
+				}
+			}
+		}
+		else if (strcmp(modules[i].name, "out") == 0) {
+			// normal stereo master out
 			float* outL = m->output_bufferL ? m->output_bufferL : m->output_buffer;
 			float* outR = m->output_bufferR ? m->output_bufferR : m->output_buffer;
 			for (unsigned long k = 0; k < frames; k++) {
-				output[k * 2]     = outL[k];
-				output[k * 2 + 1] = outR[k];
+				output[k * num_channels] = outL[k];
+				if (num_channels > 1)
+					output[k * num_channels + 1] = outR[k];
 			}
-			return;
 		}
-	}
-
-	// Default fallback: duplicate mono to both channels
-	if (module_count > 0) {
-		float* mono = modules[module_count - 1].module->output_buffer;
-		for (unsigned long k = 0; k < frames; k++) {
-			output[k * 2]     = mono[k];
-			output[k * 2 + 1] = mono[k];
-		}
-	} else {
-		memset(output, 0, sizeof(float) * frames * 2);
 	}
 }
 

@@ -155,6 +155,11 @@ Freezes spectrum in-place.
 Voltage-controlled amplifier. When used as `vca as out`, can take in two signals and output hard panned stereo.
 Panning enabled [-1,1] for either single or dual signals.
 `vca(in1,in2) as out`
+
+Multi-channel enabled by appending channel output number to `out#`
+`vca(in1) as out3` = outputs to channel 3
+`vca(in2) as out5` = outputs to channel 5
+
 - `pan`
 - `gain`
 
@@ -276,7 +281,10 @@ passed in as an argument upon launch. (ie. ./SignalCrate mypatch.txt). The langu
 method.
 
 For example, this would patch two oscillators into a filter and out. `out` is a keyword to output to your system output
-as determined by your local settings. This could be saved in a .txt file all the same:
+as determined by your local settings. If you want multichannel audio output, using a `vca` with the `out#` nomenclature
+can control specific channel routing out of Signal Crate. More info in the VCA section above.
+
+This could be saved in a .txt file all the same:
 
 ```bash
 vco as vco1

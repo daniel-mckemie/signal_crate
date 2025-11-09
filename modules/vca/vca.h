@@ -5,6 +5,8 @@
 #include <stdbool.h>
 
 typedef struct {
+	int target_channel;
+
     float gain;
 	float pan;
 	float display_gain;

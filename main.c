@@ -157,7 +157,7 @@ int main(int argc, char** argv) {
 
     PaStreamParameters outputParams = {
         .device = outputDevice,
-        .channelCount = 2,
+        .channelCount = outputInfo->maxOutputChannels,
         .sampleFormat = paFloat32,
         .suggestedLatency = outputInfo->defaultLowOutputLatency,
         .hostApiSpecificStreamInfo = NULL
@@ -177,6 +177,10 @@ int main(int argc, char** argv) {
         Pa_Terminate();
         return 1;
     }
+	
+	extern int g_num_output_channels;
+	g_num_output_channels = outputParams.channelCount;
+	fprintf(stderr, "[main] using %d output channels\n", g_num_output_channels);
 
     err = Pa_StartStream(stream);
     if (err != paNoError) {

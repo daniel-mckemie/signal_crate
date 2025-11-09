@@ -184,8 +184,8 @@ static void c_asr_draw_ui(Module* m, int y, int x) {
     CASR* s = (CASR*)m->state;
     pthread_mutex_lock(&s->lock);
     mvprintw(y, x,   "[ASR:%s] att: %.2fs | rel: %.2fs | depth: %.2f | gate: %.2f | %s | %s", m->name, s->display_att, s->display_rel, s->display_depth, s->threshold_gate, s->short_mode ? "s" : "l", s->display_cycle ? "c" : "t");
-    mvprintw(y+1, x, "Keys: t=trig, c=cycle, att -/=, rel _/+, gate [/], d/D [depth]");
-    mvprintw(y+2, x, "Command: :1 [att], :2 [rel], :3 [g_thresh], :d[depth], :m [s/l mode]");
+    mvprintw(y+1, x, "Keys: trig/cycle [t/c], att -/=, rel _/+, d/D [depth], gate [/], s/l mode [m]");
+    mvprintw(y+2, x, "Command: :1 [att], :2 [rel], :3 [g_thresh], :d[depth]");
     pthread_mutex_unlock(&s->lock);
 }
 

@@ -116,7 +116,7 @@ void ui_loop() {
         if (in_command_mode) {
             mvprintw(LINES - 2, 2, ": %s", command);
         } else {
-            mvprintw(LINES - 2, 2, "[TAB] switch module | [:q] quit | [:] command mode");
+            mvprintw(LINES - 2, 2, "[TAB] switch module | [:q] quit | [:] cmd mode | [ESCx2] exit cmd mode");
         }
 
         refresh();

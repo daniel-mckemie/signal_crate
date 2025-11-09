@@ -29,7 +29,7 @@ you want to.
 ### **System Input**
 `input`
 Mono input from external sources.  
-- `amp`
+- `amp` - amplitude of signal
 
 ---
 
@@ -37,35 +37,41 @@ Mono input from external sources.
 `amp_mod`
 Dual input with control over amp of each signal.
 `amp_mod(in1,in2) as am1`
-- `car_amp`  
-- `mod_amp`  
-- `depth`  
+- `car_amp` - amplitude of carrier signal upon input 
+- `mod_amp` - amplitude of modulator signal upon input  
+- `depth` - depth of am 
 
 ---
+
+### **Bit Crusher**
+`bit_crush`
+Bit crusher quantized between 2-16 bits with rate to control how often the signal is sampled
+- `bits` - number of bits quantized 
+- `rate` - frequency/rate in which signal is sampled/held 
 
 ### **Delay**
 `delay`
 Basic delay line.  
-- `time`  
-- `mix`  
-- `fb`  
+- `time` - delay time 
+- `mix` - mix of dry signal with delayed signal 
+- `fb` - feedback 
 
 ---
 
 ### **Freeverb**
 `freeverb`
 Schroeder reverb
-- `fb`
-- `damp`
-- `wet`
+- `fb` - feedback
+- `damp` - dampness of reveberated signal
+- `wet` - mix of amount of reverated signal
 
 ---
 
 ### **Frequency Modulator**
 `fm_mod`
 Single input, sine wave as internal modulator.  
-- `mod_freq`
-- `idx`  
+- `mod_freq` - frequency of internal modulator
+- `idx` - index of fm 
 
 ---
 
@@ -73,9 +79,9 @@ Single input, sine wave as internal modulator.
 `looper`
 10-second (default) looper
 - `speed` = passable as constructor
-- `start`
+- `start` - start time of the tape
 - `end` = passable as constructor (length)
-- `record`  
+- `record`
 - `play`  
 - `overdub`  
 - `stop`  
@@ -85,28 +91,28 @@ Single input, sine wave as internal modulator.
 ### **Moog Ladder Filter**
 `moog_filter`
 Multi-mode resonant filter (Lowpass/Highpass/Bandpass/Notch/Resonant).  
-- `cutoff`  
-- `res`  
-- `filt_type` (LP, HP, BP, notch, res)
+- `cutoff` - cutoff frequency of the filter
+- `res` - resonance [0.0 - 4.2] 
+- `filt_type` (LP, HP, BP, notch, res) - lowpass/highpass/bandpass/notch/resonant
 
 ---
 
 ### **Noise Source**
 `noise_source`
 Generates white, pink, or brown noise.  
-- `amp`  
-- `type`
+- `amp` - amplitude of signal 
+- `type` - noise type
 
 ---
 
 ### **Phase Modulator**
 `pm_mod`
-Dual input, classic digial PM with base freq setting osc rate of accumulator
+Dual input, classic digial PM with base freq setting
 `pm_mod(in1,in2) as pm1`
-- `car_amp`
-- `mod_amp`
-- `base_freq`
-- `idx`
+- `car_amp` - amplitude of carrier signal
+- `mod_amp` - amplitude of modulator signal
+- `base_freq` - base frequency of the oscillator rate of the accumulator
+- `idx` - index
 
 ---
 
@@ -129,18 +135,18 @@ Parallel band-pass filter bank.
 `ring_mod`
 Dual input with mono output
 `ring_mod(in1,in2) as out`
-- `mod_freq`
-- `car_amp`  
-- `mod_amp`  
+- `car_amp` - amplitude of the carrier signal
+- `mod_amp` - amplitude of the modulator signal 
+- `depth` - depth of modulation
 
 ---
 
 ### **Spectral Hold**
 `spec_hold`
 Freezes spectrum in-place.  
-- `tilt`
-- `pivot`  
-- `freeze`  
+- `tilt` - spectral tilt low to high
+- `pivot` - frequency of tilt's center 
+- `freeze` - freezes the signal in place
 
 ---
 
@@ -157,18 +163,18 @@ Panning enabled [-1,1] for either single or dual signals.
 ### **VCO**
 `vco`
 Waveform oscillator.  
-- `freq`  
-- `amp`  
-- `wave`
+- `freq` - frequency 
+- `amp` - amplitude 
+- `wave` - waveform (sine, triangle, sawtooth, square)
 - `range` = toggles freq range (low=20-2000Hz, mid=20-8000Hz, full=20-20000Hz, super=20-nyquist)
 ---
 
 ### **Wavefolder**
 `wavefolder`
 Adds wavefolding distortion.  
-- `fold`  
-- `blend`  
-- `drive`  
+- `fold` - fold amount 
+- `blend` - blend of original and folded signals
+- `drive` - intensity of fold 
 
 ---
 
@@ -176,7 +182,7 @@ Adds wavefolding distortion.
 `wav_player`
 Mono WAV playback.  
 - `file` - Specify relative file location, enclose in [ ]...`wav_player([file=sound.wav], speed=ctrl) as out`
-- `speed`
+- `speed` - playback speed
 
 ---
 
@@ -185,11 +191,11 @@ Mono WAV playback.
 ### **ASR Envelope**
 `c_asr`
 Attack-Sustain-Release envelope generator.  
-- `att`  
-- `cycle`  
-- `rel`  
-- `trig`
-- `depth`  
+- `att` - attack 
+- `rel` - release 
+- `trig` - trigger mode (one-shot)
+- `cycle` - cycle mode (repeats env)
+- `depth` - range of output 
 - `long/short` toggles maximum att/rel time (short=10s max, long=no upper bounds)
 ---
 
@@ -197,26 +203,26 @@ Attack-Sustain-Release envelope generator.
 `c_env_fol`
 Extracts amplitude envelope.  
 - `in_gain`
-- `dec`  
-- `depth`  
+- `dec` - decay
+- `depth` - range of output 
 
 ---
 
 ### **LFO**
 `c_lfo`
-Low-frequency waveform modulator.  
-- `freq`  
-- `amp`  
-- `wave`
-- `depth`  
+Low-frequency waveform modulator running on the control thread
+- `freq` - frequency/rate [0.001 - 100.0]
+- `amp` - strength of signal output
+- `wave` - waveform (sine, sawtooth, square, triangle)
+- `depth` - range of output 
 
 ---
 
 ### **Fluctating Random Voltages**
 `c_fluct`
 Fluctuating Random Voltages after the Buchla 266
-- `rate`  
-- `depth`  
+- `rate` - rate of fluctuation 
+- `depth` - range of output 
 - `mode` - noise and random walk
 
 ---
@@ -226,13 +232,13 @@ Fluctuating Random Voltages after the Buchla 266
 Flexible control signal processor. Modeled after Buchla 257
 `V_a * K + V_b * (1 - M) + M * V_c + V_offset = V_out`
 - `in` (va) = to pass in control signal, must call `c_cv_proc(in=alias)`
-- `vb`
-- `vc`
+- `vb` - input to crossfade with `vc`
+- `vc` - input to crossfade with `vb`
 
 Params controllable via OSC
-- `k`  
-- `m`  
-- `offset`
+- `k` - scale factor 
+- `m` - crossface between `vb` and `vc` 
+- `offset` - offset input or built-in offset
 
 ---
 
@@ -242,11 +248,6 @@ Monitors incoming and outgoing signal, and gives extra utils
 - `in` (va) = to pass in control signal, must call `c_cv_monitor(in=alias)`
 - `att` - attenuvert 
 - `off` - offset
-
-Params controllable via OSC
-- `k`  
-- `m`  
-- `offset`
 
 ---
 

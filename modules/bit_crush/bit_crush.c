@@ -8,8 +8,7 @@
 #include "util.h"
 #include "bit_crush.h"
 
-static void bit_crush_process(Module* m, float* in, unsigned long frames)
-{
+static void bit_crush_process(Module* m, float* in, unsigned long frames) {
     BitCrushState* s = (BitCrushState*)m->state;
     float* out = m->output_buffer;
     float* input = (m->num_inputs > 0) ? m->inputs[0] : in;
@@ -67,8 +66,7 @@ static void bit_crush_process(Module* m, float* in, unsigned long frames)
     s->display_rate = rate;
 }
 
-static void bit_crush_draw_ui(Module* m, int y, int x)
-{
+static void bit_crush_draw_ui(Module* m, int y, int x) {
     BitCrushState* s = (BitCrushState*)m->state;
     pthread_mutex_lock(&s->lock);
     float bits = s->display_bits;
@@ -80,8 +78,7 @@ static void bit_crush_draw_ui(Module* m, int y, int x)
     mvprintw(y+2, x, "Command: :1 [bits], :2 [rate]");
 }
 
-static void clamp_params(BitCrushState* s)
-{
+static void clamp_params(BitCrushState* s) {
 	float min_rate = 20.0f;
     float max_rate = s->sample_rate * 0.45f;
 
@@ -89,8 +86,7 @@ static void clamp_params(BitCrushState* s)
     clampf(&s->rate, min_rate, max_rate);
 }
 
-static void bit_crush_handle_input(Module* m, int key)
-{
+static void bit_crush_handle_input(Module* m, int key) {
     BitCrushState* s = (BitCrushState*)m->state;
     int handled = 0;
     pthread_mutex_lock(&s->lock);
@@ -162,15 +158,13 @@ static void bit_crush_set_osc_param(Module* m, const char* param, float value) {
 }
 
 
-static void bit_crush_destroy(Module* m)
-{
+static void bit_crush_destroy(Module* m) {
     BitCrushState* s = (BitCrushState*)m->state;
     if (s) pthread_mutex_destroy(&s->lock);
     destroy_base_module(m);
 }
 
-Module* create_module(const char* args, float sample_rate)
-{
+Module* create_module(const char* args, float sample_rate) {
     float bits = 8.0f;
     float rate = 8000.0f;
 

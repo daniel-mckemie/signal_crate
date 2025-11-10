@@ -104,13 +104,19 @@ static void input_destroy(Module* m) {
 
 Module* create_module(const char* args, float sample_rate) {
 	float gain = 1.0f;
+	int ch = 1;
+
 	if (args && strstr(args, "gain=")) {
         sscanf(strstr(args, "gain="), "gain=%f", &gain);
+	}
+	if (args && strstr(args, "ch=")) {
+        sscanf(strstr(args, "ch="), "ch=%d", &ch);
 	}
 
     InputState* state = calloc(1, sizeof(InputState));
     state->gain = gain;
     state->sample_rate = sample_rate;
+	state->channel_index = ch;
     init_smoother(&state->smooth_gain, 0.75f);
     pthread_mutex_init(&state->lock, NULL);
     clamp_params(state);

@@ -8,6 +8,8 @@ typedef struct {
 	float gain;
 	float sample_rate;
 
+	int channel_index;
+
 	CParamSmooth smooth_gain;
 	
 	pthread_mutex_t lock;

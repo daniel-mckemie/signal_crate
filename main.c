@@ -149,7 +149,7 @@ int main(int argc, char** argv) {
     // --- Configure PortAudio ---
     PaStreamParameters inputParams = {
         .device = inputDevice,
-        .channelCount = 1,
+        .channelCount = inputInfo ? inputInfo->maxInputChannels : 1,
         .sampleFormat = paFloat32,
         .suggestedLatency = inputInfo ? inputInfo->defaultLowInputLatency : 0.01,
         .hostApiSpecificStreamInfo = NULL
@@ -181,6 +181,10 @@ int main(int argc, char** argv) {
 	extern int g_num_output_channels;
 	g_num_output_channels = outputParams.channelCount;
 	fprintf(stderr, "[main] using %d output channels\n", g_num_output_channels);
+
+	extern int g_num_input_channels;
+	g_num_input_channels = inputParams.channelCount;
+	fprintf(stderr, "[main] using %d input channels\n", g_num_input_channels);
 
     err = Pa_StartStream(stream);
     if (err != paNoError) {

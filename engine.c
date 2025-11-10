@@ -9,11 +9,13 @@
 #include "module_loader.h"
 #include "util.h"
 #include "./modules/vca/vca.h"
+#include "./modules/input/input.h"
 
 int ui_enabled = 1;
 static NamedModule modules[MAX_MODULES];
 static int module_count = 0;
-int g_num_output_channels = 2; // default
+int g_num_output_channels = 2;
+int g_num_input_channels = 1;
 extern float sample_rate;
 
 
@@ -261,7 +263,19 @@ void process_audio(float* input, float* output, unsigned long frames) {
 
 		if (m->type && strcmp(m->type, "input") == 0) {
 			if (m->process) {
-				m->process(m, input, frames); // Feed raw audio input
+				InputState* s = (InputState*)m->state;
+				int ch = s->channel_index;  // we’ll add this field next
+				unsigned long stride = g_num_input_channels;
+
+				// sanity
+				if (ch < 1 || ch > stride) ch = 1;
+
+				// extract this channel from interleaved input
+				float tmp[frames];
+				for (unsigned long k = 0; k < frames; k++)
+					tmp[k] = input[k * stride + (ch - 1)];
+
+				m->process(m, tmp, frames);
 			}
 		} else {
 			float mixed_input[frames];

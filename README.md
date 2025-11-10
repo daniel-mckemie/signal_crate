@@ -49,6 +49,8 @@ Bit crusher quantized between 2-16 bits with rate to control how often the signa
 - `bits` - number of bits quantized 
 - `rate` - frequency/rate in which signal is sampled/held 
 
+---
+
 ### **Delay**
 `delay`
 Basic delay line.  

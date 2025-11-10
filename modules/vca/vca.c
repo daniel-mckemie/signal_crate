@@ -69,6 +69,9 @@ static void vca_process(Module* m, float* in, unsigned long frames)
 
         outL[i] = g * l_gain * left;
         outR[i] = g * r_gain * right;
+
+        outL[i] = fmaxf(fminf(outL[i], 1.0f), -1.0f); 
+        outR[i] = fmaxf(fminf(outR[i], 1.0f), -1.0f); 
     }
 }
 

@@ -310,11 +310,11 @@ void process_audio(float* input, float* output, unsigned long frames) {
 
 			for (unsigned long k = 0; k < frames; k++) {
 				if (ch > 0 && ch <= num_channels)
-					output[k * num_channels + (ch - 1)] = m->output_bufferL[k];
+					output[k * num_channels + (ch - 1)] += m->output_bufferL[k];
 				else {
-					output[k * num_channels] = m->output_bufferL[k];
+					output[k * num_channels] += m->output_bufferL[k];
 					if (num_channels > 1)
-						output[k * num_channels + 1] = m->output_bufferR[k];
+						output[k * num_channels + 1] += m->output_bufferR[k];
 				}
 			}
 		}
@@ -329,6 +329,17 @@ void process_audio(float* input, float* output, unsigned long frames) {
 			}
 		}
 	}
+	// --- Normalize global output to prevent clipping ---
+	float max_val = 0.0f;
+	for (unsigned long i = 0; i < frames * num_channels; i++) {
+		if (fabsf(output[i]) > max_val) max_val = fabsf(output[i]);
+	}
+	if (max_val > 1.0f && max_val < 100.0f) {
+		float norm = 1.0f / max_val;
+		for (unsigned long i = 0; i < frames * num_channels; i++)
+			output[i] *= norm;
+	}
+
 }
 
 Module* get_module(int index) {

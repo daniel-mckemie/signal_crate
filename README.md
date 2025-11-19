@@ -1,20 +1,32 @@
 # Signal Crate
 Signal Crate is a terminal application written entirely in C for live audio processing
-and performance that is lightweight and easily expandable. Blending the worlds of scripted 
-event programming with modular synthesizer design. All modules are controllable via the 
+and performance that is lightweight and easily expandable. Blending the worlds of control voltage,
+scripted event programming with modular synthesizer design. All modules are controllable via the 
 computer keyboard, one another, or using OSC.
 
 This does not yet have a build file, but if you are interested in using or developing
 for the environment, I can certainly make one and help set it up. Currently only runs
 on MacOS with Linux support to follow. I will get to this if/when interest arises!
 
+There is no current build or dmg file, but in the interim to install and run Signal
+Crate, there are just a few C libraries needed to install. Homebrew is likely easiest,
+but however you like to do it!
+
+To install Signal Crate:
+1. Clone this repo
+2. Install Homebrew
+3. brew install portaudio liblo fftw libsndfile
+5. In the `signal_crate` directory, type `make it`
+6. Run `./SignalCrate`
+
 Notes on the environment:
 - There are dedicated audio, control, and UI threads
 - Modules follow similar design patterns for processing audio, UI, OSC, and control functions, with
 a central engine to wire it together. This allows for new modules to be created as they are needed.
-- All modules run with a mono input and mono out
-- Multiple modules can sum into one module's input, and they do just that,
-sum into a mono signal.
+- The `input` module can take in multichannel audio independently.
+- The `vca` module can output multichannel audio independently.
+- All other modules run with a mono input and mono out.
+- Multiple modules can sum into one module's input.
 - All control outputs are 0.0-1.0 32-float values and each control module has a depth parameter
 to control its output strength. Similarly, audio modules have amp parameters to do the same.
 - All modules take -1.0-1.0 control values and use of the CV Processor can allow for inversion, attenuation,
@@ -28,7 +40,9 @@ you want to.
 
 ### **System Input**
 `input`
-Mono input from external sources.  
+Multi-channel enabled input, assigned by alias label `in#`
+`input as in1` = input from channel 1
+`input as in4` = outputs to channel 4
 - `amp` - amplitude of signal
 
 ---

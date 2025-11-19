@@ -32,13 +32,15 @@ static void vca_process(Module* m, float* in, unsigned long frames)
 
         const char* param = m->control_input_params[i];
         float control = *(m->control_inputs[i]);
-        float norm = fminf(fmaxf(control, -1.0f), 1.0f);
 
         if (strcmp(param, "gain") == 0) {
+			float norm = fminf(fmaxf(control, 0.0f), 1.0f);
             float mod_range = (1.0f - base_gain) * mod_depth;
             gain = base_gain + norm * mod_range;
         } else if (strcmp(param, "pan") == 0) {
-			pan = base_pan + norm * (1.0f - fabsf(base_pan));
+			float norm_pan = fminf(fmaxf(control, 0.0f), 1.0f);
+			norm_pan = norm_pan * 2.0f - 1.0f;
+			pan = base_pan + norm_pan * (1.0f - fabsf(base_pan));
 		}
     }
 
@@ -151,7 +153,8 @@ static void vca_set_osc_param(Module* m, const char* param, float value) {
     if (strcmp(param, "gain") == 0) {
         state->gain = fmaxf(value, 0.0f);
 	} else if (strcmp(param, "pan") == 0) {
-		state->pan = fminf(fmaxf(value, -1.0f), 1.0f);
+		float p = fminf(fmaxf(value, 0.0f), 1.0f);
+		state->pan = p * 2.0f - 1.0f; 
     } else {
         fprintf(stderr, "[vca] Unknown OSC param: %s\n", param);
     }

@@ -11,8 +11,7 @@ SignalCrate
 
 #Ignore others
 *.swp
-*.txt
 *.wav
 *.png
-./show_0806
+other_files/
 .DS_Store

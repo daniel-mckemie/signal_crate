@@ -1,0 +1,7 @@
+input as in1
+input as in2
+input as in3
+vca(in1) as out3
+vca(in2) as out4
+vca(in3) as out5
+

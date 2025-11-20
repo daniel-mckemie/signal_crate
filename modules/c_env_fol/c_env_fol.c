@@ -101,7 +101,23 @@ static void c_env_fol_draw_ui(Module* m, int y, int x) {
     val = fminf(1.0f, fmaxf(0.0f, state->display_env));
     pthread_mutex_unlock(&state->lock);
 
-    mvprintw(y,   x, "[EnvFol:%s] Env: %.3f | dec: %.1fms sens: %.2f depth: %.2f", m->name, val, dec, sensitivity, depth);
+	BLUE();
+    mvprintw(y,   x, "[EnvFol:%s] ", m->name);
+	CLR();
+
+	LABEL(2,"Env:");
+	ORANGE(); printw(" %.3f | ", val); CLR();
+
+	LABEL(2,"dec:");
+	ORANGE(); printw(" %.1fms | ", dec); CLR();
+
+	LABEL(2,"sens:");
+	ORANGE(); printw(" %.2f | ", sensitivity); CLR();
+
+	LABEL(2,"depth:");
+	ORANGE(); printw(" %.2f", depth); CLR();
+
+	YELLOW();
     mvprintw(y+1, x, "Real-time keys: -/= (dec), _/+ (sens), d/D (d)");
     mvprintw(y+2, x, "Command mode: :1 [dec], :2 [sens], :d [depth]");
 }

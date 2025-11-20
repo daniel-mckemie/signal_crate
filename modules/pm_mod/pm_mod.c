@@ -97,7 +97,23 @@ static void pm_mod_draw_ui(Module *m, int y, int x) {
     idx = state->display_index;
     pthread_mutex_unlock(&state->lock);
 
-    mvprintw(y, x, "[PMMod:%s] car_amp %.2f | mod_amp %.2f | base_freq %.2f Hz | idx %.2f", m->name, car_amp, mod_amp, base_freq, idx);
+	BLUE();
+    mvprintw(y, x, "[PMMod:%s] ", m->name);
+	CLR();
+
+	LABEL(2, "car_amp:");
+	ORANGE(); printw(" %.2f | ", car_amp); CLR();
+
+	LABEL(2, "mod_amp:");
+	ORANGE(); printw(" %.2f | ", mod_amp); CLR();
+
+	LABEL(2, "base_freq:");
+	ORANGE(); printw(" %.2f Hz | ", base_freq); CLR();
+
+	LABEL(2, "idx:");
+	ORANGE(); printw(" %.2f", idx); CLR();
+
+	YELLOW();
     mvprintw(y+1, x, "Real-time keys: -/= (car amp), _/+ (mod amp), {/} (base_freq) [/] (idx)");
     mvprintw(y+2, x, "Command mode: :1 [car amp], :2 [mod amp], :3 [base_freq], :4 [idx]"); 
 }

@@ -101,7 +101,20 @@ static void freeverb_draw_ui(Module* m, int y, int x) {
 	wet = s->display_wet;
     pthread_mutex_unlock(&s->lock);
 
-    mvprintw(y, x, "[Freeverb:%s] fb: %.2f | damp: %.2f | wet: %.2f", m->name, fb, damp, wet);
+	BLUE();
+    mvprintw(y, x, "[Freeverb:%s] ", m->name);
+	CLR();
+
+	LABEL(2, "fb:");
+	ORANGE(); printw(" %.2f | ", fb); CLR();
+
+	LABEL(2, "damp:");
+	ORANGE(); printw(" %.2f | ", damp); CLR();
+
+	LABEL(2, "wet:");
+	ORANGE(); printw(" %.2f", wet); CLR();
+
+	YELLOW();
     mvprintw(y+1, x, "Keys: -/= fb, _/+ damp, [/] wet");
     mvprintw(y+2, x, "Cmd: :1 [fb], :2 [damp], :3 [wet]");
 }

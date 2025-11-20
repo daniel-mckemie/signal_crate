@@ -115,9 +115,33 @@ static void vco_draw_ui(Module *m, int y, int x) {
 	range = state->range_mode;
     pthread_mutex_unlock(&state->lock);
 
-    mvprintw(y, x,   "[VCO:%s] Freq: %.1f Hz | Amp: %.2f | Wave: %s | Range: %s", m->name, freq, amp, wave_names[waveform], range_names[range]);
-    mvprintw(y+1, x, "Real-time keys: -/= (freq), _/+ (amp), w (wave), r (range)");
-    mvprintw(y+2, x, "Command mode: :1 [freq], :2 [amp]");
+	/* Header: [VCO:v1] */
+	BLUE();
+	mvprintw(y, x, "[VCO:%s] ", m->name);
+	CLR();
+
+	/* Freq */
+	LABEL(2, "freq:");
+	ORANGE(); printw(" %.2f Hz | ", freq); CLR();
+
+	/* Amp */
+	LABEL(2, "amp:");
+	ORANGE(); printw(" %.2f | ", amp); CLR();
+
+	/* Wave */
+	LABEL(2, "wave:");
+	ORANGE(); printw(" %s | ", wave_names[waveform]); CLR();
+
+	/* Range */
+	LABEL(2, "range:");
+	ORANGE(); printw(" %s", range_names[range]); CLR();
+
+	/* Secondary UI (yellow) */
+	YELLOW();
+	mvprintw(y+1, x, "Real-time keys: -/= (freq), _/+ (fine), [/] (amp), w (wave), r (range)");
+	mvprintw(y+2, x, "Command mode: :1 [freq], :2 [amp]");
+
+
 }
 
 static void vco_handle_input(Module *m, int key) {
@@ -130,8 +154,10 @@ static void vco_handle_input(Module *m, int key) {
         switch (key) {
             case '=': state->frequency += 0.5f; handled = 1; break;
             case '-': state->frequency -= 0.5f; handled = 1; break;
-            case '+': state->amplitude += 0.01f; handled = 1; break;
-            case '_': state->amplitude -= 0.01f; handled = 1; break;
+            case '+': state->frequency += 0.01f; handled = 1; break;
+            case '_': state->frequency -= 0.01f; handled = 1; break;
+            case ']': state->amplitude += 0.01f; handled = 1; break;
+            case '[': state->amplitude -= 0.01f; handled = 1; break;
             case 'w': state->waveform = (state->waveform + 1) % 4; handled = 1; break;
 			case 'r': state->range_mode = (state->range_mode + 1) % 4; handled = 1; break;
             case ':':

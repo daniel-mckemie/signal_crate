@@ -67,7 +67,23 @@ static void cv_monitor_draw_ui(Module* m, int y, int x) {
     float off = s->display_off;
     pthread_mutex_unlock(&s->lock);
 
-	mvprintw(y,   x, "[CVMon:%s] In: %.3f | Att: %.2f | Off: %.2f | Out: %.3f", m->name, in, att, off, out);
+	BLUE();
+	mvprintw(y,   x, "[CVMon:%s] ", m->name);
+	CLR();
+
+	LABEL(2, "in:");
+	ORANGE(); printw(" %.3f | ", in); CLR();
+
+	LABEL(2, "att:");
+	ORANGE(); printw(" %.2f | ", att); CLR();
+	
+	LABEL(2, "off:");
+	ORANGE(); printw(" %.2f | ", off); CLR();
+
+	LABEL(2, "out:");
+	ORANGE(); printw(" %.3f", out); CLR();
+
+	YELLOW();
     mvprintw(y+1, x, "Real-Time Keys: -/= att, _/+ offset");
     mvprintw(y+2, x, "Cmd Keys: :1 att, :2 offset");
 }

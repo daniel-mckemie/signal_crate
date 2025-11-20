@@ -202,11 +202,40 @@ static void res_bank_draw_ui(Module* m, int y, int x) {
     if (s->entering_command) snprintf(cmd, sizeof(cmd), ":%s", s->command_buffer);
     pthread_mutex_unlock(&s->lock);
 
-    mvprintw(y,   x, "[ResBank:%s] mix:%.2f q:%.1f lo:%.0f hi:%.0f bands:%d tilt:%.2f odd:%.2f drv:%.2f rgn:%.2f",
-             m->name, mix, q, lo, hi, bands, tilt, odd, drive, regen);
+	BLUE();
+    mvprintw(y, x, "[ResBank:%s] ", m->name);
+	CLR();
+	
+	LABEL(2, "mix:");
+	ORANGE(); printw("%.2f", mix); CLR();
+
+	LABEL(2, "q:");
+	ORANGE(); printw("%.1f", q); CLR();
+
+	LABEL(2, "lo:");
+	ORANGE(); printw("%.0f", lo); CLR();
+	
+	LABEL(2, "hi:");
+	ORANGE(); printw("%.0f", hi); CLR();
+   
+	LABEL(2, "bands:");
+	ORANGE(); printw("%d", bands); CLR();
+
+	LABEL(2, "tilt:");
+	ORANGE(); printw("%.2f", tilt); CLR();
+
+	LABEL(2, "odd:");
+	ORANGE(); printw("%.2f", odd); CLR();
+
+	LABEL(2, "drv:");
+	ORANGE(); printw("%.2f", drive); CLR();
+	
+	LABEL(2, "rgn:");
+	ORANGE(); printw("%.2f", regen); CLR();
+
+	YELLOW();
     mvprintw(y+1, x, "Real-time: -/= mix, _/+ q, [/] lo, {/} hi, ;/\' bands, ?/\" tilt, ,/. odd, </> drive, 9/0 regen");
     mvprintw(y+2, x, "Cmd mode :1 [mix] :2 [q] :3 [lo] :4 [hi] :5 [bands] :6 [tilt] :7 [odd] :8 [drive] :9 [rgn]");
-    if (cmd[0]) mvprintw(y+3, x, "%s", cmd);
 }
 
 static void res_bank_handle_input(Module* m, int key) {

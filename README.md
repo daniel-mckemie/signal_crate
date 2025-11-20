@@ -40,9 +40,15 @@ you want to.
 
 ### **System Input**
 `input`
-Multi-channel enabled input, assigned by alias label `in#`
-`input as in1` = input from channel 1
-`input as in4` = outputs to channel 4
+Multi-channel enabled input, assigned by param input `([ch=#])`
+`input([ch=1]) as in1` = input from channel 1 with alias in1
+`input([ch=4]) as in4` = outputs to channel 4 with alias in4
+
+Takes input 8 and outputs it to channel 3
+```bash
+input([ch=8]) as in8
+vca(in8) as out3
+```
 - `amp` - amplitude of signal
 
 ---

@@ -73,9 +73,20 @@ static void bit_crush_draw_ui(Module* m, int y, int x) {
     float rate = s->display_rate;
     pthread_mutex_unlock(&s->lock);
 
-    mvprintw(y,   x, "[BITCRUSH:%s] bits: %.0f | rate: %.1f Hz", m->name, bits, rate);
+	BLUE();
+    mvprintw(y,   x, "[BITCRUSH:%s] ", m->name);
+	CLR();
+	
+	LABEL(2, "bits:");
+	ORANGE(); printw(" %.0f | ", bits); CLR();
+
+	LABEL(2, "rate:");
+	ORANGE(); printw(" %.1f Hz", rate); CLR();
+
+	YELLOW();
     mvprintw(y+1, x, "Keys: -/= bits, _/+ rate");
     mvprintw(y+2, x, "Command: :1 [bits], :2 [rate]");
+
 }
 
 static void clamp_params(BitCrushState* s) {

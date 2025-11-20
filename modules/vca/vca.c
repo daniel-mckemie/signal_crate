@@ -90,7 +90,17 @@ static void vca_draw_ui(Module* m, int y, int x) {
     float pan = state->display_pan;
     pthread_mutex_unlock(&state->lock);
 
-    mvprintw(y,   x, "[VCA:%s] pan: %.2f | gain: %.2f", m->name, pan, gain);
+	BLUE();
+    mvprintw(y, x, "[VCA:%s] ", m->name); 
+	CLR();
+
+	LABEL(2	, "pan:");
+	ORANGE(); printw(" %.2f | ", pan); CLR();
+	
+	LABEL(2	, "gain:");
+	ORANGE(); printw(" %.2f | ", gain); CLR();
+
+	YELLOW();
     mvprintw(y+1, x, "Real-time keys: -/= pan, [/] gain");
     mvprintw(y+2, x, "Command mode: :1 [pan], :2 [gain]");
 }

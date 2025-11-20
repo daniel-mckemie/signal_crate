@@ -136,7 +136,20 @@ static void spec_hold_draw_ui(Module* m, int y, int x) {
         snprintf(cmd, sizeof(cmd), ":%s", state->command_buffer);
     pthread_mutex_unlock(&state->lock);
 
-    mvprintw(y,   x, "[SpecTilt:%s] Pivot: %.2f Hz | Tilt: %.2f | Freeze: %s", m->name, pivot_hz, tilt, state->freeze ? "ON" : "OFF");
+	BLUE();
+    mvprintw(y,   x, "[SpecTilt:%s] ", m->name);
+	CLR();
+
+	LABEL(2, "pivot:");
+	ORANGE(); printw(" %.2f Hz | ", pivot_hz); CLR();
+
+	LABEL(2, "tilt:");
+	ORANGE(); printw(" %.2f | ", tilt); CLR();
+	
+	LABEL(2, "freeze:");
+	ORANGE(); printw(" %s | ", state->freeze ? "ON" : "OFF"); CLR();
+
+	YELLOW();
     mvprintw(y+1, x, "Real-time Keys: -/= tilt, _/+ pivot, [f] freeze");
     mvprintw(y+2, x, "Cmd Mode: :1 [pivot], :2 [tilt]");
 }

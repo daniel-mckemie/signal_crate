@@ -81,7 +81,20 @@ static void ringmod_draw_ui(Module* m, int y, int x) {
         snprintf(cmd, sizeof(cmd), ":%s", state->command_buffer);
     pthread_mutex_unlock(&state->lock);
 
-    mvprintw(y,   x, "[RingMod:%s] car_amp: %.2f Hz | mod_amp: %.2f | depth: %.2f", m->name, car_amp, mod_amp, depth);
+	BLUE();
+    mvprintw(y, x, "[RingMod:%s] ", m->name);
+	CLR();
+
+	LABEL(2, "car_amp");
+	ORANGE(); printw(" %.2f | ", car_amp); CLR();
+	
+	LABEL(2, "mod_amp");
+	ORANGE(); printw(" %.2f | ", mod_amp); CLR();
+
+	LABEL(2, "depth");
+	ORANGE(); printw(" %.2f", depth); CLR();
+
+	YELLOW();
     mvprintw(y+1, x, "Real-time keys: -/= (car_amp), _/+ (mod_amp), [/] (depth)");
     mvprintw(y+2, x, "Command mode: :1 [car_amp], :2 [mod_amp], :d [depth]");
 }

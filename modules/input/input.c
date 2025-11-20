@@ -34,7 +34,14 @@ static void input_draw_ui(Module* m, int y, int x) {
         snprintf(cmd, sizeof(cmd), ":%s", state->command_buffer);
     pthread_mutex_unlock(&state->lock);
 
-    mvprintw(y,   x, "[Input:%s] Gain: %.2f", m->name, gain);
+	BLUE();
+    mvprintw(y,   x, "[Input:%s] ", m->name);
+	CLR();
+
+	LABEL(2, "gain:");
+	ORANGE(); printw(" %.2f", gain); CLR();
+
+	YELLOW();
     mvprintw(y+1, x, "Real-time keys: _/+ (gain)");
     mvprintw(y+2, x, "Command mode: :1 [gain]");
 }

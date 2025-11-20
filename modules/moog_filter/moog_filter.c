@@ -89,7 +89,20 @@ static void moog_filter_draw_ui(Module *m, int y, int x) {
 	filt_type = state->filt_type;
     pthread_mutex_unlock(&state->lock);
 
-    mvprintw(y, x, "[Moog Filter:%s] Cutoff: %.2f | Res: %.2f | type: %s", m->name, co, res, filt_names[filt_type]);
+	BLUE();
+    mvprintw(y, x, "[Moog Filter:%s] ", m->name);
+	CLR();
+
+	LABEL(2, "cutoff:");
+	ORANGE(); printw(" %.2f Hz | ", co); CLR();
+
+	LABEL(2, "res:");
+	ORANGE(); printw(" %.2f | ", res); CLR();
+
+	LABEL(2, "type:");
+	ORANGE(); printw(" %s", filt_names[filt_type]); CLR();
+
+	YELLOW();
     mvprintw(y+1, x, "Real-time keys: -/= (cutoff), _/+ (res)");
     mvprintw(y+2, x, "Command mode: :1 [cutoff], :2 [res] f: [type]");
 }

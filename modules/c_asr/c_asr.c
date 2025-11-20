@@ -183,8 +183,29 @@ static void clamp_params(CASR* s) {
 static void c_asr_draw_ui(Module* m, int y, int x) {
     CASR* s = (CASR*)m->state;
     pthread_mutex_lock(&s->lock);
-    mvprintw(y, x,   "[ASR:%s] att: %.2fs | rel: %.2fs | depth: %.2f | gate: %.2f | %s | %s", m->name, s->display_att, s->display_rel, s->display_depth, s->threshold_gate, s->short_mode ? "s" : "l", s->display_cycle ? "c" : "t");
-    mvprintw(y+1, x, "Keys: trig/cycle [t/c], att -/=, rel _/+, d/D [depth], gate [/], s/l mode [m]");
+
+	BLUE();
+    mvprintw(y, x,   "[ASR:%s] ", m->name);
+	CLR();
+
+	LABEL(2, "att:");
+	ORANGE(); printw(" %.2fs | ", s->display_att); CLR();
+	
+	LABEL(2, "rel:");
+	ORANGE(); printw(" %.2fs | ", s->display_rel); CLR();
+	
+	LABEL(2, "depth:");
+	ORANGE(); printw(" %.2f | ", s->display_depth); CLR();
+
+	LABEL(2, "gate:");
+	ORANGE(); printw(" %.2f | ", s->threshold_gate); CLR();
+
+	ORANGE(); printw(" %s | ", s->short_mode ? "s" : "l"); CLR();
+
+	ORANGE(); printw(" %s", s->display_cycle ? "c" : "t"); CLR();
+
+	YELLOW();
+    mvprintw(y+1, x, "Keys: fire/cycle [f/c], att -/=, rel _/+, d/D [depth], gate [/], sh/lng [m]");
     mvprintw(y+2, x, "Command: :1 [att], :2 [rel], :3 [g_thresh], :d[depth]");
     pthread_mutex_unlock(&s->lock);
 }
@@ -196,7 +217,7 @@ static void c_asr_handle_input(Module* m, int key) {
 
     if (!s->entering_command) {
         switch (key) {
-			case 't':  // toggle to triggered mode
+			case 'f':  // toggle to triggered mode
 				if (s->cycle) {
 					s->cycle = false;
 					s->display_cycle = false;

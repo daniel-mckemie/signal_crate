@@ -102,11 +102,22 @@ static void delay_draw_ui(Module* m, int y, int x) {
         snprintf(cmd, sizeof(cmd), ":%s", state->command_buffer);
     pthread_mutex_unlock(&state->lock);
 
-    mvprintw(y,   x, "[Delay:%s] Time: %.1f ms | Mix: %.2f | Feedback: %.2f", m->name, ms, mix, fb);
+	BLUE();
+    mvprintw(y,   x, "[Delay:%s] ", m->name);
+	CLR();
+
+	LABEL(2, "time:");
+	ORANGE(); printw(" %.1f ms | ", ms); CLR();
+
+	LABEL(2, "mix:");
+	ORANGE(); printw(" %.2f | ", mix); CLR();
+
+	LABEL(2, "feedback:");
+	ORANGE(); printw(" %.2f", fb); CLR();
+
+	YELLOW();
     mvprintw(y+1, x, "Real-time keys: -/= (time), _/+ (mix), [/] (fb)");
     mvprintw(y+2, x, "Command mode: :1 [time], :2 [mix], :3 [fb]");
-    if (cmd[0])
-        mvprintw(y+3, x, "%s", cmd);
 }
 
 static void delay_handle_input(Module* m, int key) {

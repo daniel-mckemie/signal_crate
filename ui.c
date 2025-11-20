@@ -11,9 +11,12 @@
 #include "osc.h"
 
 #define COLUMN_WIDTH 72
+#define TRUNC_WIDTH 48
 
 static struct timespec last_time = {0};
 static struct rusage last_usage = {0};
+
+int truncated = 0;
 
 float get_cpu_percent() {
 	struct rusage usage_now;
@@ -47,6 +50,16 @@ void ui_loop() {
 	}
 
     initscr(); set_escdelay(25); cbreak(); noecho();
+	start_color();
+	use_default_colors();   // lets foreground go transparent
+
+	init_pair(1, COLOR_CYAN, -1);   // light blue-ish
+	init_pair(2, COLOR_GREEN, -1);  // green
+	init_pair(3, COLOR_YELLOW, -1); // yellow
+	init_color(208, 1000, 498, 0);   // (R,G,B from 0–1000)
+	init_pair(4, 208, -1);           // foreground = orange
+
+
 	scrollok(stdscr, FALSE);
     keypad(stdscr, TRUE);
     nodelay(stdscr, TRUE);
@@ -93,8 +106,14 @@ void ui_loop() {
             Module* m = get_module(i);
             if (m && m->draw_ui) {
 				int col = i / modules_per_col;
+				/*
 				int module_height = base_module_height;
 				if (strcmp(m->name, "looper") == 0) module_height = 6;
+				*/
+				int module_height = truncated ? 1 : base_module_height;
+				if (!truncated && strcmp(m->name, "looper") == 0)
+					module_height = 6;
+
 
 				int y = 2 + col_heights[col];
 				int x = 2 + col * COLUMN_WIDTH;
@@ -106,6 +125,13 @@ void ui_loop() {
                     attron(A_REVERSE);
 				move(y, x);
                 m->draw_ui(m, y, x);
+				move(y, x);
+
+				if (truncated) {
+					mvhline(y+1, x, ' ', COLUMN_WIDTH);
+					mvhline(y+2, x, ' ', COLUMN_WIDTH);
+				}
+
                 if (i == focused_module_index)
                     attroff(A_REVERSE);
 
@@ -204,6 +230,8 @@ void ui_loop() {
                 command[0] = '\0';
                 if (focused && focused->handle_input)
                     focused->handle_input(focused, ch);
+			} else if (ch == 't') {
+				truncated = !truncated;
             } else {
                 if (focused && focused->handle_input)
                     focused->handle_input(focused, ch);

@@ -80,8 +80,21 @@ static void c_cv_proc_draw_ui(Module* m, int y, int x) {
     float val = s->output;
     pthread_mutex_unlock(&s->lock);
 
-    mvprintw(y,   x, "[CVProc:%s] Out: %.3f | va: %.3f | vb: %.3f | vc: %.3f", m->name, val, s->display_va, s->display_vb, s->display_vc);
-    mvprintw(y+1, x, "K: %.2f | M: %.2f | Offset: %.2f", s->display_k, s->display_m_amt, s->display_offset);
+	BLUE();
+    mvprintw(y,   x, "[CVProc:%s] ", m->name);
+	CLR();
+
+	LABEL(2, "k:");
+	ORANGE(); printw(" %.2f | ", s->display_k); CLR();
+
+	LABEL(2, "m:");
+	ORANGE(); printw(" %.2f | ", s->display_m_amt); CLR();
+
+	LABEL(2, "offset:");
+	ORANGE(); printw(" %.2f", s->display_offset); CLR();
+
+	YELLOW();
+    mvprintw(y+1, x, "out: %.3f | va: %.3f | vb: %.3f | vc: %.3f", val, s->display_va, s->display_vb, s->display_vc);
     mvprintw(y+2, x, "Keys: k/:1 -/= m/:2 _/+, offset/:3 [/]");
 }
 

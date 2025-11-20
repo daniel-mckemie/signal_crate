@@ -83,7 +83,20 @@ static void wavefolder_draw_ui(Module *m, int y, int x) {
     drive = state->display_drive;
     pthread_mutex_unlock(&state->lock);
 
-    mvprintw(y, x, "[Wavefolder:%s] fold: %.2f | Blend: %.2f | Drive: %.2f", m->name, fold_amt, blend, drive);
+	BLUE();
+    mvprintw(y, x, "[Wavefolder:%s] ", m->name);
+	CLR();
+	
+	LABEL(2, "fold:");
+	ORANGE(); printw(" %.2f | ", fold_amt); CLR();
+	
+	LABEL(2, "blend:");
+	ORANGE(); printw(" %.2f | ", blend); CLR();
+
+	LABEL(2, "drive:");
+	ORANGE(); printw(" %.2f", drive); CLR();
+	
+	YELLOW();
     mvprintw(y+1, x, "Real-time keys: -/= (fold), _/+ (blend), [/] (drive)");
     mvprintw(y+2, x, "Command mode: :1 [fold], :2 [blend], :3 [drive]");
 }

@@ -1,0 +1,5 @@
+c_asr as c1
+c_lfo as c2
+c_cv_proc(vc=c1, vc=c2) as ccc
+vco(freq=ccc) as v1
+vca(v1) as out

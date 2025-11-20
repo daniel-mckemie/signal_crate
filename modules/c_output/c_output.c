@@ -55,7 +55,14 @@ static void c_output_draw_ui(Module* m, int y, int x) {
     float val = s->display_value;
     pthread_mutex_unlock(&s->lock);
 
-    mvprintw(y,   x, "[c_output:%s] Val: %.3f", m->name, val);
+	BLUE();
+    mvprintw(y,   x, "[c_output:%s] ", m->name);
+	CLR();
+
+	LABEL(2, "val:");
+	ORANGE(); printw(" %.3f", val); CLR();
+
+	YELLOW();
     mvprintw(y+1, x, "Real-time keys: -/= adjust val");
     mvprintw(y+2, x, "Command mode: :1 [val]");
 }

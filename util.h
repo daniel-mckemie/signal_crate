@@ -8,7 +8,20 @@
 
 #ifndef FRAMES_PER_BUFFER
 #define FRAMES_PER_BUFFER 64
+
 #endif
+
+#define BLUE()     attron(COLOR_PAIR(1))
+#define GREEN()    attron(COLOR_PAIR(2))
+#define YELLOW()   attron(COLOR_PAIR(3))
+#define ORANGE()   attron(COLOR_PAIR(4))
+#define CLR()      attroff(COLOR_PAIR(1)|COLOR_PAIR(2)|COLOR_PAIR(3)|COLOR_PAIR(4))
+
+#define LABEL(col, txt) do { attron(COLOR_PAIR(col)); printw(txt); CLR(); } while(0)
+#define LABEL_AT(col, y, x, txt) do { attron(COLOR_PAIR(col)); mvprintw(y, x, txt); CLR(); } while(0)
+
+
+extern int truncated;
 
 float randf(); // random generator
 

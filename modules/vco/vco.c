@@ -140,8 +140,6 @@ static void vco_draw_ui(Module *m, int y, int x) {
 	YELLOW();
 	mvprintw(y+1, x, "Real-time keys: -/= (freq), _/+ (fine), [/] (amp), w (wave), r (range)");
 	mvprintw(y+2, x, "Command mode: :1 [freq], :2 [amp]");
-
-
 }
 
 static void vco_handle_input(Module *m, int key) {

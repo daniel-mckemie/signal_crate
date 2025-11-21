@@ -95,10 +95,22 @@ static void player_draw_ui(Module* m, int y, int x) {
 	cmd[sizeof(cmd) - 1] = '\0';
 	pthread_mutex_unlock(&state->lock);
 
-	mvprintw(y,   x, "[Player:%s] %.2f s / %.2f s (%s) | Spd: %.2fx | Amp: %.2f", m->name, pos_sec, dur_sec, is_playing ? "P" : "S", speed, amp);
+	BLUE();
+	mvprintw(y,   x, "[Player:%s] ", m->name);
+	CLR();
+
+	LABEL(2, "");
+	ORANGE(); printw(" %.2f s / %.2f s (%s) | ", pos_sec, dur_sec, is_playing ? "P" : "S"); CLR();
+
+	LABEL(2, "spd:");
+	ORANGE(); printw(" %.2fx | ", speed); CLR();
+
+	LABEL(2, "amp:");
+	ORANGE(); printw(" %.2f", amp); CLR();
+
+	YELLOW();
 	mvprintw(y+1, x, "Keys: -/= to scrub | _/+ (speed) | p=play, s=stop"); 
 	mvprintw(y+2, x, "Cmd: :1=pos :2=speed :3=amp"); 
-	if (cmd[0]) mvprintw(y+3, x, "%s", cmd);
 }
 
 static void player_handle_input(Module* m, int key) {

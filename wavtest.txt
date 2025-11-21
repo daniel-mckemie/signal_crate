@@ -1,0 +1,2 @@
+wav_player([file=./other_files/project3.wav]) as w
+vca(w) as out

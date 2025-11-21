@@ -147,12 +147,24 @@ static void looper_draw_ui(Module* m, int y, int x) {
 
     pthread_mutex_unlock(&state->lock);
 
-    mvprintw(y,     x, "[Looper:%s] State: %s | Speed: %.2fx", m->name, state_names[lstate], speed);
-    mvprintw(y + 1, x, "         Loop Range: [%.2f -> %.2f] sec", start_sec, end_sec);
-    mvprintw(y + 2, x, "         Position: %.2f sec | Amp: %.2f", pos_sec, amp);
-    mvprintw(y + 3, x, "Keys: -/= (start pt), _/+ (end pt), [/] (speed)");
-    mvprintw(y + 4, x, "State: r(rec), p(play), o(odub), s(stop)");
-    mvprintw(y + 5, x, "Cmd Mode: :1=start, :2=end, :3=speed, :4=amp");
+	BLUE();
+	mvprintw(y,x, "[Looper:%s] ", m->name);
+	CLR();
+
+	LABEL(2,"");
+	ORANGE(); printw(" %s|", state_names[lstate]); CLR();
+	LABEL(2, "sp:");
+	ORANGE(); printw(" %.2fx|", speed); CLR();
+	LABEL(2, "range:");
+	ORANGE(); printw(" %.2f->%.2f|", start_sec, end_sec); CLR();
+	LABEL(2, "pos:");
+	ORANGE(); printw(" %.2f|", pos_sec); CLR();
+	LABEL(2, "amp:");
+	ORANGE(); printw(" %.2f", amp); CLR();
+
+	YELLOW();
+    mvprintw(y + 1, x, "-/= (st), _/+ (end), [/] (sp), r/p/o/s (rec/play/odub/stop)");
+    mvprintw(y + 2, x, "Cmd Mode: :1=start, :2=end, :3=speed, :4=amp");
 }
 
 static void looper_handle_input(Module* m, int ch) {

@@ -16,7 +16,7 @@
 static struct timespec last_time = {0};
 static struct rusage last_usage = {0};
 
-int truncated = 0;
+int truncated = 1;
 
 float get_cpu_percent() {
 	struct rusage usage_now;
@@ -106,13 +106,17 @@ void ui_loop() {
             Module* m = get_module(i);
             if (m && m->draw_ui) {
 				int col = i / modules_per_col;
+				int module_height = truncated ? 1 : base_module_height;
+				
 				/*
 				int module_height = base_module_height;
 				if (strcmp(m->name, "looper") == 0) module_height = 6;
-				*/
+
 				int module_height = truncated ? 1 : base_module_height;
 				if (!truncated && strcmp(m->name, "looper") == 0)
 					module_height = 6;
+
+				*/
 
 
 				int y = 2 + col_heights[col];
@@ -125,11 +129,10 @@ void ui_loop() {
                     attron(A_REVERSE);
 				move(y, x);
                 m->draw_ui(m, y, x);
-				move(y, x);
 
 				if (truncated) {
-					mvhline(y+1, x, ' ', COLUMN_WIDTH);
-					mvhline(y+2, x, ' ', COLUMN_WIDTH);
+					for (int k = 1; k < 6; k++)
+						mvhline(y + k, x, ' ', COLUMN_WIDTH);
 				}
 
                 if (i == focused_module_index)
@@ -142,7 +145,7 @@ void ui_loop() {
         if (in_command_mode) {
             mvprintw(LINES - 2, 2, ": %s", command);
         } else {
-            mvprintw(LINES - 2, 2, "[TAB] switch module | [:q] quit | [:] cmd mode | [ESCx2] exit cmd mode");
+            mvprintw(LINES - 2, 2, "[TAB] switch module | [t] show/hide cmds | [:q] quit | [:] cmd mode | [ESCx2] exit cmd mode");
         }
 
         refresh();

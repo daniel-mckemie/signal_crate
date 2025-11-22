@@ -107,10 +107,10 @@ static void c_lfo_draw_ui(Module* m, int y, int x) {
 	CLR();
 
 	LABEL(2, "freq:");
-	ORANGE(); printw(" %.3f Hz | ", freq); CLR();
+	ORANGE(); printw(" %.2f Hz | ", freq); CLR();
 
-	LABEL(2, "freq:");
-	ORANGE(); printw(" %.2f | ", amp); CLR();
+	LABEL(2, "amp:");
+	ORANGE(); printw(" %.2f Hz | ", amp); CLR();
 
 	LABEL(2, "depth:");
 	ORANGE(); printw(" %.2f | ", depth); CLR();

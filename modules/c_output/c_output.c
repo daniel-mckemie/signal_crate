@@ -11,6 +11,10 @@
 static void c_output_process(Module* m, float* in, unsigned long frames) {
     COutputState* state = (COutputState*)m->state;
     float base_val;
+	float* outL = m->output_bufferL;
+	float* outR = m->output_bufferR;
+
+	if (!outL || !outR) return;
 
     pthread_mutex_lock(&state->lock);
     base_val = state->value;
@@ -27,9 +31,10 @@ static void c_output_process(Module* m, float* in, unsigned long frames) {
         }
     }
 
-    float* out = m->output_buffer;
     float last_value = base_val;
 
+	// Stereo established to work with engine.c
+	memset(outR, 0, frames * sizeof(float)); // Only want mono
     for (unsigned long i = 0; i < frames; i++) {
         float value = base_val;
 
@@ -41,7 +46,7 @@ static void c_output_process(Module* m, float* in, unsigned long frames) {
         value = process_smoother(&state->smooth_val, value);
         if (value < -1.0f) value = -1.0f;
         if (value >  1.0f) value =  1.0f;
-        out[i] = value;
+        outL[i] = value;
         last_value = value;
     }
 
@@ -133,16 +138,23 @@ static void c_output_destroy(Module* m) {
 
 Module* create_module(const char* args, float sample_rate) {
     float val = 0.0f;
+	int ch = -1;
+
     if (args && strstr(args, "val="))
         sscanf(strstr(args, "val="), "val=%f", &val);
 
+	if (args && strstr(args, "ch="))
+		sscanf(strstr(args, "ch="), "ch=%d", &ch);
+
     COutputState* s = calloc(1, sizeof(COutputState));
     s->value = val;
+	s->target_channel = ch;
     pthread_mutex_init(&s->lock, NULL);
     init_smoother(&s->smooth_val, 0.5f);
 
     Module* m = calloc(1, sizeof(Module));
     m->name = "c_output";
+	m->type = "c_output";
     m->state = s;
     m->process = c_output_process;
     m->draw_ui = c_output_draw_ui;
@@ -151,7 +163,9 @@ Module* create_module(const char* args, float sample_rate) {
     m->destroy = c_output_destroy;
 
     // AUDIO output (for DC-coupled DAC)
-    m->output_buffer = calloc(FRAMES_PER_BUFFER, sizeof(float));
+    m->output_bufferL = calloc(FRAMES_PER_BUFFER, sizeof(float));
+    m->output_bufferR = calloc(FRAMES_PER_BUFFER, sizeof(float));
+	m->output_buffer = m->output_bufferL;
     return m;
 }
 

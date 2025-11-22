@@ -12,6 +12,7 @@ typedef struct {
 	float value;
 	float display_value;
 	CParamSmooth smooth_val;
+	int target_channel;
 
 	// Command mode
 	bool entering_command;

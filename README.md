@@ -224,33 +224,15 @@ Attack-Sustain-Release envelope generator.
 - `cycle` - cycle mode (repeats env)
 - `depth` - range of output 
 - `long/short` toggles maximum att/rel time (short=10s max, long=no upper bounds)
----
-
-### **Envelope Follower**
-`c_env_fol`
-Extracts amplitude envelope.  
-- `in_gain`
-- `dec` - decay
-- `depth` - range of output 
 
 ---
 
-### **LFO**
-`c_lfo`
-Low-frequency waveform modulator running on the control thread
-- `freq` - frequency/rate [0.001 - 100.0]
-- `amp` - strength of signal output
-- `wave` - waveform (sine, sawtooth, square, triangle)
-- `depth` - range of output 
-
----
-
-### **Fluctating Random Voltages**
-`c_fluct`
-Fluctuating Random Voltages after the Buchla 266
-- `rate` - rate of fluctuation 
-- `depth` - range of output 
-- `mode` - noise and random walk
+### **CV Monitor**
+`c_cv_monitor`
+Monitors incoming and outgoing signal, and gives extra utils
+- `in` (va) = to pass in control signal, must call `c_cv_monitor(in=alias)`
+- `att` - attenuvert 
+- `off` - offset
 
 ---
 
@@ -269,12 +251,41 @@ Params controllable via OSC
 
 ---
 
-### **CV Monitor**
-`c_cv_monitor`
-Monitors incoming and outgoing signal, and gives extra utils
-- `in` (va) = to pass in control signal, must call `c_cv_monitor(in=alias)`
-- `att` - attenuvert 
-- `off` - offset
+### **Envelope Follower**
+`c_env_fol`
+Extracts amplitude envelope.  
+- `in_gain`
+- `dec` - decay
+- `depth` - range of output 
+
+---
+
+### **Fluctating Random Voltages**
+`c_fluct`
+Fluctuating Random Voltages after the Buchla 266
+- `rate` - rate of fluctuation 
+- `depth` - range of output 
+- `mode` - noise and random walk
+
+---
+
+### **LFO**
+`c_lfo`
+Low-frequency waveform modulator running on the control thread
+- `freq` - frequency/rate [0.001 - 100.0]
+- `amp` - strength of signal output
+- `wave` - waveform (sine, sawtooth, square, triangle)
+- `depth` - range of output 
+
+---
+
+### **Control Output**
+`c_output`
+Output module for DC control voltage. Takes in control input
+and routes out as audio, set to output channel similar to VCA.
+- `val` - output value of CV
+`c_output(val=cvIn) as out3` // outputs audio from control input
+To output audio as CV, use `audio -> c_env_fol -> c_output`
 
 ---
 

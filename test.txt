@@ -1,4 +1,4 @@
-c_lfo as c
-c_cv_proc(in=c, vb=c, vc=c) as co
-vco(freq=co) as v1
-vca(v1) as out
+input([ch=1]) as in1
+c_lfo(freq=in1) as c
+c_output(val=c) as out1
+

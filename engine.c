@@ -10,6 +10,7 @@
 #include "util.h"
 #include "./modules/vca/vca.h"
 #include "./modules/input/input.h"
+#include "./modules/c_output/c_output.h"
 
 int ui_enabled = 1;
 static NamedModule modules[MAX_MODULES];
@@ -315,9 +316,26 @@ void process_audio(float* input, float* output, unsigned long frames) {
 	for (int i = 0; i < module_count; i++) {
 		Module* m = modules[i].module;
 
-		if (m->type && strcmp(m->type, "vca") == 0) {
+		if (strcmp(m->type, "vca") == 0) {
 			// handle channel-mapped VCAs only
 			VCAState* s = (VCAState*)m->state;
+			int ch = (s && s->target_channel > 0 && s->target_channel <= num_channels)
+						? s->target_channel
+						: -1;
+
+			for (unsigned long k = 0; k < frames; k++) {
+				if (ch > 0 && ch <= num_channels)
+					output[k * num_channels + (ch - 1)] += m->output_bufferL[k];
+				else {
+					output[k * num_channels] += m->output_bufferL[k];
+					if (num_channels > 1)
+						output[k * num_channels + 1] += m->output_bufferR[k];
+				}
+			}
+		}
+		else if (strcmp(m->type, "c_output") == 0) {
+			// handle channel-mapped c_output modules
+			COutputState* s = (COutputState*)m->state;
 			int ch = (s && s->target_channel > 0 && s->target_channel <= num_channels)
 						? s->target_channel
 						: -1;
@@ -336,12 +354,14 @@ void process_audio(float* input, float* output, unsigned long frames) {
 			// normal stereo master out
 			float* outL = m->output_bufferL ? m->output_bufferL : m->output_buffer;
 			float* outR = m->output_bufferR ? m->output_bufferR : m->output_buffer;
+
 			for (unsigned long k = 0; k < frames; k++) {
 				output[k * num_channels] = outL[k];
 				if (num_channels > 1)
 					output[k * num_channels + 1] = outR[k];
 			}
 		}
+
 	}
 	// --- Normalize global output to prevent clipping ---
 	float max_val = 0.0f;

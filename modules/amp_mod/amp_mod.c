@@ -98,6 +98,7 @@ static void ampmod_draw_ui(Module* m, int y, int x) {
 	YELLOW();
 	mvprintw(y+1, x, "Real-time keys: -/= (Car_Amp), _/+ (Mod_Amp), [/] (Depth)");
 	mvprintw(y+2, x, "Command mode: :1 [car_amp], :2 [mod_amp], :d [depth]");
+	BLACK();
 }
 
 static void ampmod_handle_input(Module* m, int key) {

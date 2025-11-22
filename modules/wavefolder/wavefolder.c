@@ -99,6 +99,7 @@ static void wavefolder_draw_ui(Module *m, int y, int x) {
 	YELLOW();
     mvprintw(y+1, x, "Real-time keys: -/= (fold), _/+ (blend), [/] (drive)");
     mvprintw(y+2, x, "Command mode: :1 [fold], :2 [blend], :3 [drive]");
+	BLACK();
 }
 
 static void wavefolder_handle_input(Module *m, int key) {

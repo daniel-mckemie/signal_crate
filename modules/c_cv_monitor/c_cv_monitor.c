@@ -86,6 +86,7 @@ static void cv_monitor_draw_ui(Module* m, int y, int x) {
 	YELLOW();
     mvprintw(y+1, x, "Real-Time Keys: -/= att, _/+ offset");
     mvprintw(y+2, x, "Cmd Keys: :1 att, :2 offset");
+	BLACK();
 }
 
 static void cv_monitor_handle_input(Module* m, int key) {

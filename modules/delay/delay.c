@@ -118,6 +118,7 @@ static void delay_draw_ui(Module* m, int y, int x) {
 	YELLOW();
     mvprintw(y+1, x, "Real-time keys: -/= (time), _/+ (mix), [/] (fb)");
     mvprintw(y+2, x, "Command mode: :1 [time], :2 [mix], :3 [fb]");
+	BLACK();
 }
 
 static void delay_handle_input(Module* m, int key) {

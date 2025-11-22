@@ -58,6 +58,7 @@ void ui_loop() {
 	init_pair(3, COLOR_YELLOW, -1); // yellow
 	init_color(208, 1000, 498, 0);   // (R,G,B from 0–1000)
 	init_pair(4, 208, -1);           // foreground = orange
+	init_pair(5, COLOR_BLACK, -1);  // black
 
 
 	scrollok(stdscr, FALSE);
@@ -78,6 +79,7 @@ void ui_loop() {
 
     while (running) {
         erase();
+		attrset(A_NORMAL);
         mvprintw(0, 2, "--- Signal Crate ---");
 
 		// CPU Usage
@@ -108,17 +110,6 @@ void ui_loop() {
 				int col = i / modules_per_col;
 				int module_height = truncated ? 1 : base_module_height;
 				
-				/*
-				int module_height = base_module_height;
-				if (strcmp(m->name, "looper") == 0) module_height = 6;
-
-				int module_height = truncated ? 1 : base_module_height;
-				if (!truncated && strcmp(m->name, "looper") == 0)
-					module_height = 6;
-
-				*/
-
-
 				int y = 2 + col_heights[col];
 				int x = 2 + col * COLUMN_WIDTH;
 
@@ -143,8 +134,10 @@ void ui_loop() {
         }
 
         if (in_command_mode) {
+			attrset(A_NORMAL);
             mvprintw(LINES - 2, 2, ": %s", command);
         } else {
+			attrset(A_NORMAL);
             mvprintw(LINES - 2, 2, "[TAB] switch module | [t] show/hide cmds | [:q] quit | [:] cmd mode | [ESCx2] exit cmd mode");
         }
 

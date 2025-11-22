@@ -120,6 +120,7 @@ static void c_env_fol_draw_ui(Module* m, int y, int x) {
 	YELLOW();
     mvprintw(y+1, x, "Real-time keys: -/= (dec), _/+ (sens), d/D (d)");
     mvprintw(y+2, x, "Command mode: :1 [dec], :2 [sens], :d [depth]");
+	BLACK();
 }
 
 static void c_env_fol_handle_input(Module* m, int key) {

@@ -103,6 +103,7 @@ static void vca_draw_ui(Module* m, int y, int x) {
 	YELLOW();
     mvprintw(y+1, x, "Real-time keys: -/= pan, [/] gain");
     mvprintw(y+2, x, "Command mode: :1 [pan], :2 [gain]");
+	BLACK();
 }
 
 static void vca_handle_input(Module* m, int key) {

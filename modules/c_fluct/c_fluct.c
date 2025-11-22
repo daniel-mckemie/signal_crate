@@ -95,6 +95,7 @@ static void c_fluct_draw_ui(Module* m, int y, int x) {
 	YELLOW();
     mvprintw(y+1, x, "Keys: -/= (rate), d/D (depth), m (mode)");
     mvprintw(y+2, x, "Cmd: :1 [rate], :d [depth]");
+	BLACK();
 }
 
 static void c_fluct_handle_input(Module* m, int key) {

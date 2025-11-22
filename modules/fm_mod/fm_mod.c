@@ -98,6 +98,7 @@ static void fm_mod_draw_ui(Module *m, int y, int x) {
 	YELLOW();
     mvprintw(y+1, x, "Real-time keys: -/= (mod freq), _/+ (car_amp), {/} (mod_amp), [/] (idx)");
     mvprintw(y+2, x, "Command mode: :1 [mod freq], :2 [car amp], :3 [mod_amp], :4 [idx]"); 
+	BLACK();
 }
 
 static void fm_mod_handle_input(Module *m, int key) {

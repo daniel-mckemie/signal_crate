@@ -116,6 +116,7 @@ static void pm_mod_draw_ui(Module *m, int y, int x) {
 	YELLOW();
     mvprintw(y+1, x, "Real-time keys: -/= (car amp), _/+ (mod amp), {/} (base_freq) [/] (idx)");
     mvprintw(y+2, x, "Command mode: :1 [car amp], :2 [mod amp], :3 [base_freq], :4 [idx]"); 
+	BLACK();
 }
 
 static void pm_mod_handle_input(Module *m, int key) {

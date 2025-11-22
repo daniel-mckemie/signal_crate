@@ -117,6 +117,7 @@ static void freeverb_draw_ui(Module* m, int y, int x) {
 	YELLOW();
     mvprintw(y+1, x, "Keys: -/= fb, _/+ damp, [/] wet");
     mvprintw(y+2, x, "Cmd: :1 [fb], :2 [damp], :3 [wet]");
+	BLACK();
 }
 
 static void freeverb_handle_input(Module* m, int key) {

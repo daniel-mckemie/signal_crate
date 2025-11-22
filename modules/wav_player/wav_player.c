@@ -111,6 +111,7 @@ static void player_draw_ui(Module* m, int y, int x) {
 	YELLOW();
 	mvprintw(y+1, x, "Keys: -/= to scrub | _/+ (speed) | p=play, s=stop"); 
 	mvprintw(y+2, x, "Cmd: :1=pos :2=speed :3=amp"); 
+	BLACK();
 }
 
 static void player_handle_input(Module* m, int key) {

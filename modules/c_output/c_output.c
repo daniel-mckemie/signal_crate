@@ -65,6 +65,7 @@ static void c_output_draw_ui(Module* m, int y, int x) {
 	YELLOW();
     mvprintw(y+1, x, "Real-time keys: -/= adjust val");
     mvprintw(y+2, x, "Command mode: :1 [val]");
+	BLACK();
 }
 
 static void c_output_handle_input(Module* m, int key) {

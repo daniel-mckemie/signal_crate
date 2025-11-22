@@ -152,6 +152,7 @@ static void spec_hold_draw_ui(Module* m, int y, int x) {
 	YELLOW();
     mvprintw(y+1, x, "Real-time Keys: -/= tilt, _/+ pivot, [f] freeze");
     mvprintw(y+2, x, "Cmd Mode: :1 [pivot], :2 [tilt]");
+	BLACK();
 }
 
 static void spec_hold_handle_input(Module* m, int key) {

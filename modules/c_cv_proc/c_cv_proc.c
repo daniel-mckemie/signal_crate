@@ -96,6 +96,7 @@ static void c_cv_proc_draw_ui(Module* m, int y, int x) {
 	YELLOW();
     mvprintw(y+1, x, "out: %.3f | va: %.3f | vb: %.3f | vc: %.3f", val, s->display_va, s->display_vb, s->display_vc);
     mvprintw(y+2, x, "Keys: k/:1 -/= m/:2 _/+, offset/:3 [/]");
+	BLACK();
 }
 
 static void c_cv_proc_handle_input(Module* m, int key) {

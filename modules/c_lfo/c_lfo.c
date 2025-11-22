@@ -121,6 +121,7 @@ static void c_lfo_draw_ui(Module* m, int y, int x) {
 	YELLOW();
     mvprintw(y+1, x, "Real-time keys: -/= (freq), _/+ (amp), d/D (depth), w (wave)");
     mvprintw(y+2, x, "Command mode: :1 [freq], :2 [amp], :d [depth]");
+	BLACK();
 }
 
 static void c_lfo_handle_input(Module* m, int key) {

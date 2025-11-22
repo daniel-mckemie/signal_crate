@@ -208,6 +208,7 @@ static void c_asr_draw_ui(Module* m, int y, int x) {
     mvprintw(y+1, x, "Keys: fire/cycle [f/c], att -/=, rel _/+, d/D [depth], gate [/], sh/lng [m]");
     mvprintw(y+2, x, "Command: :1 [att], :2 [rel], :3 [g_thresh], :d[depth]");
     pthread_mutex_unlock(&s->lock);
+	BLACK();
 }
 
 static void c_asr_handle_input(Module* m, int key) {

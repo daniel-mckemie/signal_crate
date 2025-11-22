@@ -236,6 +236,7 @@ static void res_bank_draw_ui(Module* m, int y, int x) {
 	YELLOW();
     mvprintw(y+1, x, "Real-time: -/= mix, _/+ q, [/] lo, {/} hi, ;/\' bands, ?/\" tilt, ,/. odd, </> drive, 9/0 regen");
     mvprintw(y+2, x, "Cmd mode :1 [mix] :2 [q] :3 [lo] :4 [hi] :5 [bands] :6 [tilt] :7 [odd] :8 [drive] :9 [rgn]");
+	BLACK();
 }
 
 static void res_bank_handle_input(Module* m, int key) {

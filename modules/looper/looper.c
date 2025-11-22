@@ -165,6 +165,7 @@ static void looper_draw_ui(Module* m, int y, int x) {
 	YELLOW();
     mvprintw(y + 1, x, "-/= (st), _/+ (end), [/] (sp), r/p/o/s (rec/play/odub/stop)");
     mvprintw(y + 2, x, "Cmd Mode: :1=start, :2=end, :3=speed, :4=amp");
+	BLACK();
 }
 
 static void looper_handle_input(Module* m, int ch) {

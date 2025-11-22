@@ -97,6 +97,7 @@ static void ringmod_draw_ui(Module* m, int y, int x) {
 	YELLOW();
     mvprintw(y+1, x, "Real-time keys: -/= (car_amp), _/+ (mod_amp), [/] (depth)");
     mvprintw(y+2, x, "Command mode: :1 [car_amp], :2 [mod_amp], :d [depth]");
+	BLACK();
 }
 
 static void ringmod_handle_input(Module* m, int key) {

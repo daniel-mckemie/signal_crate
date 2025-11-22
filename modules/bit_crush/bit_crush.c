@@ -86,7 +86,7 @@ static void bit_crush_draw_ui(Module* m, int y, int x) {
 	YELLOW();
     mvprintw(y+1, x, "Keys: -/= bits, _/+ rate");
     mvprintw(y+2, x, "Command: :1 [bits], :2 [rate]");
-
+	BLACK();
 }
 
 static void clamp_params(BitCrushState* s) {

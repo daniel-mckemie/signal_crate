@@ -80,6 +80,7 @@ static void noise_source_draw_ui(Module *m, int y, int x) {
 	YELLOW();
 	mvprintw(y+1, x,   "Real-time keys: -/= (amp), n: (type)");
 	mvprintw(y+2, x,   "Command mode: :1 [amp], :n [type]");
+	BLACK();
 }
 
 static void noise_source_handle_input(Module *m, int key) {

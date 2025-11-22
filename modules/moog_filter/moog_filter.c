@@ -105,6 +105,7 @@ static void moog_filter_draw_ui(Module *m, int y, int x) {
 	YELLOW();
     mvprintw(y+1, x, "Real-time keys: -/= (cutoff), _/+ (res)");
     mvprintw(y+2, x, "Command mode: :1 [cutoff], :2 [res] f: [type]");
+	BLACK();
 }
 
 static void moog_filter_handle_input(Module *m, int key) {

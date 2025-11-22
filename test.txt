@@ -1,4 +1,0 @@
-input([ch=1]) as in1
-c_lfo(freq=in1) as c
-c_output(val=c) as out1
-

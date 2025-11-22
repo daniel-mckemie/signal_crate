@@ -26,6 +26,7 @@ static void clamp_params(InputState* state) {
 static void input_draw_ui(Module* m, int y, int x) {
     InputState* state = (InputState*)m->state;
     float gain;
+	int ch = state->channel_index;
     char cmd[128] = "";
 
     pthread_mutex_lock(&state->lock);
@@ -37,6 +38,9 @@ static void input_draw_ui(Module* m, int y, int x) {
 	BLUE();
     mvprintw(y,   x, "[Input:%s] ", m->name);
 	CLR();
+
+	LABEL(2, "ch:");
+	ORANGE(); printw(" %d | ", ch); CLR();
 
 	LABEL(2, "gain:");
 	ORANGE(); printw(" %.2f", gain); CLR();

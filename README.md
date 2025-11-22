@@ -38,7 +38,7 @@ you want to.
 
 ## Audio Modules
 
-### **System Input**
+### **System Audio Input**
 `input`
 Multi-channel enabled input, assigned by param input `([ch=#])`
 `input([ch=1]) as in1` = input from channel 1 with alias in1
@@ -276,6 +276,22 @@ Low-frequency waveform modulator running on the control thread
 - `amp` - strength of signal output
 - `wave` - waveform (sine, sawtooth, square, triangle)
 - `depth` - range of output 
+
+---
+
+### **Control Input**
+`c_input`
+Multi-channel enabled control input, assigned by param input `([ch=#])`
+Takes in audio from system and outputs control signal into Signal Crate
+`c_input([ch=1]) as in1` = input from channel 1 sends to control layer with alias in1
+`c_input([ch=4]) as in4` = outputs to channel 4 sends to control layer with alias in4
+
+Takes input 8 and outputs it to channel 3
+```bash
+input([ch=8]) as in8
+vca(in8) as out3
+```
+- `val` - amplitude of signal
 
 ---
 

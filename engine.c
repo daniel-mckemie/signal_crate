@@ -11,6 +11,7 @@
 #include "./modules/vca/vca.h"
 #include "./modules/input/input.h"
 #include "./modules/c_output/c_output.h"
+#include "./modules/c_input/c_input.h"
 
 int ui_enabled = 1;
 static NamedModule modules[MAX_MODULES];
@@ -262,22 +263,27 @@ void process_audio(float* input, float* output, unsigned long frames) {
     for (int i=0; i<module_count; i++) {
         Module* m = modules[i].module;
 
-		if (m->type && strcmp(m->type, "input") == 0) {
-			if (m->process) {
+		if (m->type && (strcmp(m->type, "input") == 0 ||
+			 strcmp(m->type, "c_input") == 0)) {
+			int ch;
+			unsigned long stride = g_num_input_channels;
+
+			// Correct struct per module type
+			if (strcmp(m->type, "input") == 0) {
 				InputState* s = (InputState*)m->state;
-				int ch = s->channel_index;  // we’ll add this field next
-				unsigned long stride = g_num_input_channels;
-
-				// sanity
-				if (ch < 1 || ch > stride) ch = 1;
-
-				// extract this channel from interleaved input
-				float tmp[frames];
-				for (unsigned long k = 0; k < frames; k++)
-					tmp[k] = input[k * stride + (ch - 1)];
-
-				m->process(m, tmp, frames);
+				ch = s->channel_index;
+			} else {
+				CInputState* s = (CInputState*)m->state;
+				ch = s->channel_index;
 			}
+
+			if (ch < 1 || ch > stride) ch = 1;
+
+			float tmp[frames];
+			for (unsigned long k = 0; k < frames; k++)
+				tmp[k] = input[k * stride + (ch - 1)];
+
+			m->process(m, tmp, frames);
 		} else {
 			float mixed_input[frames];
 			memset(mixed_input, 0, sizeof(float) * frames);

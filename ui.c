@@ -121,8 +121,11 @@ void ui_loop() {
 				move(y, x);
                 m->draw_ui(m, y, x);
 
+				attrset(A_NORMAL);
+				color_set(0, NULL);
+
 				if (truncated) {
-					for (int k = 1; k < 6; k++)
+					for (int k = 1; k < 3; k++)
 						mvhline(y + k, x, ' ', COLUMN_WIDTH);
 				}
 

@@ -133,10 +133,10 @@ static void c_env_fol_handle_input(Module* m, int key) {
         switch (key) {
             case '=': s->decay_ms += 0.1f; handled = 1; break;
             case '-': s->decay_ms -= 0.1f; handled = 1; break;
-            case '+': s->sens += 0.1f; handled = 1; break;
-            case '_': s->sens -= 0.1f; handled = 1; break;
-			case 'D': s->depth += 0.1f; handled = 1; break;
-            case 'd': s->depth -= 0.1f; handled = 1; break;
+            case '+': s->sens += 0.01f; handled = 1; break;
+            case '_': s->sens -= 0.01f; handled = 1; break;
+			case 'D': s->depth += 0.01f; handled = 1; break;
+            case 'd': s->depth -= 0.01f; handled = 1; break;
             case ':':
                 s->entering_command = true;
                 memset(s->command_buffer, 0, sizeof(s->command_buffer));

@@ -47,7 +47,7 @@ static void pm_mod_process(Module *m, float* in, unsigned long frames) {
         } else if (strcmp(param, "idx") == 0) {
 			float mod_range = (10.0f - state->index) * mod_depth;
             idx = state->index + norm * mod_range;
-        } else if (strcmp(param, "base_freq") == 0) {
+        } else if (strcmp(param, "freq") == 0) {
 			float mod_range = state->base_freq * mod_depth;
 			base_freq = state->base_freq + norm * mod_range;
 		}
@@ -101,20 +101,20 @@ static void pm_mod_draw_ui(Module *m, int y, int x) {
     mvprintw(y, x, "[PMMod:%s] ", m->name);
 	CLR();
 
+	LABEL(2, "freq:");
+	ORANGE(); printw(" %.2f Hz | ", base_freq); CLR();
+
 	LABEL(2, "car_amp:");
 	ORANGE(); printw(" %.2f | ", car_amp); CLR();
 
 	LABEL(2, "mod_amp:");
 	ORANGE(); printw(" %.2f | ", mod_amp); CLR();
 
-	LABEL(2, "base_freq:");
-	ORANGE(); printw(" %.2f Hz | ", base_freq); CLR();
-
 	LABEL(2, "idx:");
 	ORANGE(); printw(" %.2f", idx); CLR();
 
 	YELLOW();
-    mvprintw(y+1, x, "Real-time keys: -/= (car amp), _/+ (mod amp), {/} (base_freq) [/] (idx)");
+    mvprintw(y+1, x, "Real-time keys: -/= (car amp), _/+ (mod amp), {/} (freq) [/] (idx)");
     mvprintw(y+2, x, "Command mode: :1 [car amp], :2 [mod amp], :3 [base_freq], :4 [idx]"); 
 	BLACK();
 }

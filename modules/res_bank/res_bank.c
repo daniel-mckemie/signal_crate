@@ -234,8 +234,8 @@ static void res_bank_draw_ui(Module* m, int y, int x) {
 	ORANGE(); printw("%.2f", regen); CLR();
 
 	YELLOW();
-    mvprintw(y+1, x, "Real-time: -/= mix, _/+ q, [/] lo, {/} hi, ;/\' bands, ?/\" tilt, ,/. odd, </> drive, 9/0 regen");
-    mvprintw(y+2, x, "Cmd mode :1 [mix] :2 [q] :3 [lo] :4 [hi] :5 [bands] :6 [tilt] :7 [odd] :8 [drive] :9 [rgn]");
+    mvprintw(y+1, x, "-/= mix _/+ q [/] lo {/} hi ;/\' bands ?/\" tilt ,/. odd </> drv 9/0 rgn");
+    mvprintw(y+2, x, ":1[mix] :2[q] :3[lo] :4[hi] :5[bnd] :6[tilt] :7[odd] :8[drive] :9[regen]");
 	BLACK();
 }
 

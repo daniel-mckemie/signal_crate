@@ -31,16 +31,19 @@ static void c_input_draw_ui(Module* m, int y, int x)
     CInputState* s = (CInputState*)m->state;
     pthread_mutex_lock(&s->lock);
     float v = s->last_val;
-    int ch = s->channel_index;
+// UNCOMMENT IF THIS IS NOT WORKING WITH NEW SETUP
+   // int ch = s->channel_index;
     pthread_mutex_unlock(&s->lock);
 
     BLUE();
     mvprintw(y, x, "[c_input:%s] ", m->name);
     CLR();
 
+// UNCOMMENT IF THIS IS NOT WORKING WITH NEW SETUP, osc too
+/*
     LABEL(2, "ch:");
     ORANGE(); printw(" %d | ", ch); CLR();
-
+*/
     LABEL(2, "val:");
     ORANGE(); printw(" %.3f", v); CLR();
 
@@ -91,6 +94,8 @@ static void c_input_handle_input(Module* m, int key)
     pthread_mutex_unlock(&s->lock);
 }
 
+// UNCOMMENT IF THIS IS NOT WORKING WITH NEW SETUP
+/*
 static void c_input_set_osc_param(Module* m, const char* param, float value)
 {
     CInputState* s = (CInputState*)m->state;
@@ -103,6 +108,7 @@ static void c_input_set_osc_param(Module* m, const char* param, float value)
 
     pthread_mutex_unlock(&s->lock);
 }
+*/
 
 static void c_input_destroy(Module* m)
 {
@@ -134,7 +140,8 @@ Module* create_module(const char* args, float sample_rate)
     m->process = c_input_process;
     m->draw_ui = c_input_draw_ui;
     m->handle_input = c_input_handle_input;
-    m->set_param = c_input_set_osc_param;
+// UNCOMMENT IF THIS IS NOT WORKING WITH NEW SETUP
+    // m->set_param = c_input_set_osc_param;
     m->destroy = c_input_destroy;
 
     // CONTROL output buffer

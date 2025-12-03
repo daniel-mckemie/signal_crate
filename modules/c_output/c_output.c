@@ -118,6 +118,8 @@ static void c_output_handle_input(Module* m, int key) {
     pthread_mutex_unlock(&s->lock);
 }
 
+// UNCOMMENT IF THIS IS NOT WORKING WITH NEW SETUP
+/*
 static void c_output_set_osc_param(Module* m, const char* param, float value) {
     COutputState* s = (COutputState*)m->state;
     pthread_mutex_lock(&s->lock);
@@ -129,6 +131,7 @@ static void c_output_set_osc_param(Module* m, const char* param, float value) {
 
     pthread_mutex_unlock(&s->lock);
 }
+*/
 
 static void c_output_destroy(Module* m) {
     COutputState* s = (COutputState*)m->state;
@@ -159,7 +162,8 @@ Module* create_module(const char* args, float sample_rate) {
     m->process = c_output_process;
     m->draw_ui = c_output_draw_ui;
     m->handle_input = c_output_handle_input;
-    m->set_param = c_output_set_osc_param;
+// UNCOMMENT IF THIS IS NOT WORKING WITH NEW SETUP
+    // m->set_param = c_output_set_osc_param;
     m->destroy = c_output_destroy;
 
     // AUDIO output (for DC-coupled DAC)

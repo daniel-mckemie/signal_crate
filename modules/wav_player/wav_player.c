@@ -102,14 +102,14 @@ static void player_draw_ui(Module* m, int y, int x) {
 	LABEL(2, "");
 	ORANGE(); printw(" %.2f s / %.2f s (%s) | ", pos_sec, dur_sec, is_playing ? "P" : "S"); CLR();
 
-	LABEL(2, "spd:");
+	LABEL(2, "speed:");
 	ORANGE(); printw(" %.2fx | ", speed); CLR();
 
 	LABEL(2, "amp:");
 	ORANGE(); printw(" %.2f", amp); CLR();
 
 	YELLOW();
-	mvprintw(y+1, x, "Keys: -/= to scrub | _/+ (speed) | p=play, s=stop"); 
+	mvprintw(y+1, x, "Keys: -/= scrub | _/+ (speed) | p=play, s=stop"); 
 	mvprintw(y+2, x, "Cmd: :1=pos :2=speed :3=amp"); 
 	BLACK();
 }

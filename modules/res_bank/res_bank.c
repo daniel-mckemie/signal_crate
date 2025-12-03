@@ -314,24 +314,29 @@ static void res_bank_set_osc_param(Module* m, const char* param, float value) {
     ResBank* s = (ResBank*)m->state;
     pthread_mutex_lock(&s->lock);
 
-    if      (strcmp(param,"mix")==0)   s->mix = fminf(fmaxf(value,0.f),1.f);
-    else if (strcmp(param,"q")==0)     s->q   = value, s->need_coeffs=1;
-    else if (strcmp(param,"tilt")==0)  s->tilt= fminf(fmaxf(value,-1.f),1.f);
-    else if (strcmp(param,"odd")==0)   s->odd = fminf(fmaxf(value,-1.f),1.f);
-    else if (strcmp(param,"drive")==0) s->drive = fminf(fmaxf(value,0.f),1.f);
-    else if (strcmp(param,"regen")==0) s->regen = fminf(fmaxf(value,0.f),0.5f);
+    if      (strcmp(param,"mix")==0)   s->mix = fminf(fmaxf(value,0.0f),1.0f);
+	else if (strcmp(param,"q")==0) {
+		float norm = fminf(fmaxf(value, 0.0f), 1.0f);
+		float minQ = 0.3f, maxQ = 40.0f;
+		s->q = minQ * powf(maxQ/minQ, norm);   // exponential sweep
+		s->need_coeffs = 1;
+	}
+    else if (strcmp(param,"tilt")==0)  s->tilt= fminf(fmaxf(value,-1.0f),1.0f);
+    else if (strcmp(param,"odd")==0)   s->odd = fminf(fmaxf(value,-1.0f),1.0f);
+    else if (strcmp(param,"drive")==0) s->drive = fminf(fmaxf(value,0.0f),1.0f);
+    else if (strcmp(param,"regen")==0) s->regen = fminf(fmaxf(value,0.0f),1.0f);
 	else if (strcmp(param,"bands")==0) {
-		float norm = fminf(fmaxf(value, 0.f), 1.f);
+		float norm = fminf(fmaxf(value, 0.0f), 1.0f);
 		float mapped = 1.0f + norm * (RES_MAX_BANDS - 1.0f);
 		s->bands = (int)(mapped + 0.5f);
 		s->need_centers = 1;
 	}
     else if (strcmp(param,"lo")==0) {
         // expect 0..1 → 20..20000Hz (exp)
-        float min_hz=20.f, max_hz=20000.f; float norm=fminf(fmaxf(value,0.f),1.f);
+        float min_hz=20.0f, max_hz=20000.0f; float norm=fminf(fmaxf(value,0.0f),1.0f);
         s->lo_hz = min_hz * powf(max_hz/min_hz, norm); s->need_centers=1;
     } else if (strcmp(param,"hi")==0) {
-        float min_hz=20.f, max_hz=20000.f; float norm=fminf(fmaxf(value,0.f),1.f);
+        float min_hz=20.0f, max_hz=20000.0f; float norm=fminf(fmaxf(value,0.0f),1.0f);
         s->hi_hz = min_hz * powf(max_hz/min_hz, norm); s->need_centers=1;
     } else {
         fprintf(stderr,"[res_bank] Unknown OSC param: %s\n", param);

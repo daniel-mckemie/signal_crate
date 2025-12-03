@@ -320,7 +320,12 @@ static void res_bank_set_osc_param(Module* m, const char* param, float value) {
     else if (strcmp(param,"odd")==0)   s->odd = fminf(fmaxf(value,-1.f),1.f);
     else if (strcmp(param,"drive")==0) s->drive = fminf(fmaxf(value,0.f),1.f);
     else if (strcmp(param,"regen")==0) s->regen = fminf(fmaxf(value,0.f),0.5f);
-    else if (strcmp(param,"bands")==0) { s->bands = (int)(value + 0.5f); s->need_centers=1; }
+	else if (strcmp(param,"bands")==0) {
+		float norm = fminf(fmaxf(value, 0.f), 1.f);
+		float mapped = 1.0f + norm * (RES_MAX_BANDS - 1.0f);
+		s->bands = (int)(mapped + 0.5f);
+		s->need_centers = 1;
+	}
     else if (strcmp(param,"lo")==0) {
         // expect 0..1 → 20..20000Hz (exp)
         float min_hz=20.f, max_hz=20000.f; float norm=fminf(fmaxf(value,0.f),1.f);

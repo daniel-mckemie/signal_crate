@@ -62,7 +62,7 @@ static void fm_mod_process(Module *m, float* in, unsigned long frames) {
 }
 
 static void clamp_params(FMMod *state) {
-	clampf(&state->index, 0.01f, FLT_MAX);
+	clampf(&state->index, 0.01f, 10.0f);
 	clampf(&state->mod_freq, 0.01f, state->sample_rate * 0.45f);
 	clampf(&state->car_amp, 0.0f, 1.0f);
 	clampf(&state->mod_amp, 0.0f, 1.0f);
@@ -171,7 +171,8 @@ static void fm_mod_set_osc_param(Module* m, const char* param, float value) {
     } else if (strcmp(param, "mod_amp") == 0) {
         state->mod_amp = fmaxf(value, 0.0f);
     } else if (strcmp(param, "index") == 0) {
-        state->index = fmaxf(value, 0.0f);
+		float norm = fminf(fmaxf(value, 0.0f), 1.0f);
+        state->index = norm * 10.0f;
 	} else {
         fprintf(stderr, "[fm_mod] Unknown OSC param: %s\n", param);
     }

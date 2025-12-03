@@ -82,7 +82,7 @@ static void clamp_params(PMMod *state) {
 	clampf(&state->car_amp, 0.0f, 1.0f);
 	clampf(&state->mod_amp, 0.0f, 1.0f);
 	clampf(&state->base_freq, 0.01f, state->sample_rate * 0.45f);
-	clampf(&state->index, 0.01f, FLT_MAX);
+	clampf(&state->index, 0.01f, 10.0f);
 }
 
 static void pm_mod_draw_ui(Module *m, int y, int x) {
@@ -183,7 +183,8 @@ static void pm_mod_set_osc_param(Module* m, const char* param, float value) {
     } else if (strcmp(param, "mod_amp") == 0) {
 		state->mod_amp = fminf(fmaxf(value, 0.0f), 1.0f);
     } else if (strcmp(param, "idx") == 0) {
-        state->index = fmaxf(value, 0.0f);
+		float norm = fminf(fmaxf(value, 0.0f), 1.0f);
+        state->index = norm * 10.0f;
 	} else if (strcmp(param, "freq") == 0) {
 		float min_hz = 0.01f;
 		float max_hz = 20000.0f;
@@ -213,8 +214,8 @@ Module* create_module(const char* args, float sample_rate) {
         sscanf(strstr(args, "car_amp="), "car_amp=%f", &car_amp);
     if (args && strstr(args, "mod_amp="))
         sscanf(strstr(args, "mod_amp="), "mod_amp=%f", &mod_amp);
-    if (args && strstr(args, "base_freq="))
-        sscanf(strstr(args, "base_freq="), "base_freq=%f", &base_freq);
+    if (args && strstr(args, "freq="))
+        sscanf(strstr(args, "freq="), "freq=%f", &base_freq);
 	if (args && strstr(args, "idx="))
         sscanf(strstr(args, "idx="), "idx=%f", &index);
 

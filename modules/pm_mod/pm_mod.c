@@ -184,7 +184,7 @@ static void pm_mod_set_osc_param(Module* m, const char* param, float value) {
 		state->mod_amp = fminf(fmaxf(value, 0.0f), 1.0f);
     } else if (strcmp(param, "index") == 0) {
         state->index = fmaxf(value, 0.0f);
-	} else if (strcmp(param, "base_freq") == 0) {
+	} else if (strcmp(param, "freq") == 0) {
 		float min_hz = 0.01f;
 		float max_hz = 20000.0f;
 		float norm = fminf(fmaxf(value, 0.0f), 1.0f);

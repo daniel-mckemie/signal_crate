@@ -13,156 +13,116 @@ static void c_asr_process_control(Module* m) {
 
     float att, sus, rel, depth;
 
-    // Step 1: Lock and read base values
+    // Read base params
     pthread_mutex_lock(&s->lock);
-    att = s->attack_time;
-    sus = s->sustain_level;
-    rel = s->release_time;
-	depth = s->depth; 
+    att   = s->attack_time;
+    sus   = s->sustain_level;
+    rel   = s->release_time;
+    depth = s->depth;
     pthread_mutex_unlock(&s->lock);
 
-    // Step 2: Modulate with control inputs
+    float* gate_buf = NULL;
     float mod_depth = 1.0f;
-	float gate_input = 0.0f;
+
+    // --- modulation inputs ---
     for (int j = 0; j < m->num_control_inputs; j++) {
-        if (!m->control_inputs[j] || !m->control_input_params[j]) continue;
+        if (!m->control_inputs[j] || !m->control_input_params[j])
+            continue;
 
         const char* param = m->control_input_params[j];
         float control = *(m->control_inputs[j]);
         float norm = fminf(fmaxf(control, -1.0f), 1.0f);
 
-        if (strcmp(param, "trig") == 0) {
-            s->trigger_held = (control > s->threshold_trigger);
-            if (s->trigger_held && s->state == ENV_IDLE) {
-                s->state = ENV_ATTACK;
-                s->timer = 0.0f;
-            }
-        } else if (strcmp(param, "cycle") == 0) {
-            s->cycle = (control > s->threshold_cycle);
-        } else if (strcmp(param, "att") == 0) {
-			float mod_range;
-			if (s->short_mode) {
-				mod_range = (10.0f - att) * mod_depth;
-			} else {
-				mod_range = (1000.0f - att) * mod_depth;
-			}
-			att = att + norm * mod_range;
+        if (strcmp(param, "att") == 0) {
+            float mod_range = (s->short_mode ? 10.0f - att : 1000.0f - att) * mod_depth;
+            att += norm * mod_range;
+
         } else if (strcmp(param, "rel") == 0) {
-			float mod_range;
-			if (s->short_mode) {
-				mod_range = (10.0f - rel) * mod_depth;
-			} else {
-				mod_range = (1000.0f - rel) * mod_depth;
-			}
-            rel = rel + norm * mod_range;
+            float mod_range = (s->short_mode ? 10.0f - rel : 1000.0f - rel) * mod_depth;
+            rel += norm * mod_range;
+
         } else if (strcmp(param, "depth") == 0) {
             float mod_range = (1.0f - s->depth) * mod_depth;
             depth = s->depth + norm * mod_range;
-		} else if (strcmp(param, "gate") == 0) {
-			gate_input = control;
-		}
+
+        } else if (strcmp(param, "gate") == 0) {
+            gate_buf = m->control_inputs[j];
+        }
     }
 
-	bool gate_now = (gate_input >= s->threshold_gate);
+    // Clamp + smooth
+    sus   = fminf(fmaxf(sus,   0.01f), 1.0f);
+    depth = fminf(fmaxf(depth, 0.0f),  1.0f);
 
-	if (gate_now && !s->gate_prev && s->state == ENV_IDLE) {
-		s->state = ENV_ATTACK;
-		s->timer = 0.0f;
-	}
-	s->gate_prev = gate_now;
+    att   = process_smoother(&s->smooth_att,   att);
+    sus   = process_smoother(&s->smooth_sus,   sus);
+    rel   = process_smoother(&s->smooth_rel,   rel);
+    depth = process_smoother(&s->smooth_depth, depth);
 
-	sus = fminf(fmaxf(sus, 0.01f), 1.0f);
-	depth = fminf(fmaxf(depth, 0.0f), 1.0f);
-
-    // Step 3: Smooth now, with safe variables
-    att = process_smoother(&s->smooth_att, att);
-    sus = process_smoother(&s->smooth_sus, sus);
-    rel = process_smoother(&s->smooth_rel, rel);
-	depth = process_smoother(&s->smooth_depth, depth);
-
-    // Step 4: Write smoothed and display values back under lock
+    // Write display params
     pthread_mutex_lock(&s->lock);
-    s->display_att = att;
-    s->display_sus = sus;
-    s->display_rel = rel;
-	s->display_depth = depth;
+    s->display_att   = att;
+    s->display_sus   = sus;
+    s->display_rel   = rel;
+    s->display_depth = depth;
     pthread_mutex_unlock(&s->lock);
 
-    // Step 5: Envelope
+    // Envelope loop
+    bool prev_gate = s->gate_prev;
+    float sr = s->sample_rate;
+
     for (unsigned long i = 0; i < FRAMES_PER_BUFFER; i++) {
-		float step = 1.0f / s->sample_rate;
-		float sustain = sus;
+        float gate_sample = (gate_buf ? gate_buf[i] : 0.0f);
+        bool gate_now = (gate_sample >= s->threshold_gate);
 
-		switch (s->state) {
-			case ENV_ATTACK: {
-				float step_size = 1.0f / fmaxf(att, 0.001f);
-				float delta = step_size * step;
-				s->envelope_out += delta;
-				s->envelope_out = fminf(s->envelope_out, 1.0f);
-				s->timer += step;
+        // Rising edge starts attack
+        if (gate_now && !prev_gate) {
+            s->state = ENV_ATTACK;
+        }
 
-				if (s->envelope_out >= 1.0f - 1e-4f) {
-					s->envelope_out = 1.0f;
-					if (s->cycle) {
-						s->release_start_level = s->envelope_out;
-						s->state = ENV_RELEASE;
-						s->timer = 0.0f;
-					} else {
-						s->state = ENV_SUSTAIN;
-						s->timer = 0.0f;
-					}
-				}
-				break;
-			}
-			
-			case ENV_SUSTAIN:
-				s->envelope_out = sustain;
-				if (!s->cycle || !s->trigger_held) {
-					s->release_start_level = s->envelope_out;
-					s->state = ENV_RELEASE;
-					s->timer = 0.0f;
-					s->trigger_held = false;
-				}
-				break;
+        float step = 1.0f / sr;
 
-			case ENV_RELEASE: {
-				float step_size = 1.0f / fmaxf(rel, 0.001f); 
-				float delta = step_size * step;
-				s->envelope_out -= delta;
-				s->envelope_out = fmaxf(s->envelope_out, 0.0f);
-				s->timer += step;
+        switch (s->state) {
 
-				if (s->envelope_out <= 1e-4f) {
-					s->envelope_out = 0.0f;
-					if (s->cycle_stop_requested) {
-						s->cycle = false;
-						s->cycle_stop_requested = false;
-						s->state = ENV_IDLE;
-					} else if (s->cycle && s->trigger_held) {
-						s->state = ENV_ATTACK;
-						s->timer = 0.0f;
-					} else {
-						s->state = ENV_IDLE;
-					}
-				}
-				break;
-			}
-						
-			case ENV_IDLE:
-			default:
-				if (s->cycle) {
-					s->state = ENV_ATTACK;
-					s->timer = 0.0f;
-				} else {
-					s->envelope_out = 0.0f;
-				}
-				break;
-		}
+        case ENV_ATTACK: {
+            float inc = step / fmaxf(att, 0.001f);
+            s->envelope_out += inc;
+            if (s->envelope_out >= 1.0f) {
+                s->envelope_out = 1.0f;
+                s->state = ENV_SUSTAIN;
+            }
+            break;
+        }
 
-		float out = s->envelope_out * depth;
-		m->control_output[i] = fminf(fmaxf(out, 0.0f), 1.0f);
-	}
+        case ENV_SUSTAIN:
+            s->envelope_out = sus;
+            if (!gate_now) {
+                s->state = ENV_RELEASE;
+            }
+            break;
 
+        case ENV_RELEASE: {
+            float dec = step / fmaxf(rel, 0.001f);
+            s->envelope_out -= dec;
+            if (s->envelope_out <= 0.0f) {
+                s->envelope_out = 0.0f;
+                s->state = ENV_IDLE;
+            }
+            break;
+        }
+
+        case ENV_IDLE:
+        default:
+            // stay at zero; only rising gate restarts
+            s->envelope_out = 0.0f;
+            break;
+        }
+
+        m->control_output[i] = s->envelope_out * depth;
+        prev_gate = gate_now;
+    }
+
+    s->gate_prev = prev_gate;
 }
 
 static void clamp_params(CASR* s) {
@@ -194,18 +154,16 @@ static void c_asr_draw_ui(Module* m, int y, int x) {
 	LABEL(2, "rel:");
 	ORANGE(); printw(" %.2fs | ", s->display_rel); CLR();
 	
-	LABEL(2, "depth:");
-	ORANGE(); printw(" %.2f | ", s->display_depth); CLR();
-
 	LABEL(2, "gate:");
 	ORANGE(); printw(" %.2f | ", s->threshold_gate); CLR();
 
-	ORANGE(); printw(" %s | ", s->short_mode ? "s" : "l"); CLR();
+	LABEL(2, "depth:");
+	ORANGE(); printw(" %.2f | ", s->display_depth); CLR();
 
-	ORANGE(); printw(" %s", s->display_cycle ? "c" : "t"); CLR();
+	ORANGE(); printw("%s", s->short_mode ? "s" : "l"); CLR();
 
 	YELLOW();
-    mvprintw(y+1, x, "Keys: fire/cycle [f/c], att -/=, rel _/+, d/D [depth], gate [/], sh/lng [m]");
+    mvprintw(y+1, x, "Keys: att -/=, rel _/+, gate [/], dpth d/D, sh/lng [m]");
     mvprintw(y+2, x, "Command: :1 [att], :2 [rel], :3 [g_thresh], :d[depth]");
     pthread_mutex_unlock(&s->lock);
 	BLACK();
@@ -218,35 +176,6 @@ static void c_asr_handle_input(Module* m, int key) {
 
     if (!s->entering_command) {
         switch (key) {
-			case 'f':  // toggle to triggered mode
-				if (s->cycle) {
-					s->cycle = false;
-					s->display_cycle = false;
-					s->cycle_stop_requested = true;
-				} else if (s->state == ENV_IDLE) {
-					s->state = ENV_ATTACK;
-					s->timer = 0.0f;
-				}
-				s->trigger_held = true;
-				handled = 1;
-				break;
-			case 'c':  // toggle to cycle mode
-				if (!s->cycle) {
-					s->cycle = true;
-					s->display_cycle = true;
-					s->cycle_stop_requested = false;
-					s->trigger_held = true;
-					if (s->state == ENV_IDLE) {
-						s->state = ENV_ATTACK;
-						s->timer = 0.0f;
-					}
-				} else {
-					s->cycle_stop_requested = true;  // queue stop after release
-					s->display_cycle = false;
-				}
-				handled = 1;
-				break;
-
 			case 'm': s->short_mode = !s->short_mode; handled = 1; break;
             case '-': s->attack_time -= 0.1f; handled = 1; break;
             case '=': s->attack_time += 0.1f; handled = 1; break;
@@ -302,21 +231,6 @@ static void c_asr_set_osc_param(Module* m, const char* param, float value) {
         s->attack_time = value * 1000.0f; 
     } else if (strcmp(param, "rel") == 0) {
         s->release_time = value * 1000.0f; 
-    } else if (strcmp(param, "cycle") == 0) {
-		if (value <= 0.5f && s->cycle) {
-			s->cycle_stop_requested = true;
-			s->display_cycle = false;
-		} else if (value > 0.5f) {
-			s->cycle = true;
-			s->display_cycle = true;
-		}
-    } else if (value > 0.5f) {
-        s->cycle = true;
-    } else if (strcmp(param, "trig") == 0) {
-        if (value > s->threshold_trigger && s->state == ENV_IDLE) {
-            s->state = ENV_ATTACK;
-            s->timer = 0;
-        }
     } else if (strcmp(param, "depth") == 0) {
 		s->depth = value;
     } else if (strcmp(param, "gate") == 0) {
@@ -356,8 +270,6 @@ Module* create_module(const char* args, float sample_rate) {
 	s->gate_prev = false;
     s->sample_rate = sample_rate;
     s->short_mode = true;
-    s->threshold_trigger = 0.5f;
-    s->threshold_cycle = 0.5f;
 	s->threshold_gate = 0.5f;
     pthread_mutex_init(&s->lock, NULL);
     init_smoother(&s->smooth_att, 0.75f);

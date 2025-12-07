@@ -269,6 +269,17 @@ Fluctuating Random Voltages after the Buchla 266
 
 ---
 
+### **Function Generator**
+`c_function`
+Attack-Release slope generator. No sustain, only trig to fire 
+- `att` - attack 
+- `rel` - release 
+- `gate` - gate threshold, min to fire generator (takes in as control, ie. gate=clk)
+- `depth` - range of output 
+- `long/short` toggles maximum att/rel time (short=10s max, long=no upper bounds)
+
+---
+
 ### **LFO**
 `c_lfo`
 Low-frequency waveform modulator running on the control thread

@@ -1,4 +1,4 @@
-MODULE_NAME = c_clock
+MODULE_NAME = c_clock_u
 MODULE_DIR = ../..
 
 SRC = $(MODULE_NAME).c

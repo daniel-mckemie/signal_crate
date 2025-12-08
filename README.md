@@ -227,6 +227,47 @@ Attack-Sustain-Release envelope generator.
 
 ---
 
+### **Clock (Syncable)**
+`c_clock_s`
+Clock that can be synced to a primary clock, sharing bpm and on/off actions.
+- `bpm` - beats per minute (tempo)
+- `mult` - multiply or divide clock output (ie. 3.00 = x3 or 0.5 = /2)
+- `pw` - pulse width of gate
+- `run` - on/off
+One primary clock can send its bpm and switch behavior to any number of secondary clocks.
+Secondary clocks each have their own mult, pw, and switch behavior, but are always tied to the primary bpm.
+The primary clock switch will always control the secondary clocks' switch.
+
+This example has one `primeclk` controlling two clocks. You can only have ONE primary clock, as opposed to families
+of clocks. If you want indepdendent clocks, see `c_clock_u`.
+```bash
+c_clock_s as primeclk
+c_clock_s(in=primeclk) as secondclk
+c_clock_s(in=primeclk) as thirdclk
+```
+---
+
+### **Clock (Un-Syncable)**
+`c_clock_u`
+Clock that sends a pulse out independent of other clocks on the grid. Can be used alongside `c_clock_s`
+but has no inputs in which to sync.
+- `bpm` - beats per minute (tempo)
+- `mult` - multiply or divide clock output (ie. 3.00 = x3 or 0.5 = /2)
+- `pw` - pulse width of gate
+- `run` - on/off
+
+This example has two clocks synced together, controlled by the `primeclk`. And one independently controlled
+`indyclk` which has its own bpm and all other behaviors. The `secondclk` can have its own mult, pw, and switch
+behavior, but is always tied in tempo to the primeclk. You can have as many unsynchronized clocks as you wish,
+but there is always only one primary clock bpm for synched clocks (`c_clock_s`).
+```bash
+c_clock_s as primeclk
+c_clock_s(in=primeclk) as secondclk
+c_clock_u as indyclk
+```
+
+---
+
 ### **CV Monitor**
 `c_cv_monitor`
 Monitors incoming and outgoing signal, and gives extra utils

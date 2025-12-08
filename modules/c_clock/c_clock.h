@@ -15,14 +15,19 @@ typedef struct {
 	float sample_rate;
 
 	int running;
+	int user_enable;
 
 	float display_bpm;
 	float display_pw;
 	float display_mult;
+	int display_running;
 
-	CParamSmooth smooth_bpm;
-	CParamSmooth smooth_pw;
-	CParamSmooth smooth_mult;
+	// No CParamSmooth because of needing deterministic timing
+
+	double time_accum;
+	double last_sync_time;
+	double last_period;
+	float last_sync;
 
 	// Command mode
 	bool entering_command;

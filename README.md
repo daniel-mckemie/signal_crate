@@ -331,6 +331,25 @@ Low-frequency waveform modulator running on the control thread
 
 ---
 
+### **Random**
+`c_random`
+Random control signal generator
+- `rate` - frequency/rate [0.001 - 100.0]
+- `rmin` - minimum of random 
+- `rmax` - maximum of random
+- `type` - noise type (white, brown, pink)
+- `depth` - range of output 
+
+---
+
+### **Sample and Hold**
+`c_sh`
+Sample and Hold requires audio input and outputs control signal
+- `rate` - frequency/rate of triggered sample
+- `depth` - range of output 
+
+---
+
 ### **Control Input**
 `c_input`
 Multi-channel enabled control input, assigned by param input `([ch=#])`

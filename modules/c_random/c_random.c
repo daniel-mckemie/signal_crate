@@ -20,12 +20,21 @@ static void c_random_process_control(Module* m) {
     RandomType type;
 
     pthread_mutex_lock(&s->lock);
-    rate  = process_smoother(&s->smooth_rate,  s->rate_hz);
-    depth = process_smoother(&s->smooth_depth, s->depth);
-    rmin  = s->range_min;
-    rmax  = s->range_max;
-    type  = s->type;
+    float raw_rate  = s->rate_hz;
+    float raw_depth = s->depth;
+    rmin            = s->range_min;
+    rmax            = s->range_max;
+    type            = s->type;
     pthread_mutex_unlock(&s->lock);
+
+    rate  = process_smoother(&s->smooth_rate,  raw_rate);
+    depth = process_smoother(&s->smooth_depth, raw_depth);
+
+    // Clamp smoothed values
+    if (rate < 0.01f) rate = 0.01f;
+    if (rate > 100.0f) rate = 100.0f;
+    if (depth < 0.0f) depth = 0.0f;
+    if (depth > 1.0f) depth = 1.0f;
 
     float* out = m->control_output;
     if (!out) return;
@@ -33,9 +42,11 @@ static void c_random_process_control(Module* m) {
     float dt = 1.0f / s->sample_rate;
 
     for (int i = 0; i < FRAMES_PER_BUFFER; i++) {
+
         s->phase += dt * rate;
         if (s->phase >= 1.0f) {
             s->phase -= 1.0f;
+
             float base = ((float)rand() / RAND_MAX) * 2.0f - 1.0f;
 
             float shaped = base;
@@ -49,12 +60,19 @@ static void c_random_process_control(Module* m) {
             if (shaped < -1.0f) shaped = -1.0f;
 
             float u = (shaped + 1.0f) * 0.5f;
+
             float u_depth = 0.5f + (u - 0.5f) * depth;
+
             float u_range = rmin + u_depth * (rmax - rmin);
+
             float final = fminf(fmaxf(u_range, 0.0f), 1.0f);
             s->current_val = final;
+
+            pthread_mutex_lock(&s->lock);
             s->display_val = final;
+            pthread_mutex_unlock(&s->lock);
         }
+
         out[i] = s->current_val;
     }
 }

@@ -8,25 +8,24 @@
 #include "util.h"
 #include "vca.h"
 
-static void vca_process(Module* m, float* in, unsigned long frames)
-{
+static void vca_process(Module* m, float* in, unsigned long frames) {
     VCAState* state = (VCAState*)m->state;
     float* inL  = m->inputs[0];
     float* inR  = m->inputs[1];
     float* outL = m->output_bufferL;
     float* outR = m->output_bufferR;
 
-    // Lock once at the top for thread-safe parameter read
+    // --- 1) Read params once ---
     pthread_mutex_lock(&state->lock);
     float base_gain = state->gain;
-    float base_pan = state->pan;
+    float base_pan  = state->pan;
     pthread_mutex_unlock(&state->lock);
 
     float gain = base_gain;
-    float pan = base_pan;
+    float pan  = base_pan;
 
+    // --- 2) Apply CV modulation (unsmoothed) ---
     float mod_depth = 1.0f;
-    // Apply any modulation inputs that target "gain"
     for (int i = 0; i < m->num_control_inputs; i++) {
         if (!m->control_inputs[i] || !m->control_input_params[i]) continue;
 
@@ -34,46 +33,52 @@ static void vca_process(Module* m, float* in, unsigned long frames)
         float control = *(m->control_inputs[i]);
 
         if (strcmp(param, "gain") == 0) {
-			float norm = fminf(fmaxf(control, 0.0f), 1.0f);
+            float norm = fminf(fmaxf(control, 0.0f), 1.0f);
             float mod_range = (1.0f - base_gain) * mod_depth;
             gain = base_gain + norm * mod_range;
+
         } else if (strcmp(param, "pan") == 0) {
-			float norm_pan = fminf(fmaxf(control, 0.0f), 1.0f);
-			norm_pan = norm_pan * 2.0f - 1.0f;
-			pan = base_pan + norm_pan * (1.0f - fabsf(base_pan));
-		}
+            float norm_pan = fminf(fmaxf(control, 0.0f), 1.0f);
+            norm_pan = norm_pan * 2.0f - 1.0f;   // 0–1 → -1 to +1
+            pan = base_pan + norm_pan * (1.0f - fabsf(base_pan));
+        }
     }
 
+    // --- 3) Clamp modulated values ---
     gain = fminf(fmaxf(gain, 0.0f), 1.0f);
-    pan = fminf(fmaxf(pan, -1.0f), 1.0f);
+    pan  = fminf(fmaxf(pan, -1.0f), 1.0f);
 
-    state->display_gain = gain;
-    state->display_pan = pan;
+    // --- 4) Smooth ONCE per audio block (correct behavior) ---
+    float gain_s = process_smoother(&state->smooth_gain, gain);
+    float pan_s  = process_smoother(&state->smooth_pan,  pan);
 
-    // If no input, output silence
+    // Update UI displays
+    state->display_gain = gain_s;
+    state->display_pan  = pan_s;
+
+    // --- 5) If no audio, output silence ---
     if (!inL && !inR) {
         memset(outL, 0, frames * sizeof(float));
         memset(outR, 0, frames * sizeof(float));
         return;
     }
 
-    // Process each frame
+    // --- 6) Per-sample audio processing (NO smoothing here) ---
     for (unsigned long i = 0; i < frames; i++) {
         float left  = inL ? inL[i] : 0.0f;
-        float right = inR ? inR[i] : left;  // duplicate left if mono
-        
-		float g = process_smoother(&state->smooth_gain, gain);
-		float p = process_smoother(&state->smooth_pan, pan);
+        float right = inR ? inR[i] : left;  // duplicate if mono
 
-		float angle = (p + 1.0f) * M_PI_4;
-		float l_gain = cosf(angle);
-		float r_gain = sinf(angle);
+        // Pan law: equal-power panning
+        float angle = (pan_s + 1.0f) * M_PI_4;
+        float l_gain = cosf(angle);
+        float r_gain = sinf(angle);
 
-        outL[i] = g * l_gain * left;
-        outR[i] = g * r_gain * right;
+        outL[i] = gain_s * l_gain * left;
+        outR[i] = gain_s * r_gain * right;
 
-        outL[i] = fmaxf(fminf(outL[i], 1.0f), -1.0f); 
-        outR[i] = fmaxf(fminf(outR[i], 1.0f), -1.0f); 
+        // Safety clamp
+        outL[i] = fmaxf(fminf(outL[i], 1.0f), -1.0f);
+        outR[i] = fmaxf(fminf(outR[i], 1.0f), -1.0f);
     }
 }
 

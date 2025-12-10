@@ -89,100 +89,131 @@ static inline float soft_sat(float x, float drive) {
 
 static void res_bank_process(Module* m, float* in, unsigned long frames) {
     ResBank* s = (ResBank*)m->state;
-    float mix, q, lo, hi, tilt, odd, drive, regen;
-    int bands;
-	
+
+    float raw_mix, raw_q, raw_lo, raw_hi, raw_tilt, raw_odd, raw_drive, raw_regen;
+    int   raw_bands;
+    int   need_coeffs = 0;
+    int   need_centers = 0;
+
     pthread_mutex_lock(&s->lock);
-    mix   = process_smoother(&s->smooth_mix,   s->mix);
-    q     = process_smoother(&s->smooth_q,     s->q);
-    lo    = process_smoother(&s->smooth_lo_hz,    s->lo_hz);
-    hi    = process_smoother(&s->smooth_hi_hz,    s->hi_hz);
-    tilt  = process_smoother(&s->smooth_tilt,  s->tilt);
-    odd   = process_smoother(&s->smooth_odd,   s->odd);
-    drive = process_smoother(&s->smooth_drive, s->drive);
-    regen = process_smoother(&s->smooth_regen, s->regen);
-    bands = s->bands;
-	if (fabsf(q - s->display_q) > 0.01f) s->need_coeffs = 1;
+    raw_mix   = s->mix;
+    raw_q     = s->q;
+    raw_lo    = s->lo_hz;
+    raw_hi    = s->hi_hz;
+    raw_tilt  = s->tilt;
+    raw_odd   = s->odd;
+    raw_drive = s->drive;
+    raw_regen = s->regen;
+    raw_bands = s->bands;
+
+    need_coeffs  = s->need_coeffs;
+    need_centers = s->need_centers;
+
     pthread_mutex_unlock(&s->lock);
 
-	float mod_depth = 1.0f;
-	for (int i=0; i<m->num_control_inputs; i++) {
-		if (!m->control_inputs[i] || !m->control_input_params[i]) continue;
+    float mix   = process_smoother(&s->smooth_mix,     raw_mix);
+    float q     = process_smoother(&s->smooth_q,       raw_q);
+    float lo    = process_smoother(&s->smooth_lo_hz,   raw_lo);
+    float hi    = process_smoother(&s->smooth_hi_hz,   raw_hi);
+    float tilt  = process_smoother(&s->smooth_tilt,    raw_tilt);
+    float odd   = process_smoother(&s->smooth_odd,     raw_odd);
+    float drive = process_smoother(&s->smooth_drive,   raw_drive);
+    float regen = process_smoother(&s->smooth_regen,   raw_regen);
+    int   bands = raw_bands;
 
-		const char* param= m->control_input_params[i];
-		float control = *(m->control_inputs[i]);
-		float norm = fminf(fmaxf(control, -1.0f), 1.0f);
+    // Rebuild coeffs when Q drifts
+    if (fabsf(q - s->display_q) > 0.01f)
+        need_coeffs = 1;
 
-		if (strcmp(param, "mix") == 0) {
-			float mod_range = (1.0f - s->mix) * mod_depth;
-			mix = s->mix + norm * mod_range;
-		} else if (strcmp(param, "q") == 0) {
-			float mod_range = (1.0f - s->q) * mod_depth;
-			q = s->q + norm * mod_range;
-		} else if (strcmp(param, "lo") == 0) {
-			float mod_range = s->lo_hz * mod_depth;
-			lo = s->lo_hz + norm * mod_range;
-		} else if (strcmp(param, "hi") == 0) {
-			float mod_range = s->hi_hz * mod_depth;
-			hi = s->hi_hz + norm * mod_range;
-		} else if (strcmp(param, "tilt") == 0) {
-			float mod_range = (2.0f - fabsf(s->tilt)) * mod_depth;
-			tilt = s->tilt + norm * mod_range;
-		} else if (strcmp(param, "odd") == 0) {
-			float mod_range = (2.0f - fabsf(s->odd)) * mod_depth;
-			odd = s->odd + norm * mod_range;
-		} else if (strcmp(param, "drive") == 0) {
-			float mod_range = (1.0f - s->drive) * mod_depth;
-			drive = s->drive + norm * mod_range;
-		} else if (strcmp(param, "regen") == 0) {
-			float mod_range = (1.0f - s->regen) * mod_depth;
-			regen = s->regen + norm * mod_range;
-		} else if (strcmp(param, "bands") == 0) {
-			float mod_range = (RES_MAX_BANDS - s->bands) * mod_depth;
-			bands = s->bands + norm * mod_range;
-		}
-	}
+    float mod_depth = 1.0f;
 
-    // cache for UI
+    for (int i = 0; i < m->num_control_inputs; i++) {
+        if (!m->control_inputs[i] || !m->control_input_params[i]) continue;
+
+        const char* param = m->control_input_params[i];
+        float control = *(m->control_inputs[i]);
+        float norm = fminf(fmaxf(control, -1.0f), 1.0f);
+
+        if (strcmp(param, "mix") == 0) {
+            mix = raw_mix + norm * ((1.0f - raw_mix) * mod_depth);
+        }
+        else if (strcmp(param, "q") == 0) {
+            q = raw_q + norm * ((40.0f - raw_q) * mod_depth);
+            need_coeffs = 1;
+        }
+        else if (strcmp(param, "lo") == 0) {
+            lo = raw_lo + norm * (raw_lo * mod_depth);
+            need_centers = 1;
+        }
+        else if (strcmp(param, "hi") == 0) {
+            hi = raw_hi + norm * (raw_hi * mod_depth);
+            need_centers = 1;
+        }
+        else if (strcmp(param, "tilt") == 0) {
+            tilt = raw_tilt + norm * ((2.0f - fabsf(raw_tilt)) * mod_depth);
+        }
+        else if (strcmp(param, "odd") == 0) {
+            odd = raw_odd + norm * ((2.0f - fabsf(raw_odd)) * mod_depth);
+        }
+        else if (strcmp(param, "drive") == 0) {
+            drive = raw_drive + norm * ((1.0f - raw_drive) * mod_depth);
+        }
+        else if (strcmp(param, "regen") == 0) {
+            regen = raw_regen + norm * ((1.0f - raw_regen) * mod_depth);
+        }
+        else if (strcmp(param, "bands") == 0) {
+            float mod_range = (RES_MAX_BANDS - raw_bands) * mod_depth;
+            bands = raw_bands + norm * mod_range;
+            if (bands < 1) bands = 1;
+            if (bands > RES_MAX_BANDS) bands = RES_MAX_BANDS;
+            need_centers = 1;
+        }
+    }
+
     s->display_mix = mix;
-	s->display_q=q;
-	s->display_lo_hz=lo;
-	s->display_hi_hz=hi;
-    s->display_tilt=tilt; 
-	s->display_odd=odd;
-	s->display_drive=drive;
-	s->display_regen=regen;
-	s->display_bands=bands;
+    s->display_q   = q;
+    s->display_lo_hz = lo;
+    s->display_hi_hz = hi;
+    s->display_tilt = tilt;
+    s->display_odd  = odd;
+    s->display_drive = drive;
+    s->display_regen = regen;
+    s->display_bands = bands;
 
-    // Rebuild structures if needed (block edge)
-    if (s->need_centers) rebuild_centers(s);
+    if (need_centers) {
+        s->display_lo_hz = lo;
+        s->display_hi_hz = hi;
+        rebuild_centers(s);
+    }
     rebuild_weights(s);
-    if (s->need_coeffs) rebuild_coeffs(s);
+    if (need_coeffs || s->need_coeffs) {
+        s->display_q = q;
+        rebuild_coeffs(s);
+    }
 
-    // Process
-    for (unsigned long n=0; n<frames; ++n) {
+    for (unsigned long n = 0; n < frames; n++) {
         float x = in[n] + 1e-20f; // denorm guard
         float sum = 0.0f;
+        float fb_input = x;
 
-        // parallel BPFs with tiny regeneration
-        float x_fb = x;
-        for (int i=0;i<bands;i++) {
-            float y = biquad_tick(s, i, x_fb);
+        for (int i = 0; i < bands; i++) {
+            float y = biquad_tick(s, i, fb_input);
             sum += s->w[i] * y;
-			float fb = tanhf(y);
-            x_fb += regen * (0.008f / (float)bands) * fb; 
-			// x_fb += regen * 0.02f * y; // subtle "ring"
+
+            fb_input += regen * (0.008f / (float)bands) * tanhf(y);
         }
 
         float wet = soft_sat(sum, drive);
-        float out = mix*wet + (1.0f - mix)*in[n];
-        // final clamp
+        float out = mix * wet + (1.0f - mix) * x;
+
         if (!isfinite(out)) out = 0.0f;
         if (out > 1.0f) out = 1.0f;
         if (out < -1.0f) out = -1.0f;
+
         m->output_buffer[n] = out;
     }
 }
+
 
 static void res_bank_draw_ui(Module* m, int y, int x) {
     ResBank* s = (ResBank*)m->state;

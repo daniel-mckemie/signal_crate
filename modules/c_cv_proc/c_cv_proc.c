@@ -11,14 +11,20 @@
 static void c_cv_proc_process_control(Module* m) {
     CCVProc* s = (CCVProc*)m->state;
 
-    // Step 1: Read base values under lock
+    // 1) Read base values (UI / OSC targets)
+    float k_base, m_base, offset_base;
     pthread_mutex_lock(&s->lock);
-    float k = s->k;
-    float m_amt = s->m;
-    float offset = s->offset;
+    k_base      = s->k;
+    m_base      = s->m;
+    offset_base = s->offset;
     pthread_mutex_unlock(&s->lock);
 
-    float mod_depth = 1.0f;
+    // 2) Smooth ONLY base params (no CV in this step)
+    float k      = process_smoother(&s->smooth_k,      k_base);
+    float m_amt  = process_smoother(&s->smooth_m,      m_base);
+    float offset = process_smoother(&s->smooth_offset, offset_base);
+
+    // 3) Apply CV modulation on top of smoothed params (no smoothing of CV)
     for (int j = 0; j < m->num_control_inputs; j++) {
         if (!m->control_inputs[j] || !m->control_input_params[j]) continue;
 
@@ -27,41 +33,44 @@ static void c_cv_proc_process_control(Module* m) {
         float norm = fminf(fmaxf(control, -1.0f), 1.0f);
 
         if (strcmp(param, "k") == 0) {
-            float mod_range = s->k * mod_depth;
-            k = s->k + norm * mod_range;
+            float mod_range = fabsf(k_base) > 0.0f ? fabsf(k_base) : 2.0f;
+            k += norm * mod_range;
         } else if (strcmp(param, "m") == 0) {
-            float mod_range = (1.0f - s->m) * mod_depth;
-            m_amt = s->m + norm * mod_range;
+            float mod_range = (1.0f - m_base);
+            m_amt += norm * mod_range;
         } else if (strcmp(param, "offset") == 0) {
-            float mod_range = (1.0f - fabsf(s->offset)) * mod_depth;
-            offset = s->offset + norm * mod_range;
+            float mod_range = (1.0f - fabsf(offset_base));
+            offset += norm * mod_range;
         }
     }
 
-    // Clamp and smooth
-    k = process_smoother(&s->smooth_k, fminf(fmaxf(k, -2.0f), 2.0f));
-    m_amt = process_smoother(&s->smooth_m, fminf(fmaxf(m_amt, 0.0f), 1.0f));
-    offset = process_smoother(&s->smooth_offset, fminf(fmaxf(offset, -1.0f), 1.0f));
+    // 4) Clamp final values after CV
+    k      = fminf(fmaxf(k,     -2.0f),  2.0f);
+    m_amt  = fminf(fmaxf(m_amt,  0.0f),  1.0f);
+    offset = fminf(fmaxf(offset,-1.0f),  1.0f);
 
-    // Step 3: Read signal inputs
+    // 5) Read signal inputs (va, vb, vc)
     float va = 0.0f, vb = 0.0f, vc = 0.0f;
     if (m->control_inputs[0]) va = *(m->control_inputs[0]);
     if (m->control_inputs[1]) vb = *(m->control_inputs[1]);
     if (m->control_inputs[2]) vc = *(m->control_inputs[2]);
 
+    // 6) Core CV processing
     float out = va * k + vb * (1.0f - m_amt) + vc * m_amt + offset;
     out = fminf(fmaxf(out, -1.0f), 1.0f);
 
+    // 7) Store display state
     pthread_mutex_lock(&s->lock);
-    s->output = out;
-    s->display_va = va;
-    s->display_vb = vb;
-    s->display_vc = vc;
-    s->display_k = k;
-    s->display_m_amt = m_amt;
+    s->output         = out;
+    s->display_va     = va;
+    s->display_vb     = vb;
+    s->display_vc     = vc;
+    s->display_k      = k;
+    s->display_m_amt  = m_amt;
     s->display_offset = offset;
     pthread_mutex_unlock(&s->lock);
 
+    // 8) Write constant control output for this block
     for (unsigned long i = 0; i < FRAMES_PER_BUFFER; i++) {
         m->control_output[i] = out;
     }

@@ -10,78 +10,99 @@
 
 static void vco_process(Module *m, float* in, unsigned long frames) {
     VCO *state = (VCO*)m->state;
-    float freq, amp;
+
+    float raw_freq, raw_amp;
     Waveform waveform;
 
-	pthread_mutex_lock(&state->lock);
-	freq = process_smoother(&state->smooth_freq, state->frequency);
-	amp = process_smoother(&state->smooth_amp, state->amplitude);
-	waveform = state->waveform;
-	pthread_mutex_unlock(&state->lock);
-	
-	float mod_depth = 1.0f;
-	for (int i = 0; i < m->num_control_inputs; i++) {
-		if (!m->control_inputs[i] || !m->control_input_params[i]) continue;
+    // --- Read unsmoothed params safely ---
+    pthread_mutex_lock(&state->lock);
+    raw_freq = state->frequency;
+    raw_amp  = state->amplitude;
+    waveform = state->waveform;
+    pthread_mutex_unlock(&state->lock);
 
-		const char* param = m->control_input_params[i];
-		float control = *(m->control_inputs[i]);
-		float norm = fminf(fmaxf(control, -1.0f), 1.0f);
+    // --- Smooth ONCE per block ---
+    float freq = process_smoother(&state->smooth_freq, raw_freq);
+    float amp  = process_smoother(&state->smooth_amp,  raw_amp);
 
-		if (strcmp(param, "freq") == 0) {
-			float mod_range = state->frequency * mod_depth;
-			freq = state->frequency + norm * mod_range;
+    // --- Apply CV mod (UNSMOOTHED, after smoothing) ---
+    float mod_depth = 1.0f;
 
-		} else if (strcmp(param, "amp") == 0) {
-			float mod_range = (1.0f - state->amplitude) * mod_depth;
-			amp = state->amplitude + norm * mod_range;
-		}
-	}
-	amp = fminf(fmaxf(amp, 0.0f), 1.0f);
-	
-	state->display_freq = freq;
-	state->display_amp = amp;
+    for (int i = 0; i < m->num_control_inputs; i++) {
+        if (!m->control_inputs[i] || !m->control_input_params[i])
+            continue;
 
-    float phs = state->phase;
-	int idx;
-	const float* sine_table = get_sine_table();
-    for (unsigned long i = 0; i < frames; i++) {
-        float value = 0.0f;
-		idx = (int)(phs / TWO_PI * SINE_TABLE_SIZE) % SINE_TABLE_SIZE;
-        switch (waveform) {
-            case WAVE_SINE:     value = sine_table[idx]; break;
-            case WAVE_SAW: {
-							   float t = phs / TWO_PI;
-							   value = 2.0f * t - 1.0f;
-							   value -= poly_blep(t, freq / state->sample_rate); break;		   
-						   }
-            case WAVE_SQUARE: {
-								  float t = phs / TWO_PI;
-								  value = (t < 0.5f) ? 1.0f : -1.0f;
-								  float dt = freq / state->sample_rate;
-								  value += poly_blep(t,dt); // Falling edge
-								  value -= poly_blep(fmodf(t + 0.5f, 1.0f), dt); break; // Rising edge
-							  }
-            case WAVE_TRIANGLE: {
-									float t = phs / TWO_PI;
-									float dt = freq / state->sample_rate;
-									float sq = (t < 0.5f) ? 1.0f : -1.0f;
-									sq += poly_blep(t, dt);
-									sq -= poly_blep(fmodf(t + 0.5f, 1.0f), dt);
-									state->tri_state += 2.0f * freq / state->sample_rate * sq;
-									state->tri_state *= 0.999f;
-									if (state->tri_state > 1.0f) state->tri_state = 1.0f;
-									if (state->tri_state < -1.0f) state->tri_state = -1.0f;
-									// value = tanhf(state->tri_state) * 2.0f; // replace if getting aliasing at high freq, performance intensive
-									value = state->tri_state * 2.0f;
-									break;
-								}
+        const char *param = m->control_input_params[i];
+        float control = *(m->control_inputs[i]);
+        float norm = fminf(fmaxf(control, -1.0f), 1.0f);
 
+        if (strcmp(param, "freq") == 0) {
+            float mod_range = raw_freq * mod_depth;
+            freq = raw_freq + norm * mod_range;
         }
-        m->output_buffer[i] = amp * value;
-		phs += TWO_PI * freq / state->sample_rate;
-		if (phs >= TWO_PI) phs -= TWO_PI;
-		state->phase = phs;  // store back in state
+        else if (strcmp(param, "amp") == 0) {
+            float mod_range = (1.0f - raw_amp) * mod_depth;
+            amp = raw_amp + norm * mod_range;
+        }
     }
+
+    // Clamp amplitude
+    amp = fminf(fmaxf(amp, 0.0f), 1.0f);
+
+    // Update UI
+    state->display_freq = freq;
+    state->display_amp  = amp;
+
+    // --- Oscillator processing loop ---
+    float phs = state->phase;
+    int idx;
+    const float *sine_table = get_sine_table();
+
+    for (unsigned long i = 0; i < frames; i++) {
+
+        float value = 0.0f;
+        float t = phs / TWO_PI;
+        float dt = freq / state->sample_rate;
+
+        idx = (int)(t * SINE_TABLE_SIZE) % SINE_TABLE_SIZE;
+
+        switch (waveform) {
+            case WAVE_SINE:
+                value = sine_table[idx];
+                break;
+
+            case WAVE_SAW:
+                value = 2.0f * t - 1.0f;
+                value -= poly_blep(t, dt);
+                break;
+
+            case WAVE_SQUARE:
+                value = (t < 0.5f) ? 1.0f : -1.0f;
+                value += poly_blep(t, dt);                        // falling
+                value -= poly_blep(fmodf(t + 0.5f, 1.0f), dt);    // rising
+                break;
+
+            case WAVE_TRIANGLE: {
+                float sq = (t < 0.5f) ? 1.0f : -1.0f;
+                sq += poly_blep(t, dt);
+                sq -= poly_blep(fmodf(t + 0.5f, 1.0f), dt);
+                state->tri_state += 2.0f * freq / state->sample_rate * sq;
+                state->tri_state *= 0.999f;
+                if (state->tri_state > 1.0f)  state->tri_state = 1.0f;
+                if (state->tri_state < -1.0f) state->tri_state = -1.0f;
+                value = state->tri_state * 2.0f;
+                break;
+            }
+        }
+
+        m->output_buffer[i] = amp * value;
+
+        // Advance phase
+        phs += TWO_PI * freq / state->sample_rate;
+        if (phs >= TWO_PI) phs -= TWO_PI;
+    }
+
+    state->phase = phs;
 }
 
 static void clamp_params(VCO *state) {

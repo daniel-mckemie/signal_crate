@@ -26,42 +26,57 @@ float folder(float x, float amt) {
 static void wavefolder_process(Module *m, float* in, unsigned long frames) {
     Wavefolder *state = (Wavefolder*)m->state;
 
-    float fold, blend, drive;
+    if (!in) {
+        // No audio input → silence
+        memset(m->output_buffer, 0, frames * sizeof(float));
+        return;
+    }
+
+    float raw_fold, raw_blend, raw_drive;
     pthread_mutex_lock(&state->lock);
-    fold = process_smoother(&state->smooth_fold, state->fold_amt);
-    blend = process_smoother(&state->smooth_blend, state->blend);
-    drive = process_smoother(&state->smooth_drive, state->drive);
+    raw_fold  = state->fold_amt;
+    raw_blend = state->blend;
+    raw_drive = state->drive;
     pthread_mutex_unlock(&state->lock);
 
-	float mod_depth = 1.0f;
-	for (int i = 0; i < m->num_control_inputs; i++) {
-		if (!m->control_inputs[i] || !m->control_input_params[i]) continue;
+    float fold  = process_smoother(&state->smooth_fold,  raw_fold);
+    float blend = process_smoother(&state->smooth_blend, raw_blend);
+    float drive = process_smoother(&state->smooth_drive, raw_drive);
 
-		const char* param = m->control_input_params[i];
-		float control = *(m->control_inputs[i]);
-		float norm = fminf(fmaxf(control, -1.0f), 1.0f);
+    float mod_depth = 1.0f;
+    for (int i = 0; i < m->num_control_inputs; i++) {
+        if (!m->control_inputs[i] || !m->control_input_params[i]) continue;
+        const char* param = m->control_input_params[i];
+        float control = *(m->control_inputs[i]);
+        float norm = fminf(fmaxf(control, -1.0f), 1.0f);
 
-		if (strcmp(param, "fold") == 0) {
-			float mod_range = (5.0f - state->fold_amt) * mod_depth; // range [0,5]
-			fold = state->fold_amt + norm * mod_range;
-		} else if (strcmp(param, "blend") == 0) {
-			float mod_range = (1.0f - state->blend) * mod_depth;  // range [0, 5]
-			blend = state->blend + norm * mod_range;
-		} else if (strcmp(param, "drive") == 0) {
-			float mod_range = (10.0f - state->drive) * mod_depth; // range [0, 10]
-			drive = state->drive + norm * mod_range;
-		}
-	}
+        if (strcmp(param, "fold") == 0) {
+            float base      = state->fold_amt;
+            float mod_range = (5.0f - base) * mod_depth;    // target [0, 5]
+            fold = base + norm * mod_range;
+        } else if (strcmp(param, "blend") == 0) {
+            float base      = state->blend;
+            float mod_range = (1.0f - base) * mod_depth;    // [0, 1]
+            blend = base + norm * mod_range;
+        } else if (strcmp(param, "drive") == 0) {
+            float base      = state->drive;
+            float mod_range = (10.0f - base) * mod_depth;   // [0, 10]
+            drive = base + norm * mod_range;
+        }
+    }
 
-	state->display_fold_amt = fold;
-	state->display_blend = blend;
-	state->display_drive= drive;
-	
+    if (fold  < 0.01f) fold  = 0.01f;  else if (fold  > 5.0f)  fold  = 5.0f;
+    if (blend < 0.0f)  blend = 0.0f;   else if (blend > 1.0f)  blend = 1.0f;
+    if (drive < 0.01f) drive = 0.01f;  else if (drive > 10.0f) drive = 10.0f;
 
-    for (unsigned long i=0; i<frames; i++) {
-		float input = in[i];
+    state->display_fold_amt = fold;
+    state->display_blend    = blend;
+    state->display_drive    = drive;
+
+    for (unsigned long i = 0; i < frames; i++) {
+        float input  = in[i];
         float warped = input * drive;
-        float f = folder(warped, fold);
+        float f      = folder(warped, fold);
         m->output_buffer[i] = (1.0f - blend) * input + blend * f;
     }
 }

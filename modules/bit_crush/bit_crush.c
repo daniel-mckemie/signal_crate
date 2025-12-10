@@ -13,42 +13,51 @@ static void bit_crush_process(Module* m, float* in, unsigned long frames) {
     float* out = m->output_buffer;
     float* input = (m->num_inputs > 0) ? m->inputs[0] : in;
 
+    // 1) Snapshot UI params under lock
+    float base_bits, base_rate;
     pthread_mutex_lock(&s->lock);
-    float base_bits = s->bits;
-    float base_rate = s->rate;
+    base_bits = s->bits;
+    base_rate = s->rate;
     pthread_mutex_unlock(&s->lock);
 
-    float bits  = process_smoother(&s->smooth_bits, base_bits);
-    float rate  = process_smoother(&s->smooth_rate, base_rate);
-    float step  = rate / s->sample_rate;
+    // 2) Smooth UI/OSC targets (no lock needed for smoothers)
+    float bits = process_smoother(&s->smooth_bits, base_bits);
+    float rate = process_smoother(&s->smooth_rate, base_rate);
 
+    // 3) Apply CV modulation (non-destructive, unsmoothed)
+    for (int i = 0; i < m->num_control_inputs; i++) {
+        if (!m->control_inputs[i] || !m->control_input_params[i]) continue;
+
+        const char* param = m->control_input_params[i];
+        float control = *(m->control_inputs[i]);
+        float norm = fminf(fmaxf(control, -1.0f), 1.0f);
+
+        if (strcmp(param, "rate") == 0) {
+            float mod_depth = 1.0f;
+            float mod_range = s->rate * mod_depth;
+            rate = s->rate + norm * mod_range;
+        }
+        else if (strcmp(param, "bits") == 0) {
+            float mod_depth = 1.0f;
+            float mod_range = (16.0f - 2.0f) * mod_depth;
+            bits = s->bits + norm * mod_range;
+        }
+    }
+
+    // 4) Clamp final values
+    clampf(&rate, 20.0f, s->sample_rate * 0.45f);
+    clampf(&bits, 2.0f, 16.0f);
+
+    // 5) Compute derived quantities from the FINAL rate/bits
+    float step = rate / s->sample_rate;
     if (step <= 0.0f) step = 1.0f;
 
     float bit_levels = powf(2.0f, bits) - 1.0f;
-    float phs = s->phase;
+
+    float phs  = s->phase;
     float held = s->last_sample;
 
-	for (int i = 0; i < m->num_control_inputs; i++) {
-		if (!m->control_inputs[i] || !m->control_input_params[i]) continue;
-
-		const char* param = m->control_input_params[i];
-		float control = *(m->control_inputs[i]);
-		float norm = fminf(fmaxf(control, -1.0f), 1.0f);
-
-		if (strcmp(param, "rate") == 0) {
-			float mod_depth = 1.0f;
-			float mod_range = s->rate * mod_depth;
-			rate = s->rate + norm * mod_range;
-		}
-		else if (strcmp(param, "bits") == 0) {
-			float mod_depth = 1.0f;
-			float mod_range = (16.0f - 2.0f) * mod_depth;
-			bits = s->bits + norm * mod_range;
-		}
-	}
-	clampf(&rate, 20.0f, s->sample_rate * 0.45f);
-	clampf(&bits, 2.0f, 16.0f);
-
+    // 6) Core crush loop
     for (unsigned long i = 0; i < frames; i++) {
         phs += step;
         if (phs >= 1.0f) {
@@ -60,6 +69,7 @@ static void bit_crush_process(Module* m, float* in, unsigned long frames) {
         out[i] = held;
     }
 
+    // 7) Store back
     s->phase = phs;
     s->last_sample = held;
     s->display_bits = bits;

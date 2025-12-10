@@ -11,12 +11,18 @@
 static void cv_monitor_process_control(Module* m) {
     CCVMonitor* s = (CCVMonitor*)m->state;
 
+    // 1. Read UI params
+    float att_base, off_base;
     pthread_mutex_lock(&s->lock);
-    float att = s->attenuvert;
-    float off = s->offset;
+    att_base = s->attenuvert;
+    off_base = s->offset;
     pthread_mutex_unlock(&s->lock);
 
-	float mod_depth = 1.0f;
+    // 2. Smooth ONLY UI/OSC params
+    float att = process_smoother(&s->smooth_att, att_base);
+    float off = process_smoother(&s->smooth_off, off_base);
+
+    // 3. Apply CV modulation immediately (no smoothing)
     for (int j = 0; j < m->num_control_inputs; j++) {
         if (!m->control_inputs[j] || !m->control_input_params[j]) continue;
 
@@ -25,33 +31,34 @@ static void cv_monitor_process_control(Module* m) {
         float norm = fminf(fmaxf(control, -1.0f), 1.0f);
 
         if (strcmp(param, "att") == 0) {
-            float mod_range = (2.0f - fabsf(s->attenuvert)) * mod_depth;
-            att = s->attenuvert + norm * mod_range;
+            float mod_range = (2.0f - fabsf(att_base));
+            att = att + norm * mod_range;   // NO smoothing here
+
         } else if (strcmp(param, "offset") == 0) {
-            float mod_range = (1.0f - fabsf(s->offset)) * mod_depth;
-            off = s->offset + norm * mod_range;
+            float mod_range = (1.0f - fabsf(off_base));
+            off = off + norm * mod_range;   // NO smoothing here
         }
     }
 
-	att = process_smoother(&s->smooth_att, att);
-	off = process_smoother(&s->smooth_off, off);
-
-	float in = m->control_inputs[0] ? *(m->control_inputs[0]) : 0.0f;
+    // 4. CV in
+    float in = m->control_inputs[0] ? *(m->control_inputs[0]) : 0.0f;
     float out = fminf(fmaxf(in * att + off, -1.0f), 1.0f);
 
+    // 5. Write state for UI
     pthread_mutex_lock(&s->lock);
-	s->input = in;
+    s->input = in;
     s->output = out;
-    s->display_input = in;
+    s->display_input  = in;
     s->display_output = out;
-    s->display_att = att;
-    s->display_off = off;
+    s->display_att    = att;
+    s->display_off    = off;
     pthread_mutex_unlock(&s->lock);
 
-    for (unsigned long i = 0; i < FRAMES_PER_BUFFER; i++) {
+    // 6. Output buffer
+    for (unsigned long i = 0; i < FRAMES_PER_BUFFER; i++)
         m->control_output[i] = out;
-    }
 }
+
 
 static void clamp_params(CCVMonitor* s) {
     clampf(&s->attenuvert, -2.0f, 2.0f);

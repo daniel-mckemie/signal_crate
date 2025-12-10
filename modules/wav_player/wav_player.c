@@ -11,66 +11,81 @@
 #include "util.h"
 
 static void player_process(Module* m, float* in, unsigned long frames) {
-	Player* state = (Player*)m->state;
-	float pos, speed, amp;
+    Player* state = (Player*)m->state;
 
-	pthread_mutex_lock(&state->lock);
-	unsigned long max_frames = state->num_frames;
-	pos = state->playing ? state->play_pos : state->external_play_pos;
-	speed = process_smoother(&state->smooth_speed, state->playback_speed);
-	amp = process_smoother(&state->smooth_amp, state->amp);
-	pthread_mutex_unlock(&state->lock);
+    float raw_pos, raw_speed, raw_amp;
+    unsigned long max_frames;
 
-	// Control input modulation
-	float mod_depth = 1.0f;
-	for (int i = 0; i < m->num_control_inputs; i++) {
-		if (!m->control_inputs[i] || !m->control_input_params[i]) continue;
+    pthread_mutex_lock(&state->lock);
+    max_frames = state->num_frames;
+    raw_pos    = state->playing ? state->play_pos : state->external_play_pos;
+    raw_speed  = state->playback_speed;
+    raw_amp    = state->amp;
+    pthread_mutex_unlock(&state->lock);
 
-		const char* param = m->control_input_params[i];
-		float control = *(m->control_inputs[i]);
-		float norm = fminf(fmaxf(control, -1.0f), 1.0f);
+    float speed = process_smoother(&state->smooth_speed, raw_speed);
+    float amp   = process_smoother(&state->smooth_amp, raw_amp);
+    float pos = raw_pos;
+    float mod_depth = 1.0f;
 
-		if (strcmp(param, "speed") == 0) {
-			float mod_range = (4.0f - state->playback_speed) * mod_depth;
-			speed = state->playback_speed + norm * mod_range;
-		} else if (strcmp(param, "amp") == 0) {
-			float mod_range = (1.0f - state->amp) * mod_depth;
-			amp = state->amp + norm * mod_range;
-		}
-	}
+    for (int i = 0; i < m->num_control_inputs; i++) {
+        if (!m->control_inputs[i] || !m->control_input_params[i])
+            continue;
 
-	state->display_pos = pos;
-	state->display_speed = speed;
-	state->display_amp = amp;
+        const char* param = m->control_input_params[i];
+        float control = *(m->control_inputs[i]);
+        float norm = fminf(fmaxf(control, -1.0f), 1.0f);
 
-	if (pos < 0) pos = 0;
-	if (pos > max_frames - 2) pos = max_frames - 2;
+        if (strcmp(param, "speed") == 0) {
+            float mod_range = (4.0f - raw_speed) * mod_depth;
+            speed = raw_speed + norm * mod_range;
+        }
+        else if (strcmp(param, "amp") == 0) {
+            float mod_range = (1.0f - raw_amp) * mod_depth;
+            amp = raw_amp + norm * mod_range;
+        }
+    }
 
-	for (unsigned long i = 0; i < frames; i++) {
-		int i1 = (int)pos;
-		int i2 = (i1 + 1 < max_frames) ? i1 + 1 : i1;
-		float frac = pos - (float)i1;
+    if (speed < 0.1f) speed = 0.1f;
+    if (speed > 4.0f) speed = 4.0f;
+    if (amp < 0.0f) amp = 0.0f;
+    if (amp > 1.0f) amp = 1.0f;
 
-		float s1 = state->data[i1];
-		float s2 = state->data[i2];
-		float sample = (1.0f - frac) * s1 + frac * s2;
-		m->output_buffer[i] = sample * amp;
+    state->display_pos   = pos;
+    state->display_speed = speed;
+    state->display_amp   = amp;
 
-		if (state->playing) {
-			pos += speed * (state->file_rate / state->sample_rate);
-			if (pos >= max_frames - 1) pos = 0.0f;
-		}
-	}
+    if (pos < 0) pos = 0;
+    if (pos > max_frames - 2) pos = max_frames - 2;
 
-	pthread_mutex_lock(&state->lock);
-	if (state->playing) {
-		state->play_pos = pos;
-	} else {
-		state->external_play_pos = state->play_pos;  // freeze at current playhead
-	}
-	
-	pthread_mutex_unlock(&state->lock);
-	
+    for (unsigned long i = 0; i < frames; i++) {
+
+        int i1 = (int)pos;
+        int i2 = (i1 + 1 < max_frames) ? i1 + 1 : i1;
+        float frac = pos - (float)i1;
+
+        float s1 = state->data[i1];
+        float s2 = state->data[i2];
+
+        float sample = (1.0f - frac) * s1 + frac * s2;
+        m->output_buffer[i] = sample * amp;
+
+        if (state->playing) {
+            pos += speed * (state->file_rate / state->sample_rate);
+
+            if (pos >= max_frames - 1)
+                pos = 0.0f;
+        }
+    }
+
+    pthread_mutex_lock(&state->lock);
+    if (state->playing) {
+        state->play_pos = pos;
+    } else {
+        // Freeze the visual playhead if stopped
+        state->external_play_pos = state->play_pos;
+    }
+    pthread_mutex_unlock(&state->lock);
 }
 
 static void clamp_params(Player* state) {

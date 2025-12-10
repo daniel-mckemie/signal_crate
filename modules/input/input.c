@@ -9,10 +9,14 @@
 
 static void input_process(Module* m, float* in, unsigned long frames) {
     InputState* state = (InputState*)m->state;
-    pthread_mutex_lock(&state->lock);
-    float gain = process_smoother(&state->smooth_gain, state->gain);
+
+	float base_gain;
+	pthread_mutex_lock(&state->lock);
+	base_gain = state->gain;
+	pthread_mutex_unlock(&state->lock);
+
+	float gain = process_smoother(&state->smooth_gain, base_gain);
 	gain = fminf(fmaxf(gain, 0.0f), 1.0f);
-    pthread_mutex_unlock(&state->lock);
 
     for (unsigned long i = 0; i < frames; i++) {
 		m->output_buffer[i] = gain * in[i];

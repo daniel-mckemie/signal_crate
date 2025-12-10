@@ -43,11 +43,15 @@ static void spec_hold_process(Module* m, float* in, unsigned long frames) {
 			int bins = FFT_SIZE / 2 + 1;
 			float nyquist = state->sample_rate / 2.0f;
 
-			float pivot_hz, tilt;
+			float raw_pivot, raw_tilt;
+
 			pthread_mutex_lock(&state->lock);
-			pivot_hz = process_smoother(&state->smooth_pivot_hz, state->pivot_hz);
-			tilt = process_smoother(&state->smooth_tilt, state->tilt);
+			raw_pivot = state->pivot_hz;
+			raw_tilt  = state->tilt;
 			pthread_mutex_unlock(&state->lock);
+
+			float pivot_hz = process_smoother(&state->smooth_pivot_hz, raw_pivot);
+			float tilt     = process_smoother(&state->smooth_tilt, raw_tilt);
 
 			float mod_depth = 1.0f;
 			for (int i = 0; i < m->num_control_inputs; i++) {
@@ -58,11 +62,11 @@ static void spec_hold_process(Module* m, float* in, unsigned long frames) {
 				float norm = fminf(fmaxf(control, -1.0f), 1.0f);
 
 				if (strcmp(param, "pivot") == 0) {
-					float mod_range = state->pivot_hz * mod_depth;
-					pivot_hz = state->pivot_hz + norm * mod_range;
+					float mod_range = pivot_hz * mod_depth;
+					pivot_hz = pivot_hz + norm * mod_range;
 				} else if (strcmp(param, "tilt") == 0) {
-					float mod_range = (1.0f - state->tilt) * mod_depth;
-					tilt = state->tilt + norm * mod_range; 
+					float mod_range = (1.0f - tilt) * mod_depth;
+					tilt = tilt + norm * mod_range; 
 				}
 			}
 

@@ -11,15 +11,19 @@
 static void looper_process(Module* m, float* in, unsigned long frames) {
     Looper* state = (Looper*)m->state;
 
-    pthread_mutex_lock(&state->lock);
-    float* buffer = state->buffer;
-    float read_pos = state->read_pos;
-    unsigned long loop_start = state->loop_start;
-    unsigned long loop_end = state->loop_end;
-    float playback_speed = process_smoother(&state->smooth_speed, state->playback_speed);
-    float amp = process_smoother(&state->smooth_amp, state->amp);
-    LooperState current_state = state->looper_state;
-    pthread_mutex_unlock(&state->lock);
+	pthread_mutex_lock(&state->lock);
+	float* buffer      = state->buffer;
+	float read_pos     = state->read_pos;
+	unsigned long loop_start = state->loop_start;
+	unsigned long loop_end   = state->loop_end;
+	float raw_speed = state->playback_speed;
+	float raw_amp   = state->amp;
+	LooperState current_state = state->looper_state;
+	pthread_mutex_unlock(&state->lock);
+
+	float playback_speed = process_smoother(&state->smooth_speed, raw_speed);
+	float amp            = process_smoother(&state->smooth_amp,   raw_amp);
+
 
 	float mod_depth = 1.0f;
     for (int i = 0; i < m->num_control_inputs; i++) {
@@ -30,11 +34,11 @@ static void looper_process(Module* m, float* in, unsigned long frames) {
 		float norm = fminf(fmaxf(control, -1.0f), 1.0f);
 
         if (strcmp(param, "speed") == 0) {
-			float mod_range = (4.0f - state->playback_speed) * mod_depth;
-            playback_speed = state->playback_speed + norm * mod_range; 
+			float mod_range = (4.0f - raw_speed) * mod_depth;
+            playback_speed = raw_speed + norm * mod_range; 
         } else if (strcmp(param, "amp") == 0) {
-			float mod_range = (1.0f - state->amp) * mod_depth;
-            amp = state->amp + norm * mod_range; 
+			float mod_range = (1.0f - raw_amp) * mod_depth;
+            amp = raw_amp + norm * mod_range; 
 		}
     }
 

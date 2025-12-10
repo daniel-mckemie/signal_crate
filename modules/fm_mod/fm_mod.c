@@ -11,16 +11,23 @@
 
 static void fm_mod_process(Module *m, float* in, unsigned long frames) {
     FMMod *state = (FMMod*)m->state;
+	
+	float mf, car_amp, mod_amp, idx;
+    float base_mf, base_car_amp, base_mod_amp, base_idx;
 
-    float mf, car_amp, mod_amp, idx;
     pthread_mutex_lock(&state->lock);
-    mf = process_smoother(&state->smooth_freq, state->mod_freq);
-    car_amp = process_smoother(&state->smooth_car_amp, state->car_amp);
-    mod_amp = process_smoother(&state->smooth_mod_amp, state->mod_amp);
-    idx = process_smoother(&state->smooth_index, state->index);
+    base_mf      = state->mod_freq;
+    base_car_amp = state->car_amp;
+    base_mod_amp = state->mod_amp;
+    base_idx     = state->index;
     pthread_mutex_unlock(&state->lock);
 
-	// --- Control Modulation Block ---
+    mf      = process_smoother(&state->smooth_freq,      base_mf);
+    car_amp = process_smoother(&state->smooth_car_amp,   base_car_amp);
+    mod_amp = process_smoother(&state->smooth_mod_amp,   base_mod_amp);
+    idx     = process_smoother(&state->smooth_index,     base_idx);
+
+    // --- Control Modulation Block ---
 	float mod_depth = 1.0f;
     for (int i = 0; i < m->num_control_inputs; i++) {
         if (!m->control_inputs[i] || !m->control_input_params[i]) continue;

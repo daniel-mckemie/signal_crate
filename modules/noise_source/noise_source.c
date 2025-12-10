@@ -13,13 +13,15 @@
 static void noise_source_process(Module* m, float* in, unsigned long frames) {
 	NoiseSource *state = (NoiseSource*)m->state;
 
-	float amp;
+	float raw_amp;
 	NoiseType noise_type;
 
 	pthread_mutex_lock(&state->lock);
-	amp = process_smoother(&state->smooth_amp, state->amplitude);
+	raw_amp    = state->amplitude;
 	noise_type = state->noise_type;
 	pthread_mutex_unlock(&state->lock);
+
+	float amp = process_smoother(&state->smooth_amp, raw_amp);
 
 	float mod_depth = 1.0f;
 	for (int i = 0; i < m->num_control_inputs; i++) {
@@ -30,8 +32,8 @@ static void noise_source_process(Module* m, float* in, unsigned long frames) {
 		float norm = fminf(fmaxf(control, -1.0f), 1.0f);
 
 		if (strcmp(param, "amp") == 0) {
-			float mod_range = (1.0f - state->amplitude) * mod_depth;
-			amp = state->amplitude + norm * mod_range;
+			float mod_range = (1.0f - raw_amp) * mod_depth;
+			amp = raw_amp + norm * mod_range;
 		}
 	}
 	amp = fminf(fmaxf(amp, 0.0f), 1.0f);

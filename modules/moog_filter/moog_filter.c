@@ -10,26 +10,30 @@
 
 static void moog_filter_process(Module *m, float* in, unsigned long frames) {
 	MoogFilter *state = (MoogFilter*)m->state;
-	float co, res;
 	FilterType filt_type;
 
-	pthread_mutex_lock(&state->lock); // Lock thread
-	co = process_smoother(&state->smooth_co, state->cutoff);
-	res = process_smoother(&state->smooth_res, state->resonance);
+	float raw_co, raw_res;
+
+	pthread_mutex_lock(&state->lock);
+	raw_co = state->cutoff;
+	raw_res = state->resonance;
 	filt_type = state->filt_type;
-	pthread_mutex_unlock(&state->lock); // Unlock thread
-	
+	pthread_mutex_unlock(&state->lock);
+
+	float co  = process_smoother(&state->smooth_co,  raw_co);
+	float res = process_smoother(&state->smooth_res, raw_res);
+
 	for (int i = 0; i < m->num_control_inputs; i++) {
 		if (!m->control_inputs[i] || !m->control_input_params[i]) continue;
 		const char* param = m->control_input_params[i];
 		float control = *(m->control_inputs[i]);
 		float norm = fminf(fmaxf(control, -1.0f), 1.0f);
 		if (strcmp(param, "cutoff") == 0) {
-			float mod_range = state->cutoff;
-			co = state->cutoff + norm * mod_range;
+			float mod_range = raw_co;
+			co = raw_co + norm * mod_range;
 		} else if (strcmp(param, "res") == 0) {
-			float mod_range = (4.2f - state->resonance);
-			res = state->resonance + norm * mod_range;
+			float mod_range = (4.2f - raw_res);
+			res = raw_res + norm * mod_range;
 		}
 	}
 

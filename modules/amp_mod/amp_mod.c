@@ -21,10 +21,16 @@ static void ampmod_process(Module* m, float* in, unsigned long frames) {
 	}
 
 	pthread_mutex_lock(&state->lock);
-	float car_amp = process_smoother(&state->smooth_car_amp, state->car_amp);
-	float mod_amp = process_smoother(&state->smooth_mod_amp, state->mod_amp);
-	float depth   = process_smoother(&state->smooth_depth,   state->depth);
+	float target_car = state->car_amp;
+	float target_mod = state->mod_amp;
+	float target_depth   = state->depth;
 	pthread_mutex_unlock(&state->lock);
+
+
+	float car_amp = process_smoother(&state->smooth_car_amp, target_car);
+	float mod_amp = process_smoother(&state->smooth_mod_amp, target_mod);
+	float depth   = process_smoother(&state->smooth_depth,   target_depth);
+
 	// Non-destructive control input
 	float mod_depth = 1.0f;
 	for (int i = 0; i < m->num_control_inputs; i++) {

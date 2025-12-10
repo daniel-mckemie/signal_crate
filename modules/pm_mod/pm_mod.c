@@ -21,13 +21,20 @@ static void pm_mod_process(Module *m, float* in, unsigned long frames) {
 		return;
 	}
 
-    pthread_mutex_lock(&state->lock);
-    float car_amp = process_smoother(&state->smooth_car_amp, state->car_amp);
-    float mod_amp = process_smoother(&state->smooth_mod_amp, state->mod_amp);
-    float base_freq = process_smoother(&state->smooth_base_freq, state->base_freq);
-    float idx = process_smoother(&state->smooth_index, state->index);
-	float sr = state->sample_rate;
-    pthread_mutex_unlock(&state->lock);
+	float raw_car_amp, raw_mod_amp, raw_base_freq, raw_idx, sr;
+
+	pthread_mutex_lock(&state->lock);
+	raw_car_amp   = state->car_amp;
+	raw_mod_amp   = state->mod_amp;
+	raw_base_freq = state->base_freq;
+	raw_idx       = state->index;
+	sr            = state->sample_rate;
+	pthread_mutex_unlock(&state->lock);
+
+	float car_amp   = process_smoother(&state->smooth_car_amp,   raw_car_amp);
+	float mod_amp   = process_smoother(&state->smooth_mod_amp,   raw_mod_amp);
+	float base_freq = process_smoother(&state->smooth_base_freq, raw_base_freq);
+	float idx       = process_smoother(&state->smooth_index,     raw_idx);
 
 	// --- Control Modulation Block ---
 	float mod_depth = 1.0f;
@@ -39,17 +46,17 @@ static void pm_mod_process(Module *m, float* in, unsigned long frames) {
 		float norm = fminf(fmaxf(control, -1.0f), 1.0f);
 
         if (strcmp(param, "mod_amp") == 0) {
-			float mod_range = (1.0f - state->mod_amp) * mod_depth; 
-			mod_amp = state->mod_amp + norm * mod_range;
+			float mod_range = (1.0f - raw_mod_amp) * mod_depth; 
+			mod_amp = raw_mod_amp + norm * mod_range;
 		} else if (strcmp(param, "car_amp") == 0) {
-			float mod_range = (1.0f - state->car_amp) * mod_depth;
-			car_amp = state->car_amp + norm * mod_range;
+			float mod_range = (1.0f - raw_car_amp) * mod_depth;
+			car_amp = raw_car_amp + norm * mod_range;
         } else if (strcmp(param, "idx") == 0) {
-			float mod_range = (10.0f - state->index) * mod_depth;
-            idx = state->index + norm * mod_range;
+			float mod_range = (10.0f - raw_idx) * mod_depth;
+            idx = raw_idx + norm * mod_range;
         } else if (strcmp(param, "freq") == 0) {
-			float mod_range = state->base_freq * mod_depth;
-			base_freq = state->base_freq + norm * mod_range;
+			float mod_range = raw_base_freq * mod_depth;
+			base_freq = raw_base_freq + norm * mod_range;
 		}
     }
 

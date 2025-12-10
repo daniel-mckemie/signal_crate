@@ -8,66 +8,86 @@
 #include "module.h"
 #include "util.h"
 
-static void clamp_params(CFluct* s) {
-    clampf(&s->rate, 0.001f, 20.0f);
-    clampf(&s->depth, 0.0f, 1.0f);
-}
-
 static void c_fluct_process_control(Module* m) {
     CFluct* s = (CFluct*)m->state;
 
+    float base_rate, base_depth;
     pthread_mutex_lock(&s->lock);
-    float rate = process_smoother(&s->smooth_rate, s->rate);
-    float depth = process_smoother(&s->smooth_depth, s->depth);
+    base_rate  = s->rate;
+    base_depth = s->depth;
     pthread_mutex_unlock(&s->lock);
 
-    float dt = 1.0f / s->sample_rate;
-	float mod_depth = 1.0f;
-	for (int j = 0; j < m->num_control_inputs; j++) {
+    float mod_rate  = base_rate;
+    float mod_depth = base_depth;
+
+    for (int j = 0; j < m->num_control_inputs; j++) {
         if (!m->control_inputs[j] || !m->control_input_params[j]) continue;
 
         const char* param = m->control_input_params[j];
         float control = *(m->control_inputs[j]);
-		float norm = fminf(fmaxf(control, -1.0f), 1.0f);
+        float norm = fminf(fmaxf(control, -1.0f), 1.0f);
 
         if (strcmp(param, "rate") == 0) {
-			float mod_range = (20.0f - s->rate) * mod_depth;
-			rate = s->rate + norm * mod_range;
+            float mod_range = (20.0f - base_rate);
+            mod_rate = base_rate + norm * mod_range;
+
         } else if (strcmp(param, "depth") == 0) {
-			float mod_range = (1.0f - s->depth) * mod_depth;
-			depth = s->depth + norm * mod_range;
+            float mod_range = (1.0f - base_depth);
+            mod_depth = base_depth + norm * mod_range;
         }
     }
 
-	m->control_output_depth = fminf(fmaxf(mod_depth, 0.0f), 1.0f);
+    mod_rate  = fminf(fmaxf(mod_rate, 0.001f), 20.0f);
+    mod_depth = fminf(fmaxf(mod_depth, 0.0f),   1.0f);
+
+    float smooth_rate  = process_smoother(&s->smooth_rate,  mod_rate);
+    float smooth_depth = process_smoother(&s->smooth_depth, mod_depth);
+
+    pthread_mutex_lock(&s->lock);
+    s->display_rate  = smooth_rate;
+    s->display_depth = smooth_depth;
+    pthread_mutex_unlock(&s->lock);
 
     if (!m->control_output) return;
 
-    s->display_rate = rate;
-	s->display_depth = depth;
+    float sr = s->sample_rate;
+    float dt = 1.0f / sr;
 
     for (unsigned long i = 0; i < FRAMES_PER_BUFFER; i++) {
+
         s->phase += dt;
 
-        if (s->phase >= 1.0f / rate) {
-            s->phase -= 1.0f / rate;
+        if (s->phase >= 1.0f / smooth_rate) {
+            s->phase -= 1.0f / smooth_rate;
+
+            // pick new random target
+            s->prev_value = s->current_value;
 
             if (s->mode == FLUCT_NOISE) {
-				s->prev_value = s->current_value;
-				s->target_value = randf() * 2.0f - 1.0f;
-            } else if (s->mode == FLUCT_WALK) {
-                s->prev_value = s->current_value;
-                s->target_value = s->prev_value + (randf() * 2.0f - 1.0f) * 0.1f;
+                s->target_value = randf() * 2.0f - 1.0f;
+
+            } else { // FLUCT_WALK
+                float step = (randf() * 2.0f - 1.0f) * 0.1f;
+                s->target_value = s->prev_value + step;
                 s->target_value = fminf(fmaxf(s->target_value, -1.0f), 1.0f);
             }
         }
 
-		float slew = dt * rate;
-        s->current_value += (s->target_value - s->current_value) * fminf(slew, 1.0f);
+        // slew toward target
+        float slew = smooth_rate * dt;
+        if (slew > 1.0f) slew = 1.0f;
 
-        float out = depth * s->current_value;
+        s->current_value += (s->target_value - s->current_value) * slew;
+
+        // final CV output
+        float out = smooth_depth * s->current_value;
         m->control_output[i] = out;
     }
+}
+
+static void clamp_params(CFluct* s) {
+    clampf(&s->rate, 0.001f, 20.0f);
+    clampf(&s->depth, 0.0f, 1.0f);
 }
 
 static void c_fluct_draw_ui(Module* m, int y, int x) {

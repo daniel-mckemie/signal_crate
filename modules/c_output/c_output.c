@@ -9,49 +9,57 @@
 #include "c_output.h"
 
 static void c_output_process(Module* m, float* in, unsigned long frames) {
-    COutputState* state = (COutputState*)m->state;
+    COutputState* s = (COutputState*)m->state;
+    float* outL = m->output_bufferL;
+    float* outR = m->output_bufferR;
+    if (!outL || !outR) return;
+
     float base_val;
-	float* outL = m->output_bufferL;
-	float* outR = m->output_bufferR;
+    pthread_mutex_lock(&s->lock);
+    base_val = s->value;
+    pthread_mutex_unlock(&s->lock);
 
-	if (!outL || !outR) return;
+    float smoothed_base =
+        process_smoother(&s->smooth_val, base_val);
 
-    pthread_mutex_lock(&state->lock);
-    base_val = state->value;
-    pthread_mutex_unlock(&state->lock);
+    if (smoothed_base < -1.0f) smoothed_base = -1.0f;
+    if (smoothed_base >  1.0f) smoothed_base =  1.0f;
 
-    // Check for a control source (mod input)
-    const float* mod_src = NULL;
-    for (int i = 0; i < m->num_control_inputs; i++) {
-        if (!m->control_inputs[i] || !m->control_input_params[i]) continue;
-        const char* param = m->control_input_params[i];
-        if (strcmp(param, "val") == 0) {
-            mod_src = m->control_inputs[i];
+    const float* cv = NULL;
+    for (int i = 0; i < m->num_control_inputs; i++)
+    {
+        if (!m->control_inputs[i] || !m->control_input_params[i])
+            continue;
+        if (strcmp(m->control_input_params[i], "val") == 0)
+        {
+            cv = m->control_inputs[i];
             break;
         }
     }
 
-    float last_value = base_val;
+    memset(outR, 0, frames * sizeof(float));  // mono only
 
-	// Stereo established to work with engine.c
-	memset(outR, 0, frames * sizeof(float)); // Only want mono
-    for (unsigned long i = 0; i < frames; i++) {
-        float value = base_val;
+    float last_value = smoothed_base;
 
-        // If a control source exists, use its sample + base offset
-        if (mod_src)
-            value += mod_src[i];
+    for (unsigned long i = 0; i < frames; i++)
+    {
+        float v = smoothed_base;
 
-        // Apply smoothing and clamp
-        value = process_smoother(&state->smooth_val, value);
-        if (value < -1.0f) value = -1.0f;
-        if (value >  1.0f) value =  1.0f;
-        outL[i] = value;
-        last_value = value;
+        // CV affects output directly (NOT smoothed)
+        if (cv)
+            v += cv[i];
+
+        // Final clamp
+        if (v < -1.0f) v = -1.0f;
+        if (v >  1.0f) v =  1.0f;
+
+        outL[i] = v;
+        last_value = v;
     }
 
-    // Update display with last processed value
-    state->display_value = last_value;
+    pthread_mutex_lock(&s->lock);
+    s->display_value = last_value;
+    pthread_mutex_unlock(&s->lock);
 }
 
 static void c_output_draw_ui(Module* m, int y, int x) {

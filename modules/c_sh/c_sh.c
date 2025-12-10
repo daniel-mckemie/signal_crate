@@ -16,16 +16,28 @@ static inline void clamp_params(CSH* s) {
 static void c_sh_process(Module* m, float* in, unsigned long frames) {
     CSH* s = (CSH*)m->state;
 
-    float rate, depth;
+    float raw_rate, raw_depth;
 
+    // 1) Snapshot UI parameters ONLY under lock
     pthread_mutex_lock(&s->lock);
-    rate  = process_smoother(&s->smooth_rate,  s->rate_hz);
-    depth = process_smoother(&s->smooth_depth, s->depth);
+    raw_rate  = s->rate_hz;
+    raw_depth = s->depth;
     pthread_mutex_unlock(&s->lock);
+
+    // 2) Smooth UI/OSC parameters outside the lock once per block
+    float rate  = process_smoother(&s->smooth_rate,  raw_rate);
+    float depth = process_smoother(&s->smooth_depth, raw_depth);
+
+    // Clamp smoothed values
+    if (rate < 0.01f) rate = 0.01f;
+    if (rate > 100.0f) rate = 100.0f;
+    if (depth < 0.0f) depth = 0.0f;
+    if (depth > 1.0f) depth = 1.0f;
 
     float* out = m->control_output;
     if (!out) return;
 
+    // Trigger input (optional)
     float* trig = (m->num_control_inputs > 0) ? m->control_inputs[0] : NULL;
 
     const float dt = 1.0f / s->sample_rate;
@@ -38,13 +50,12 @@ static void c_sh_process(Module* m, float* in, unsigned long frames) {
         int triggered = 0;
 
         if (trig) {
-            // rising-edge detection on control input
             float x = trig[i];
             if (last_trig < 0.5f && x >= 0.5f)
                 triggered = 1;
             last_trig = x;
         } else {
-            // internal rate-based clock if no trigger input
+            // internal free-run clock
             phase += dt * rate;
             if (phase >= 1.0f) {
                 phase -= 1.0f;
@@ -53,22 +64,20 @@ static void c_sh_process(Module* m, float* in, unsigned long frames) {
         }
 
         if (triggered) {
-            // sample audio input (or 0 if nothing patched)
+            // sample audio input (or zero)
             float sample = in ? in[i] : 0.0f;
 
-            // simple, honest S&H:
-            //  - we just scale the sampled value by depth
-            //  - no extra mapping, no hidden biases
             float v = sample * depth;
-
             s->current_val = v;
+
+            // Update display safely
+            pthread_mutex_lock(&s->lock);
             s->display_val = v;
+            pthread_mutex_unlock(&s->lock);
         }
 
-        // always output held value
         out[i] = s->current_val;
     }
-
     s->last_trig = last_trig;
     s->phase     = phase;
 }

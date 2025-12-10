@@ -13,9 +13,6 @@ static void c_input_process(Module* m, float* in, unsigned long frames)
     CInputState* s = (CInputState*)m->state;
     float* out = m->control_output;
 
-    pthread_mutex_lock(&s->lock);
-    pthread_mutex_unlock(&s->lock);
-
     for (unsigned long i = 0; i < frames; i++) {
         float v = in ? in[i] : 0.0f;
 

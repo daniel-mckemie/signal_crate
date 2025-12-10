@@ -37,9 +37,16 @@ static float allpass_process(DelayLine* d, float input) {
 static void freeverb_process(Module* m, float* in, unsigned long frames) {
     Freeverb* s = (Freeverb*)m->state;
 
-    float fb = process_smoother(&s->smooth_feedback, s->feedback);
-    float damp = process_smoother(&s->smooth_damping, s->damping);
-    float wet = process_smoother(&s->smooth_wet, s->wet);
+	float base_fb, base_damp, base_wet;
+	pthread_mutex_lock(&s->lock);
+	base_fb   = s->feedback;
+	base_damp = s->damping;
+	base_wet  = s->wet;
+	pthread_mutex_unlock(&s->lock);
+
+    float fb = process_smoother(&s->smooth_feedback, base_fb);
+    float damp = process_smoother(&s->smooth_damping, base_damp);
+    float wet = process_smoother(&s->smooth_wet, base_wet);
 
 	float mod_depth = 1.0f;
 	for (int i = 0; i < m->num_control_inputs; i++) {

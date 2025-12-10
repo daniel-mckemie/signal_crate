@@ -13,13 +13,19 @@
 static void delay_process(Module* m, float* in, unsigned long frames) {
     Delay* state = (Delay*)m->state;
 
-    float mix, fb, delay_ms;
-    pthread_mutex_lock(&state->lock);
-    mix = process_smoother(&state->smooth_mix, state->mix);
-    fb = process_smoother(&state->smooth_feedback, state->feedback);
-    delay_ms = process_smoother(&state->smooth_delay, state->delay_ms);
-    pthread_mutex_unlock(&state->lock);
+	float mix, fb, delay_ms;
+	float raw_mix, raw_fb, raw_delay_ms;
+	pthread_mutex_lock(&state->lock);
+	raw_mix      = state->mix;
+	raw_fb       = state->feedback;
+	raw_delay_ms = state->delay_ms;
+	pthread_mutex_unlock(&state->lock);
 
+	mix      = process_smoother(&state->smooth_mix,      raw_mix);
+	fb       = process_smoother(&state->smooth_feedback, raw_fb);
+	delay_ms = process_smoother(&state->smooth_delay,    raw_delay_ms);
+
+    
     // Control-rate modulation - non-destructive
 	float mod_depth = 1.0f;
     for (int i = 0; i < m->num_control_inputs; i++) {

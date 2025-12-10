@@ -11,24 +11,31 @@
 static void c_asr_process_control(Module* m) {
     CFunction* s = (CFunction*)m->state;
 
-    float att, rel, depth;
-    int   cycle;
+    float base_att, base_rel, base_depth;
+    int   base_cycle;
     float threshold_trig, threshold_gate;
+    int   short_mode;
 
     // 1) Snapshot base params
     pthread_mutex_lock(&s->lock);
-    att            = s->attack_time;
-    rel            = s->release_time;
-    depth          = s->depth;
-    cycle          = s->cycle;
+    base_att       = s->attack_time;
+    base_rel       = s->release_time;
+    base_depth     = s->depth;
+    base_cycle     = s->cycle;
     threshold_trig = s->threshold_trigger;
     threshold_gate = s->threshold_gate;
+    short_mode     = s->short_mode;
     pthread_mutex_unlock(&s->lock);
 
-    float mod_depth = 1.0f;
-    bool trig_any   = false;   // any trigger/gate crossing this block
+    // 2) Smooth ONLY the base params (UI / OSC)
+    float att   = process_smoother(&s->smooth_att,   base_att);
+    float rel   = process_smoother(&s->smooth_rel,   base_rel);
+    float depth = process_smoother(&s->smooth_depth, base_depth);
 
-    // 2) Control inputs: att/rel/depth + trig/cycle/gate-as-trigger
+    int   cycle    = base_cycle;
+    bool  trig_any = false;   // any trigger/gate crossing this block
+
+    // 3) Control inputs: CV modulation on top of smoothed params
     for (int j = 0; j < m->num_control_inputs; j++) {
         if (!m->control_inputs[j] || !m->control_input_params[j])
             continue;
@@ -38,16 +45,18 @@ static void c_asr_process_control(Module* m) {
         float norm        = fminf(fmaxf(control, -1.0f), 1.0f);
 
         if (strcmp(param, "att") == 0) {
-            float mod_range = (s->short_mode ? (10.0f   - att) : (1000.0f - att)) * mod_depth;
-            att = att + norm * mod_range;
+            float max_att   = short_mode ? 10.0f   : 1000.0f;
+            float mod_range = max_att - att;
+            att += norm * mod_range;
 
         } else if (strcmp(param, "rel") == 0) {
-            float mod_range = (s->short_mode ? (10.0f   - rel) : (1000.0f - rel)) * mod_depth;
-            rel = rel + norm * mod_range;
+            float max_rel   = short_mode ? 10.0f   : 1000.0f;
+            float mod_range = max_rel - rel;
+            rel += norm * mod_range;
 
         } else if (strcmp(param, "depth") == 0) {
-            float mod_range = (1.0f - s->depth) * mod_depth;
-            depth = s->depth + norm * mod_range;
+            float mod_range = 1.0f - depth;
+            depth += norm * mod_range;
 
         } else if (strcmp(param, "cycle") == 0) {
             cycle = (control > s->threshold_cycle);
@@ -64,33 +73,43 @@ static void c_asr_process_control(Module* m) {
         }
     }
 
-    depth = fminf(fmaxf(depth, 0.0f), 1.0f);
+    // 4) Clamp final values (after CV)
+    if (short_mode) {
+        if (att < 0.01f) att = 0.01f;
+        if (rel < 0.01f) rel = 0.01f;
+        if (att > 10.0f) att = 10.0f;
+        if (rel > 10.0f) rel = 10.0f;
+    } else {
+        if (att < 0.01f) att = 0.01f;
+        if (rel < 0.01f) rel = 0.01f;
+        // no upper bound, match clamp_params()
+    }
 
-    att   = process_smoother(&s->smooth_att,   att);
-    rel   = process_smoother(&s->smooth_rel,   rel);
-    depth = process_smoother(&s->smooth_depth, depth);
+    if (depth < 0.0f) depth = 0.0f;
+    if (depth > 1.0f) depth = 1.0f;
 
-    // 4) Update display values
+    // 5) Update display values + cycle flag
     pthread_mutex_lock(&s->lock);
     s->display_att   = att;
     s->display_rel   = rel;
     s->display_depth = depth;
     s->cycle         = cycle;
+    s->display_cycle = cycle;
     pthread_mutex_unlock(&s->lock);
 
-    // 5) Trigger edge (control-rate)
-    bool trig_prev = s->gate_prev;        // reuse as "previous trigger state"
-    bool trig_now  = trig_any;            // any source high this block
+    // 6) Trigger edge (control-rate)
+    bool trig_prev = s->gate_prev;   // reused as "previous trigger state"
+    bool trig_now  = trig_any;       // any source high this block
 
     if (trig_now && !trig_prev && s->state == ENV_IDLE) {
         // Start a new function from current level
-        s->state             = ENV_ATTACK;
-        s->timer             = 0.0f;
+        s->state              = ENV_ATTACK;
+        s->timer              = 0.0f;
         s->attack_start_level = s->envelope_out;
     }
     s->gate_prev = trig_now;
 
-    // 6) Per-sample envelope: ATTACK -> RELEASE -> (cycle or idle)
+    // 7) Per-sample envelope: ATTACK -> RELEASE -> (cycle or idle)
     float sr = s->sample_rate;
     if (sr <= 0.0f) sr = 48000.0f;
 
@@ -124,8 +143,8 @@ static void c_asr_process_control(Module* m) {
 
                     if (s->cycle && !s->cycle_stop_requested) {
                         // loop: start attack again
-                        s->state             = ENV_ATTACK;
-                        s->timer             = 0.0f;
+                        s->state              = ENV_ATTACK;
+                        s->timer              = 0.0f;
                         s->attack_start_level = s->envelope_out;
                     } else {
                         if (s->cycle_stop_requested) {
@@ -142,8 +161,8 @@ static void c_asr_process_control(Module* m) {
             default:
                 // Free-running cycle if enabled and idle
                 if (s->cycle && !s->cycle_stop_requested) {
-                    s->state             = ENV_ATTACK;
-                    s->timer             = 0.0f;
+                    s->state              = ENV_ATTACK;
+                    s->timer              = 0.0f;
                     s->attack_start_level = s->envelope_out;
                 } else {
                     s->envelope_out = 0.0f;

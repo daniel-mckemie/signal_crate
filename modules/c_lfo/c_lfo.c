@@ -8,76 +8,89 @@
 #include "module.h"
 #include "util.h"
 
-
 static void c_lfo_process_control(Module* m) {
-    CLFO* state = (CLFO*)m->state;
+    CLFO* s = (CLFO*)m->state;
 
-    pthread_mutex_lock(&state->lock);
-    float freq = process_smoother(&state->smooth_freq, state->frequency);
-    float amp = process_smoother(&state->smooth_amp, state->amplitude);
-    float depth = process_smoother(&state->smooth_depth, state->depth);
-    LFOWaveform wf = state->waveform;
-    pthread_mutex_unlock(&state->lock);
+    float freq, amp, depth;
+    LFOWaveform wf;
 
-	float mod_depth = 0.5f;
+    // 1) Snapshot under lock
+    pthread_mutex_lock(&s->lock);
+    float base_freq  = s->frequency;
+    float base_amp   = s->amplitude;
+    float base_depth = s->depth;
+    wf               = s->waveform;
+    pthread_mutex_unlock(&s->lock);
 
-    // Modulate with control inputs
+    // 2) Smooth UI params (no lock needed)
+    freq  = process_smoother(&s->smooth_freq,  base_freq);
+    amp   = process_smoother(&s->smooth_amp,   base_amp);
+    depth = process_smoother(&s->smooth_depth, base_depth);
+
+    // 3) CV modulation (also no lock needed)
     for (int j = 0; j < m->num_control_inputs; j++) {
         if (!m->control_inputs[j] || !m->control_input_params[j]) continue;
 
         const char* param = m->control_input_params[j];
-        float control = *(m->control_inputs[j]);
-		float norm = fminf(fmaxf(control, -1.0f), 1.0f);
+        float control     = *(m->control_inputs[j]);
+        float norm        = fminf(fmaxf(control, -1.0f), 1.0f);
 
         if (strcmp(param, "freq") == 0) {
-			float mod_range = state->frequency * mod_depth;
-            freq = state->frequency + norm * mod_range; 
+            float mod_range = freq * 0.5f;
+            freq += norm * mod_range;
+
         } else if (strcmp(param, "amp") == 0) {
-			float mod_range = (1.0f - state->amplitude) * mod_depth;
-			amp = state->amplitude + norm * mod_range;
+            float mod_range = (1.0f - amp) * 0.5f;
+            amp += norm * mod_range;
+
         } else if (strcmp(param, "depth") == 0) {
-			float mod_range = (1.0f - state->depth) * mod_depth;
-			depth = state->depth + norm * mod_range;
+            float mod_range = (1.0f - depth) * 0.5f;
+            depth += norm * mod_range;
         }
     }
 
-	m->control_output_depth = fminf(fmaxf(mod_depth, 0.0f), 1.0f);
+    // 4) Clamp & update display values
+    amp   = fminf(fmaxf(amp,   0.0f), 1.0f);
+    depth = fminf(fmaxf(depth, 0.0f), 1.0f);
+    clampf(&freq, 0.001f, 100.0f);
 
-    if (!m->control_output) return;
+    pthread_mutex_lock(&s->lock);
+    s->display_freq  = freq;
+    s->display_amp   = amp;
+    s->display_depth = depth;
+    pthread_mutex_unlock(&s->lock);
 
-	amp = fminf(fmaxf(amp, 0.0f), 1.0f);
-    state->display_freq = freq;
-    state->display_amp = amp;
-	state->display_depth = depth;
+    // 5) Render LFO — NO LOCK HERE
+    float sr = s->sample_rate;
+    const float* sine_table = get_sine_table();
 
-	const float* sine_table = get_sine_table();
     for (unsigned long i = 0; i < FRAMES_PER_BUFFER; i++) {
-        float t = state->phase / TWO_PI;
+        float t = s->phase / TWO_PI;
         float value = 0.0f;
 
         switch (wf) {
-            case LFO_SINE:
-                value = sine_table[(int)(t * SINE_TABLE_SIZE) % SINE_TABLE_SIZE];
-                break;
-            case LFO_SAW:
-                value = 2.0f * t - 1.0f;
-                break;
-            case LFO_SQUARE:
-                value = (t < 0.5f) ? 1.0f : -1.0f;
-                break;
-            case LFO_TRIANGLE: {
-                float sq = (t < 0.5f) ? 1.0f : -1.0f;
-                state->tri_state += 2.0f * freq / state->sample_rate * sq;
-                value = tanhf(state->tri_state) * 2.0f;
-                break;
-            }
+        case LFO_SINE:
+            value = sine_table[(int)(t * SINE_TABLE_SIZE) % SINE_TABLE_SIZE];
+            break;
+        case LFO_SAW:
+            value = 2.0f * t - 1.0f;
+            break;
+        case LFO_SQUARE:
+            value = (t < 0.5f) ? 1.0f : -1.0f;
+            break;
+        case LFO_TRIANGLE: {
+            float sq = (t < 0.5f) ? 1.0f : -1.0f;
+            s->tri_state += 2.0f * freq / sr * sq;
+            value = tanhf(s->tri_state) * 2.0f;
+            break;
         }
-	
-		float out = depth * (amp * (0.5f + 0.5f * value));
-		m->control_output[i] = fminf(fmaxf(out, 0.0f), 1.0f);
+        }
 
-        state->phase += TWO_PI * freq / state->sample_rate;
-        if (state->phase >= TWO_PI) state->phase -= TWO_PI;
+        float out = depth * (amp * (0.5f + 0.5f * value));
+        m->control_output[i] = fminf(fmaxf(out, 0.0f), 1.0f);
+
+        s->phase += TWO_PI * freq / sr;
+        if (s->phase >= TWO_PI) s->phase -= TWO_PI;
     }
 }
 

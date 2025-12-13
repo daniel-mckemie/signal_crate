@@ -8,7 +8,7 @@
 #include "module.h"
 #include "util.h"
 
-static void c_asr_process_control(Module* m) {
+static void c_asr_process_control(Module* m, unsigned long frames) {
     CASR* s = (CASR*)m->state;
 
     float att, sus, rel, depth;
@@ -71,7 +71,7 @@ static void c_asr_process_control(Module* m) {
     bool prev_gate = s->gate_prev;
     float sr = s->sample_rate;
 
-    for (unsigned long i = 0; i < MAX_BLOCK_SIZE; i++) {
+    for (unsigned long i = 0; i < frames; i++) {
         float gate_sample = (gate_buf ? gate_buf[i] : 0.0f);
         bool gate_now = (gate_sample >= s->threshold_gate);
 

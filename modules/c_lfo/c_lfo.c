@@ -8,7 +8,7 @@
 #include "module.h"
 #include "util.h"
 
-static void c_lfo_process_control(Module* m) {
+static void c_lfo_process_control(Module* m, unsigned long frames) {
     CLFO* s = (CLFO*)m->state;
 
     float freq, amp, depth;
@@ -64,7 +64,7 @@ static void c_lfo_process_control(Module* m) {
     float sr = s->sample_rate;
     const float* sine_table = get_sine_table();
 
-    for (unsigned long i = 0; i < MAX_BLOCK_SIZE; i++) {
+    for (unsigned long i = 0; i < frames; i++) {
         float t = s->phase / TWO_PI;
         float value = 0.0f;
 

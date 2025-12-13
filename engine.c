@@ -257,7 +257,7 @@ void process_audio(float* input, float* output, unsigned long frames) {
 	for (int i=0; i<module_count; i++) {
 		Module* m = modules[i].module;
 		if (m->process_control) {
-			m->process_control(m);
+			m->process_control(m, frames);
 		}
 	}
     for (int i=0; i<module_count; i++) {

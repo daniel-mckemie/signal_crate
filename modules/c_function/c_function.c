@@ -8,7 +8,7 @@
 #include "module.h"
 #include "util.h"
 
-static void c_asr_process_control(Module* m) {
+static void c_function_process_control(Module* m, unsigned long frames) {
     CFunction* s = (CFunction*)m->state;
 
     float base_att, base_rel, base_depth;
@@ -113,7 +113,7 @@ static void c_asr_process_control(Module* m) {
     float sr = s->sample_rate;
     if (sr <= 0.0f) sr = 48000.0f;
 
-    for (unsigned long i = 0; i < MAX_BLOCK_SIZE; i++) {
+    for (unsigned long i = 0; i < frames; i++) {
         float step = 1.0f / sr;
 
         switch (s->state) {
@@ -189,7 +189,7 @@ static void clamp_params(CFunction* s) {
 }
 
 
-static void c_asr_draw_ui(Module* m, int y, int x) {
+static void c_function_draw_ui(Module* m, int y, int x) {
     CFunction* s = (CFunction*)m->state;
     pthread_mutex_lock(&s->lock);
 
@@ -220,7 +220,7 @@ static void c_asr_draw_ui(Module* m, int y, int x) {
 	BLACK();
 }
 
-static void c_asr_handle_input(Module* m, int key) {
+static void c_function_handle_input(Module* m, int key) {
     CFunction* s = (CFunction*)m->state;
     int handled = 0;
     pthread_mutex_lock(&s->lock);
@@ -303,7 +303,7 @@ static void c_asr_handle_input(Module* m, int key) {
 }
 
 
-static void c_asr_set_osc_param(Module* m, const char* param, float value) {
+static void c_function_set_osc_param(Module* m, const char* param, float value) {
     CFunction* s = (CFunction*)m->state;
     pthread_mutex_lock(&s->lock);
 
@@ -335,7 +335,7 @@ static void c_asr_set_osc_param(Module* m, const char* param, float value) {
 }
 
 
-static void c_asr_destroy(Module* m) {
+static void c_function_destroy(Module* m) {
     CFunction* state = (CFunction*)m->state;
 	if (state) pthread_mutex_destroy(&state->lock);
     destroy_base_module(m);
@@ -375,11 +375,11 @@ Module* create_module(const char* args, float sample_rate) {
     Module* m = calloc(1, sizeof(Module));
     m->name = "c_function";
     m->state = s;
-    m->process_control = c_asr_process_control;
-    m->draw_ui = c_asr_draw_ui;
-    m->handle_input = c_asr_handle_input;
+    m->process_control = c_function_process_control;
+    m->draw_ui = c_function_draw_ui;
+    m->handle_input = c_function_handle_input;
     m->control_output = calloc(MAX_BLOCK_SIZE, sizeof(float));
-	m->set_param = c_asr_set_osc_param;
-    m->destroy = c_asr_destroy;
+	m->set_param = c_function_set_osc_param;
+    m->destroy = c_function_destroy;
     return m;
 }

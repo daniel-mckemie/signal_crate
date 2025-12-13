@@ -9,7 +9,7 @@ typedef struct Module {
     const char* name; // Module name for aliases
 	const char* type; // Module type
     void (*process)(struct Module*, float* input, unsigned long frames);
-	void (*process_control)(struct Module*);
+	void (*process_control)(struct Module*, unsigned long frames);
     void (*draw_ui)(struct Module*, int y, int x);
     void (*handle_input)(struct Module*, int key);
 	void (*set_param)(struct Module*, const char* param, float value);

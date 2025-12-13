@@ -207,7 +207,7 @@ Module* create_module(const char* args, float sample_rate) {
 	}
 	if (args && strstr(args, "type=")) {
         char filt_str[32] = {0};
-        sscanf(strstr(args, "type="), "type=%31s", filt_str);
+        sscanf(strstr(args, "type="), "type=%31[^,]]", filt_str);
 
         if (strcmp(filt_str, "LP") == 0) filt_type = LOWPASS;
         else if (strcmp(filt_str, "HP") == 0) filt_type = HIGHPASS;

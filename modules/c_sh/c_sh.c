@@ -28,12 +28,6 @@ static void c_sh_process(Module* m, float* in, unsigned long frames) {
     float rate  = process_smoother(&s->smooth_rate,  raw_rate);
     float depth = process_smoother(&s->smooth_depth, raw_depth);
 
-    // Clamp smoothed values
-    if (rate < 0.01f) rate = 0.01f;
-    if (rate > 100.0f) rate = 100.0f;
-    if (depth < 0.0f) depth = 0.0f;
-    if (depth > 1.0f) depth = 1.0f;
-
     float* out = m->control_output;
     if (!out) return;
 

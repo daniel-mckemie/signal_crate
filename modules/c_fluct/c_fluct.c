@@ -8,7 +8,7 @@
 #include "module.h"
 #include "util.h"
 
-static void c_fluct_process_control(Module* m) {
+static void c_fluct_process_control(Module* m, unsigned long frames) {
     CFluct* s = (CFluct*)m->state;
 
     float base_rate, base_depth;
@@ -53,7 +53,7 @@ static void c_fluct_process_control(Module* m) {
     float sr = s->sample_rate;
     float dt = 1.0f / sr;
 
-    for (unsigned long i = 0; i < MAX_BLOCK_SIZE; i++) {
+    for (unsigned long i = 0; i < frames; i++) {
 
         s->phase += dt;
 

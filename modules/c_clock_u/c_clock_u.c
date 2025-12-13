@@ -14,7 +14,7 @@ static void clamp_params(CClockU* s) {
     clampf(&s->pw,   0.001f,  0.999f);
 }
 
-static void c_clock_process_control(Module* m) {
+static void c_clock_process_control(Module* m, unsigned long frames) {
     CClockU* s = (CClockU*)m->state;
     float* out = m->control_output;
     if (!out) return;
@@ -39,7 +39,7 @@ static void c_clock_process_control(Module* m) {
     float last_gate = s->last_gate;
 
     if (!running) {
-        memset(out, 0, sizeof(float) * MAX_BLOCK_SIZE);
+        memset(out, 0, sizeof(float) * frames);
         pthread_mutex_lock(&s->lock);
         s->last_gate       = 0.0f;
         s->display_bpm     = disp_bpm;
@@ -53,7 +53,7 @@ static void c_clock_process_control(Module* m) {
     double freq = (double)bpm * (double)mult / 60.0;
     double phase_inc = freq / sr;
 
-    for (unsigned long i = 0; i < MAX_BLOCK_SIZE; i++) {
+    for (unsigned long i = 0; i < frames; i++) {
         phase += phase_inc;
         if (phase >= 1.0)
             phase -= floor(phase);

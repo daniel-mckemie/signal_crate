@@ -274,7 +274,7 @@ Module* create_module(const char* args, float sample_rate) {
 	}
 	if (args && strstr(args, "wave=")) {
         char wave_str[32] = {0};
-        sscanf(strstr(args, "wave="), "wave=%31s", wave_str);
+        sscanf(strstr(args, "wave="), "wave=%31[^,]]", wave_str);
 
         if (strcmp(wave_str, "sine") == 0) wave = WAVE_SINE;
         else if (strcmp(wave_str, "saw") == 0) wave = WAVE_SAW;

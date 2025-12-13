@@ -11,7 +11,6 @@
 #include "scheduler.h"
 
 static void run_script_command(ScriptBox* s, const char* cmd);
-
 // Callback implementation — re-runs the script line
 void run_script_line_cb(void* userdata) {
     ScriptEvent* e = (ScriptEvent*)userdata;
@@ -19,7 +18,7 @@ void run_script_line_cb(void* userdata) {
     run_script_command(s, e->script_line);
 }
 
-static void script_box_process_control(Module* m) {
+static void script_box_process_control(Module* m, unsigned long frames) {
     // no continuous output — only dispatches commands
 }
 

@@ -8,7 +8,7 @@
 #include "util.h"
 #include "c_cv_proc.h"
 
-static void c_cv_proc_process_control(Module* m) {
+static void c_cv_proc_process_control(Module* m, unsigned long frames) {
     CCVProc* s = (CCVProc*)m->state;
 
     // 1) Read base values (UI / OSC targets)
@@ -71,7 +71,7 @@ static void c_cv_proc_process_control(Module* m) {
     pthread_mutex_unlock(&s->lock);
 
     // 8) Write constant control output for this block
-    for (unsigned long i = 0; i < MAX_BLOCK_SIZE; i++) {
+    for (unsigned long i = 0; i < frames; i++) {
         m->control_output[i] = out;
     }
 }

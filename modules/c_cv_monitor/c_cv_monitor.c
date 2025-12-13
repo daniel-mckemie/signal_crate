@@ -8,7 +8,7 @@
 #include "module.h"
 #include "util.h"
 
-static void cv_monitor_process_control(Module* m) {
+static void cv_monitor_process_control(Module* m, unsigned long frames) {
     CCVMonitor* s = (CCVMonitor*)m->state;
 
     // 1. Read UI params
@@ -55,7 +55,7 @@ static void cv_monitor_process_control(Module* m) {
     pthread_mutex_unlock(&s->lock);
 
     // 6. Output buffer
-    for (unsigned long i = 0; i < MAX_BLOCK_SIZE; i++)
+    for (unsigned long i = 0; i < frames; i++)
         m->control_output[i] = out;
 }
 

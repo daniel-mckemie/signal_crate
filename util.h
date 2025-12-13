@@ -7,7 +7,7 @@
 #define SINE_TABLE_SIZE 2048
 
 #ifndef MAX_BLOCK_SIZE
-#define MAX_BLOCK_SIZE 1024
+#define MAX_BLOCK_SIZE 128
 
 #endif
 

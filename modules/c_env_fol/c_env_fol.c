@@ -10,7 +10,7 @@
 
 #define ENV_UPDATE_INTERVAL 16
 
-static void c_env_fol_process_control(Module* m) {
+static void c_env_fol_process_control(Module* m, unsigned long frames) {
     if (!m->inputs[0]) {
         endwin();
         fprintf(stderr, "[c_env_fol] Error: No audio input connected.\n");
@@ -73,7 +73,7 @@ static void c_env_fol_process_control(Module* m) {
     float atk_coeff = expf(-1.0f / (0.001f * smooth_att   * s->sample_rate));
     float dec_coeff = expf(-1.0f / (0.001f * smooth_decay * s->sample_rate));
 
-    for (unsigned long i = 0; i < MAX_BLOCK_SIZE; i++) {
+    for (unsigned long i = 0; i < frames; i++) {
         float in = fabsf(m->inputs[0][i] * smooth_sens);
 
         if (in > s->env)

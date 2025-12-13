@@ -8,12 +8,28 @@
 #include "module.h"
 #include "util.h"
 
-static inline void clamp_params(CRandom* s) {
-    clampf(&s->rate_hz, 0.01f, 100.0f);
-    clampf(&s->depth,   0.0f, 1.0f);
+static inline void clamp_params(CRandom* s)
+{
+    clampf(&s->rate_hz,  0.01f, 100.0f);
+    clampf(&s->depth,    0.0f,   1.0f);
+
+    clampf(&s->range_min, -1.0f, 1.0f);
+    clampf(&s->range_max, -1.0f, 1.0f);
+
+    // enforce min <= max
+    if (s->range_min > s->range_max) {
+        float tmp = s->range_min;
+        s->range_min = s->range_max;
+        s->range_max = tmp;
+    }
+
+    // enum safety
+    if (s->type < 0) s->type = 0;
+    if (s->type > 2) s->type = 2;
 }
 
-static void c_random_process_control(Module* m) {
+
+static void c_random_process_control(Module* m, unsigned long frames) {
     CRandom* s = (CRandom*)m->state;
 
     float rate, rmin, rmax, depth;
@@ -30,18 +46,12 @@ static void c_random_process_control(Module* m) {
     rate  = process_smoother(&s->smooth_rate,  raw_rate);
     depth = process_smoother(&s->smooth_depth, raw_depth);
 
-    // Clamp smoothed values
-    if (rate < 0.01f) rate = 0.01f;
-    if (rate > 100.0f) rate = 100.0f;
-    if (depth < 0.0f) depth = 0.0f;
-    if (depth > 1.0f) depth = 1.0f;
-
     float* out = m->control_output;
     if (!out) return;
 
     float dt = 1.0f / s->sample_rate;
 
-    for (int i = 0; i < MAX_BLOCK_SIZE; i++) {
+    for (int i = 0; i < frames; i++) {
 
         s->phase += dt * rate;
         if (s->phase >= 1.0f) {
@@ -65,7 +75,7 @@ static void c_random_process_control(Module* m) {
 
             float u_range = rmin + u_depth * (rmax - rmin);
 
-            float final = fminf(fmaxf(u_range, 0.0f), 1.0f);
+            float final = u_range; 
             s->current_val = final;
 
             pthread_mutex_lock(&s->lock);

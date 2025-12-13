@@ -1,0 +1,8 @@
+c_lfo as c1
+c_random([rate=0.5]) as l1
+c_random([rate=0.5]) as l2
+c_random([rate=0.5]) as l3
+vco([freq=100,wave=square], freq=c1) as v1
+moog_filter([cutoff=100,type=res],v1,cutoff=l2) as filt1
+vca([gain=0], filt1, pan=l1, gain=l3) as out
+

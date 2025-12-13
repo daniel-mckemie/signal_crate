@@ -10,18 +10,15 @@
 
 static void vco_process(Module *m, float* in, unsigned long frames) {
     VCO *state = (VCO*)m->state;
-
     float raw_freq, raw_amp;
     Waveform waveform;
 
-    // --- Read unsmoothed params safely ---
     pthread_mutex_lock(&state->lock);
     raw_freq = state->frequency;
     raw_amp  = state->amplitude;
     waveform = state->waveform;
     pthread_mutex_unlock(&state->lock);
 
-    // --- Smooth ONCE per block ---
     float freq = process_smoother(&state->smooth_freq, raw_freq);
     float amp  = process_smoother(&state->smooth_amp,  raw_amp);
 
@@ -46,7 +43,6 @@ static void vco_process(Module *m, float* in, unsigned long frames) {
         }
     }
 
-    // Clamp amplitude
     amp = fminf(fmaxf(amp, 0.0f), 1.0f);
 
     // Update UI

@@ -1,21 +1,25 @@
-#ifndef OUTPUT_H
-#define OUTPUT_H
+#ifndef VCA_H
+#define VCA_H
 
 #include <pthread.h>
 #include <stdbool.h>
 
+#include "util.h"
+
 typedef struct {
-	int target_channel;
+    int target_channel;
 
     float gain;
-	float pan;
-	float display_gain;
-	float display_pan;
+    float pan;
 
-	CParamSmooth smooth_gain;
-	CParamSmooth smooth_pan;
+    float display_gain;
+    float display_pan;
 
-    // Command mode
+    float gain_prev;
+    float gain_step;
+
+    CParamSmooth smooth_pan;
+
     bool entering_command;
     char command_buffer[64];
     int command_index;
@@ -24,4 +28,3 @@ typedef struct {
 } VCAState;
 
 #endif
-

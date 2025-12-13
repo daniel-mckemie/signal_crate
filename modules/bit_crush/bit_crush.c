@@ -206,7 +206,7 @@ Module* create_module(const char* args, float sample_rate) {
     Module* m = calloc(1, sizeof(Module));
     m->name = "bit_crush";
     m->state = s;
-    m->output_buffer = calloc(FRAMES_PER_BUFFER, sizeof(float));
+    m->output_buffer = calloc(MAX_BLOCK_SIZE, sizeof(float));
     m->process = bit_crush_process;
     m->draw_ui = bit_crush_draw_ui;
     m->handle_input = bit_crush_handle_input;

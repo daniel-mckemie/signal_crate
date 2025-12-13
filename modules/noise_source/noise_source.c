@@ -186,7 +186,7 @@ Module* create_module(const char* args, float sample_rate) {
 	Module *m = calloc(1, sizeof(Module));
 	m->name = "noise_source";
 	m->state = state;
-	m->output_buffer = calloc(FRAMES_PER_BUFFER, sizeof(float));
+	m->output_buffer = calloc(MAX_BLOCK_SIZE, sizeof(float));
 	m->process = noise_source_process;
 	m->draw_ui = noise_source_draw_ui;
 	m->handle_input = noise_source_handle_input;

@@ -11,6 +11,8 @@
 #include "util.h"
 #include "osc.h"
 
+#define REQUESTED_FRAMES_PER_BUFFER 64
+
 float sample_rate = 48000.0f;
 
 static int audio_callback(const void* input, void* output,
@@ -167,7 +169,7 @@ int main(int argc, char** argv) {
                                 (inputDevice != paNoDevice) ? &inputParams : NULL,
                                 &outputParams,
                                 sample_rate,
-                                FRAMES_PER_BUFFER,
+                                REQUESTED_FRAMES_PER_BUFFER,
                                 paClipOff,
                                 audio_callback,
                                 NULL);

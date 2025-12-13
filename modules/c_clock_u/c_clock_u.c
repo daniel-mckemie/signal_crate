@@ -39,7 +39,7 @@ static void c_clock_process_control(Module* m) {
     float last_gate = s->last_gate;
 
     if (!running) {
-        memset(out, 0, sizeof(float) * FRAMES_PER_BUFFER);
+        memset(out, 0, sizeof(float) * MAX_BLOCK_SIZE);
         pthread_mutex_lock(&s->lock);
         s->last_gate       = 0.0f;
         s->display_bpm     = disp_bpm;
@@ -53,7 +53,7 @@ static void c_clock_process_control(Module* m) {
     double freq = (double)bpm * (double)mult / 60.0;
     double phase_inc = freq / sr;
 
-    for (unsigned long i = 0; i < FRAMES_PER_BUFFER; i++) {
+    for (unsigned long i = 0; i < MAX_BLOCK_SIZE; i++) {
         phase += phase_inc;
         if (phase >= 1.0)
             phase -= floor(phase);
@@ -209,7 +209,7 @@ Module* create_module(const char* args, float sample_rate) {
     m->handle_input    = c_clock_handle_input;
     m->set_param       = c_clock_set_osc_param;
     m->destroy         = c_clock_destroy;
-    m->control_output  = calloc(FRAMES_PER_BUFFER, sizeof(float));
+    m->control_output  = calloc(MAX_BLOCK_SIZE, sizeof(float));
     return m;
 }
 

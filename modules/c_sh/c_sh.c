@@ -208,7 +208,7 @@ Module* create_module(const char* args, float sample_rate) {
     m->state  = s;
 
     m->output_buffer  = NULL; // no audio out
-    m->control_output = calloc(FRAMES_PER_BUFFER, sizeof(float));
+    m->control_output = calloc(MAX_BLOCK_SIZE, sizeof(float));
 
     m->process         = c_sh_process;   // AUDIO-IN → CONTROL-OUT
     m->process_control = NULL;

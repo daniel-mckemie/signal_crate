@@ -228,7 +228,7 @@ Module* create_module(const char* args, float sample_rate) {
 	m->draw_ui = template_draw_ui;
 	m->handle_input = template_handle_input;
 	m->set_param = template_set_osc_param;
-	m->control_output = calloc(FRAMES_PER_BUFFER, sizeof(float));
+	m->control_output = calloc(MAX_BLOCK_SIZE, sizeof(float));
 	m->destroy = template_destroy;
 	return m;
 }

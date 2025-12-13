@@ -224,7 +224,7 @@ Module* create_module(const char* args, float sample_rate) {
     Module* m = calloc(1, sizeof(Module));
     m->name = "freeverb";
     m->state = s;
-    m->output_buffer = calloc(FRAMES_PER_BUFFER, sizeof(float));
+    m->output_buffer = calloc(MAX_BLOCK_SIZE, sizeof(float));
     m->process = freeverb_process;
     m->draw_ui = freeverb_draw_ui;
     m->handle_input = freeverb_handle_input;

@@ -73,7 +73,7 @@ static void c_env_fol_process_control(Module* m) {
     float atk_coeff = expf(-1.0f / (0.001f * smooth_att   * s->sample_rate));
     float dec_coeff = expf(-1.0f / (0.001f * smooth_decay * s->sample_rate));
 
-    for (unsigned long i = 0; i < FRAMES_PER_BUFFER; i++) {
+    for (unsigned long i = 0; i < MAX_BLOCK_SIZE; i++) {
         float in = fabsf(m->inputs[0][i] * smooth_sens);
 
         if (in > s->env)
@@ -237,7 +237,7 @@ Module* create_module(const char* args, float sample_rate) {
     m->draw_ui = c_env_fol_draw_ui;
     m->handle_input = c_env_fol_handle_input;
     m->set_param = c_env_fol_set_osc_param;
-	m->control_output = calloc(FRAMES_PER_BUFFER, sizeof(float));
+	m->control_output = calloc(MAX_BLOCK_SIZE, sizeof(float));
     m->destroy = c_env_fol_destroy;
     return m;
 }

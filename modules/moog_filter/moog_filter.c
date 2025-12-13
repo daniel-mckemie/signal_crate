@@ -230,7 +230,7 @@ Module* create_module(const char* args, float sample_rate) {
 	Module *m = calloc(1, sizeof(Module));
 	m->name = "moog_filter";
 	m->state = state;
-	m->output_buffer = calloc(FRAMES_PER_BUFFER, sizeof(float));
+	m->output_buffer = calloc(MAX_BLOCK_SIZE, sizeof(float));
 	m->process = moog_filter_process;
 	m->draw_ui = moog_filter_draw_ui;
 	m->handle_input = moog_filter_handle_input;

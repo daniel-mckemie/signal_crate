@@ -41,7 +41,7 @@ static void c_random_process_control(Module* m) {
 
     float dt = 1.0f / s->sample_rate;
 
-    for (int i = 0; i < FRAMES_PER_BUFFER; i++) {
+    for (int i = 0; i < MAX_BLOCK_SIZE; i++) {
 
         s->phase += dt * rate;
         if (s->phase >= 1.0f) {
@@ -239,7 +239,7 @@ Module* create_module(const char* args, float sample_rate) {
     Module* m = calloc(1,sizeof(Module));
     m->name = "c_random";
     m->state = s;
-    m->control_output = calloc(FRAMES_PER_BUFFER,sizeof(float));
+    m->control_output = calloc(MAX_BLOCK_SIZE,sizeof(float));
     m->process_control = c_random_process_control;
     m->draw_ui = c_random_draw_ui;
     m->handle_input = c_random_handle_input;

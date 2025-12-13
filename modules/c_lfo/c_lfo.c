@@ -64,7 +64,7 @@ static void c_lfo_process_control(Module* m) {
     float sr = s->sample_rate;
     const float* sine_table = get_sine_table();
 
-    for (unsigned long i = 0; i < FRAMES_PER_BUFFER; i++) {
+    for (unsigned long i = 0; i < MAX_BLOCK_SIZE; i++) {
         float t = s->phase / TWO_PI;
         float value = 0.0f;
 
@@ -250,7 +250,7 @@ Module* create_module(const char* args, float sample_rate) {
     m->draw_ui = c_lfo_draw_ui;
     m->handle_input = c_lfo_handle_input;
     m->set_param = c_lfo_set_osc_param;
-	m->control_output = calloc(FRAMES_PER_BUFFER, sizeof(float));
+	m->control_output = calloc(MAX_BLOCK_SIZE, sizeof(float));
     m->destroy = c_lfo_destroy;
     return m;
 }

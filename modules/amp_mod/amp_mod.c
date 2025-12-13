@@ -16,6 +16,9 @@ static void ampmod_process(Module* m, float* in, unsigned long frames) {
 	float* out = m->output_buffer;
 
 	if (!in_car || !in_mod) {
+		if (!in_mod) {
+			printf("[amp_mod] WARNING: missing 2nd audio input\n");
+		}
 		memset(out, 0, frames * sizeof(float));
 		return;
 	}
@@ -206,7 +209,7 @@ Module* create_module(const char* args, float sample_rate) {
 	Module* m = calloc(1, sizeof(Module));
 	m->name = "amp_mod";
 	m->state = state;
-	m->output_buffer = calloc(FRAMES_PER_BUFFER, sizeof(float));
+	m->output_buffer = calloc(MAX_BLOCK_SIZE, sizeof(float));
 	m->process = ampmod_process;
 	m->draw_ui = ampmod_draw_ui;
 	m->handle_input = ampmod_handle_input;

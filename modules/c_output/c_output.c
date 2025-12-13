@@ -175,8 +175,8 @@ Module* create_module(const char* args, float sample_rate) {
     m->destroy = c_output_destroy;
 
     // AUDIO output (for DC-coupled DAC)
-    m->output_bufferL = calloc(FRAMES_PER_BUFFER, sizeof(float));
-    m->output_bufferR = calloc(FRAMES_PER_BUFFER, sizeof(float));
+    m->output_bufferL = calloc(MAX_BLOCK_SIZE, sizeof(float));
+    m->output_bufferR = calloc(MAX_BLOCK_SIZE, sizeof(float));
 	m->output_buffer = m->output_bufferL;
     return m;
 }

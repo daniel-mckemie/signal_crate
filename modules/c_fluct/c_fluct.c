@@ -53,7 +53,7 @@ static void c_fluct_process_control(Module* m) {
     float sr = s->sample_rate;
     float dt = 1.0f / sr;
 
-    for (unsigned long i = 0; i < FRAMES_PER_BUFFER; i++) {
+    for (unsigned long i = 0; i < MAX_BLOCK_SIZE; i++) {
 
         s->phase += dt;
 
@@ -225,7 +225,7 @@ Module* create_module(const char* args, float sample_rate) {
     m->handle_input = c_fluct_handle_input;
     m->set_param = c_fluct_set_osc_param;
     m->destroy = c_fluct_destroy;
-    m->control_output = calloc(FRAMES_PER_BUFFER, sizeof(float));
+    m->control_output = calloc(MAX_BLOCK_SIZE, sizeof(float));
     return m;
 }
 

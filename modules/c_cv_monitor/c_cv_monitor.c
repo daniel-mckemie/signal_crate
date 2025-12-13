@@ -55,7 +55,7 @@ static void cv_monitor_process_control(Module* m) {
     pthread_mutex_unlock(&s->lock);
 
     // 6. Output buffer
-    for (unsigned long i = 0; i < FRAMES_PER_BUFFER; i++)
+    for (unsigned long i = 0; i < MAX_BLOCK_SIZE; i++)
         m->control_output[i] = out;
 }
 
@@ -186,7 +186,7 @@ Module* create_module(const char* args, float sample_rate) {
     m->handle_input = cv_monitor_handle_input;
 	m->set_param = cv_monitor_set_osc_param;
     m->destroy = cv_monitor_destroy;
-    m->control_output = calloc(FRAMES_PER_BUFFER, sizeof(float));
+    m->control_output = calloc(MAX_BLOCK_SIZE, sizeof(float));
     return m;
 }
 

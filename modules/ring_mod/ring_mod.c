@@ -215,7 +215,7 @@ Module* create_module(const char* args, float sample_rate) {
     Module* m = calloc(1, sizeof(Module));
     m->name = "ring_mod";
     m->state = state;
-	m->output_buffer = calloc(FRAMES_PER_BUFFER, sizeof(float));
+	m->output_buffer = calloc(MAX_BLOCK_SIZE, sizeof(float));
     m->process = ringmod_process;
     m->draw_ui = ringmod_draw_ui;
     m->handle_input = ringmod_handle_input;

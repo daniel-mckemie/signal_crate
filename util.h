@@ -6,8 +6,8 @@
 #define TWO_PI (2.0f * M_PI)
 #define SINE_TABLE_SIZE 2048
 
-#ifndef FRAMES_PER_BUFFER
-#define FRAMES_PER_BUFFER 16
+#ifndef MAX_BLOCK_SIZE
+#define MAX_BLOCK_SIZE 1024
 
 #endif
 

@@ -113,7 +113,7 @@ static void c_asr_process_control(Module* m) {
     float sr = s->sample_rate;
     if (sr <= 0.0f) sr = 48000.0f;
 
-    for (unsigned long i = 0; i < FRAMES_PER_BUFFER; i++) {
+    for (unsigned long i = 0; i < MAX_BLOCK_SIZE; i++) {
         float step = 1.0f / sr;
 
         switch (s->state) {
@@ -378,7 +378,7 @@ Module* create_module(const char* args, float sample_rate) {
     m->process_control = c_asr_process_control;
     m->draw_ui = c_asr_draw_ui;
     m->handle_input = c_asr_handle_input;
-    m->control_output = calloc(FRAMES_PER_BUFFER, sizeof(float));
+    m->control_output = calloc(MAX_BLOCK_SIZE, sizeof(float));
 	m->set_param = c_asr_set_osc_param;
     m->destroy = c_asr_destroy;
     return m;

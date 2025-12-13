@@ -1,0 +1,8 @@
+vco as v1
+vco as v2
+c_lfo([freq=0.03, depth=0.01]) as c2
+pm_mod(freq=c2, v1,v2) as pm
+c_lfo([freq=0.02, depth=0.01]) as c1
+fm_mod(mod_freq=c1, v1) as fm
+vca(pm) as out1
+vca(fm) as out2

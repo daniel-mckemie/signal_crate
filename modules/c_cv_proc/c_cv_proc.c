@@ -71,7 +71,7 @@ static void c_cv_proc_process_control(Module* m) {
     pthread_mutex_unlock(&s->lock);
 
     // 8) Write constant control output for this block
-    for (unsigned long i = 0; i < FRAMES_PER_BUFFER; i++) {
+    for (unsigned long i = 0; i < MAX_BLOCK_SIZE; i++) {
         m->control_output[i] = out;
     }
 }
@@ -220,7 +220,7 @@ Module* create_module(const char* args, float sample_rate) {
     mod->draw_ui = c_cv_proc_draw_ui;
     mod->handle_input = c_cv_proc_handle_input;
     mod->set_param = c_cv_proc_set_osc_param;
-    mod->control_output = calloc(FRAMES_PER_BUFFER, sizeof(float));
+    mod->control_output = calloc(MAX_BLOCK_SIZE, sizeof(float));
     mod->destroy = c_cv_proc_destroy;
 
     return mod;

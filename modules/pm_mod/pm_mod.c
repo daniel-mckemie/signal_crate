@@ -121,8 +121,8 @@ static void pm_mod_draw_ui(Module *m, int y, int x) {
 	ORANGE(); printw(" %.2f", idx); CLR();
 
 	YELLOW();
-    mvprintw(y+1, x, "Real-time keys: -/= (car amp), _/+ (mod amp), {/} (freq) [/] (idx)");
-    mvprintw(y+2, x, "Command mode: :1 [car amp], :2 [mod amp], :3 [base_freq], :4 [idx]"); 
+    mvprintw(y+1, x, "Real-time keys: -/= (base_freq), _/+ (car_amp), {/} (mod_amp) [/] (idx)");
+    mvprintw(y+2, x, "Command mode: :1 [base_freq], :2 [car_amp], :3 [mod_amp], :4 [idx]"); 
 	BLACK();
 }
 
@@ -134,12 +134,12 @@ static void pm_mod_handle_input(Module *m, int key) {
 
     if (!state->entering_command) {
         switch (key) {
-            case '=': state->car_amp += 0.01f; handled = 1; break;
-            case '-': state->car_amp -= 0.01f; handled = 1; break;	
-            case '+': state->mod_amp += 0.01f; handled = 1; break;
-            case '_': state->mod_amp -= 0.01f; handled = 1; break;	
-            case '}': state->base_freq += 0.5f; handled = 1; break;	
-            case '{': state->base_freq -= 0.5f; handled = 1; break;	
+            case '=': state->base_freq += 0.5f; handled = 1; break;
+            case '-': state->base_freq -= 0.5f; handled = 1; break;	
+            case '+': state->car_amp += 0.01f; handled = 1; break;
+            case '_': state->car_amp -= 0.01f; handled = 1; break;	
+            case '}': state->mod_amp+= 0.01f; handled = 1; break;	
+            case '{': state->mod_amp -= 0.01f; handled = 1; break;	
             case ']': state->index += 0.01f; handled = 1; break;
             case '[': state->index -= 0.01f; handled = 1; break;
             case ':':
@@ -155,9 +155,9 @@ static void pm_mod_handle_input(Module *m, int key) {
             char type;
             float val;
             if (sscanf(state->command_buffer, "%c %f", &type, &val) == 2) {
-                if (type == '1') state->car_amp = val;
-                else if (type == '2') state->mod_amp = val;
-                else if (type == '3') state->base_freq = val;
+                if (type == '1') state->base_freq = val;
+                else if (type == '2') state->car_amp = val;
+                else if (type == '3') state->mod_amp = val;
                 else if (type == '4') state->index = val;
             }
             handled = 1;
@@ -242,7 +242,7 @@ Module* create_module(const char* args, float sample_rate) {
 	Module *m = calloc(1, sizeof(Module));
 	m->name = "pm_mod";
 	m->state = state;
-	m->output_buffer = calloc(FRAMES_PER_BUFFER, sizeof(float));
+	m->output_buffer = calloc(MAX_BLOCK_SIZE, sizeof(float));
 	m->process = pm_mod_process;
 	m->draw_ui = pm_mod_draw_ui;
 	m->handle_input = pm_mod_handle_input;

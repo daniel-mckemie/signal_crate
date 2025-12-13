@@ -226,7 +226,7 @@ Module* create_module(const char* args, float sample_rate) {
 	Module *m = calloc(1, sizeof(Module));
 	m->name = "fm_mod";
 	m->state = state;
-	m->output_buffer = calloc(FRAMES_PER_BUFFER, sizeof(float));
+	m->output_buffer = calloc(MAX_BLOCK_SIZE, sizeof(float));
 	m->process = fm_mod_process;
 	m->draw_ui = fm_mod_draw_ui;
 	m->handle_input = fm_mod_handle_input;

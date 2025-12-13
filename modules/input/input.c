@@ -140,7 +140,7 @@ Module* create_module(const char* args, float sample_rate) {
     Module* m = calloc(1, sizeof(Module));
     m->name = "input";
     m->state = state;
-    m->output_buffer = calloc(FRAMES_PER_BUFFER, sizeof(float));
+    m->output_buffer = calloc(MAX_BLOCK_SIZE, sizeof(float));
     m->process = input_process;
     m->draw_ui = input_draw_ui;
     m->handle_input = input_handle_input;

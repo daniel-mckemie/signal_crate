@@ -93,8 +93,8 @@ static void connect_control_inputs(Module* m, char** param_names, char** source_
 			char* endptr = NULL;
 			float literal = strtof(source_names[i], &endptr);
 			if (endptr && *endptr == '\0') {
-				float* buffer = malloc(sizeof(float) * FRAMES_PER_BUFFER);
-				for (int j = 0; j < FRAMES_PER_BUFFER; j++) buffer[j] = literal;
+				float* buffer = malloc(sizeof(float) * MAX_BLOCK_SIZE);
+				for (int j = 0; j < MAX_BLOCK_SIZE; j++) buffer[j] = literal;
 				m->control_inputs[m->num_control_inputs] = buffer;
 				m->control_input_params[m->num_control_inputs] = strdup(param_names[i]);
 				m->num_control_inputs++;

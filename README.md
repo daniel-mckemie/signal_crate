@@ -357,10 +357,13 @@ Takes in audio from system and outputs control signal into Signal Crate
 `c_input([ch=1]) as in1` = input from channel 1 sends to control layer with alias in1
 `c_input([ch=4]) as in4` = outputs to channel 4 sends to control layer with alias in4
 
-Takes input 8 and outputs it to channel 3
+Takes control input on channel 8 and controls the [VCO:v1]'s frequency param
+and is output to stereo from the VCA
 ```bash
-input([ch=8]) as in8
-vca(in8) as out3
+c_input([ch=8]) as cin8
+c_input([ch=17]) as cin17
+vco(freq=in8) as v1
+vca(pan=cin17,v1) as out
 ```
 - `val` - amplitude of signal
 
@@ -371,8 +374,11 @@ vca(in8) as out3
 Output module for DC control voltage. Takes in control input
 and routes out as audio, set to output channel similar to VCA.
 - `val` - output value of CV
-`c_output(val=cvIn) as out3` // outputs audio from control input
-To output audio as CV, use `audio -> c_env_fol -> c_output`
+```bash
+c_lfo as l1
+c_output(l1) as out3` // output lfo from Signal Crate to channel 3 of interface
+```
+*To output audio as CV, use `audio -> c_env_fol -> c_output`*
 
 ---
 

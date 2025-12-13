@@ -71,7 +71,7 @@ static void c_asr_process_control(Module* m) {
     bool prev_gate = s->gate_prev;
     float sr = s->sample_rate;
 
-    for (unsigned long i = 0; i < FRAMES_PER_BUFFER; i++) {
+    for (unsigned long i = 0; i < MAX_BLOCK_SIZE; i++) {
         float gate_sample = (gate_buf ? gate_buf[i] : 0.0f);
         bool gate_now = (gate_sample >= s->threshold_gate);
 
@@ -283,7 +283,7 @@ Module* create_module(const char* args, float sample_rate) {
     m->process_control = c_asr_process_control;
     m->draw_ui = c_asr_draw_ui;
     m->handle_input = c_asr_handle_input;
-    m->control_output = calloc(FRAMES_PER_BUFFER, sizeof(float));
+    m->control_output = calloc(MAX_BLOCK_SIZE, sizeof(float));
 	m->set_param = c_asr_set_osc_param;
     m->destroy = c_asr_destroy;
     return m;

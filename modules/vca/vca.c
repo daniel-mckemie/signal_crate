@@ -210,8 +210,8 @@ Module* create_module(const char* args, float sample_rate) {
     Module* m = calloc(1, sizeof(Module));
     m->name = "vca";  // IMPORTANT: engine uses "out" for final audio
     m->state = state;
-	m->output_bufferL = calloc(FRAMES_PER_BUFFER, sizeof(float));  // mono
-	m->output_bufferR = calloc(FRAMES_PER_BUFFER, sizeof(float));  // mono
+	m->output_bufferL = calloc(MAX_BLOCK_SIZE, sizeof(float));  // mono
+	m->output_bufferR = calloc(MAX_BLOCK_SIZE, sizeof(float));  // mono
     m->process = vca_process;
     m->draw_ui = vca_draw_ui;
     m->handle_input = vca_handle_input;

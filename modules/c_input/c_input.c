@@ -142,7 +142,7 @@ Module* create_module(const char* args, float sample_rate)
     m->destroy = c_input_destroy;
 
     // CONTROL output buffer
-    m->control_output = calloc(FRAMES_PER_BUFFER, sizeof(float));
+    m->control_output = calloc(MAX_BLOCK_SIZE, sizeof(float));
 
     return m;
 }

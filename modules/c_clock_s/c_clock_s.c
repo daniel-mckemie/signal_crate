@@ -117,7 +117,7 @@ static void c_clock_process_control(Module* m) {
     int effective_running = has_sync ? (running && user_enable) : running;
 
     if (!running) {
-        for (unsigned long i = 0; i < FRAMES_PER_BUFFER; ++i)
+        for (unsigned long i = 0; i < MAX_BLOCK_SIZE; ++i)
             out[i] = 0.0f;
 
         pthread_mutex_lock(&s->lock);
@@ -135,7 +135,7 @@ static void c_clock_process_control(Module* m) {
         double freq      = base_freq * (double)mult;
         double phase_inc = freq / (double)sr;
 
-        for (unsigned long i = 0; i < FRAMES_PER_BUFFER; ++i) {
+        for (unsigned long i = 0; i < MAX_BLOCK_SIZE; ++i) {
             // Rising-edge detect from primary gate
             if (sync_buf) {
                 float s_in = sync_buf[i];
@@ -171,7 +171,7 @@ static void c_clock_process_control(Module* m) {
     double freq      = base_freq * (double)mult;
 
     if (freq <= 0.0) {
-        for (unsigned long i = 0; i < FRAMES_PER_BUFFER; ++i)
+        for (unsigned long i = 0; i < MAX_BLOCK_SIZE; ++i)
             out[i] = 0.0f;
 
         pthread_mutex_lock(&s->lock);
@@ -188,7 +188,7 @@ static void c_clock_process_control(Module* m) {
 
     double phase_inc = freq / (double)sr;
 
-    for (unsigned long i = 0; i < FRAMES_PER_BUFFER; ++i) {
+    for (unsigned long i = 0; i < MAX_BLOCK_SIZE; ++i) {
         // For secondaries, optionally resync phase on next primary pulse
         if (has_sync && sync_buf) {
             float s_in = sync_buf[i];
@@ -462,7 +462,7 @@ Module* create_module(const char* args, float sample_rate) {
     m->handle_input    = c_clock_handle_input;
     m->set_param       = c_clock_set_osc_param;
     m->destroy         = c_clock_destroy;
-    m->control_output  = calloc(FRAMES_PER_BUFFER, sizeof(float));
+    m->control_output  = calloc(MAX_BLOCK_SIZE, sizeof(float));
     return m;
 }
 

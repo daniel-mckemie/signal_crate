@@ -11,118 +11,134 @@
 static void c_asr_process_control(Module* m, unsigned long frames) {
     CASR* s = (CASR*)m->state;
 
-    float att, sus, rel, depth;
-
-    // Read base params
+    float base_att, base_sus, base_rel, base_depth, gate_thresh;
+    bool short_mode;
     pthread_mutex_lock(&s->lock);
-    att   = s->attack_time;
-    sus   = s->sustain_level;
-    rel   = s->release_time;
-    depth = s->depth;
+    base_att    = s->attack_time;
+    base_sus    = s->sustain_level;
+    base_rel    = s->release_time;
+    base_depth  = s->depth;
+    gate_thresh = s->threshold_gate;
+    short_mode  = s->short_mode;
     pthread_mutex_unlock(&s->lock);
 
+    float att_s   = process_smoother(&s->smooth_att,   base_att);
+    float sus_s   = process_smoother(&s->smooth_sus,   base_sus);
+    float rel_s   = process_smoother(&s->smooth_rel,   base_rel);
+    float depth_s = process_smoother(&s->smooth_depth, base_depth);
+
     float* gate_buf = NULL;
-    float mod_depth = 1.0f;
-
-    // --- modulation inputs ---
     for (int j = 0; j < m->num_control_inputs; j++) {
-        if (!m->control_inputs[j] || !m->control_input_params[j])
-            continue;
-
-        const char* param = m->control_input_params[j];
-        float control = *(m->control_inputs[j]);
-        float norm = fminf(fmaxf(control, -1.0f), 1.0f);
-
-        if (strcmp(param, "att") == 0) {
-            float mod_range = (s->short_mode ? 10.0f - att : 1000.0f - att) * mod_depth;
-            att += norm * mod_range;
-
-        } else if (strcmp(param, "rel") == 0) {
-            float mod_range = (s->short_mode ? 10.0f - rel : 1000.0f - rel) * mod_depth;
-            rel += norm * mod_range;
-
-        } else if (strcmp(param, "depth") == 0) {
-            float mod_range = (1.0f - s->depth) * mod_depth;
-            depth = s->depth + norm * mod_range;
-
-        } else if (strcmp(param, "gate") == 0) {
+        if (!m->control_inputs[j] || !m->control_input_params[j]) continue;
+        if (strcmp(m->control_input_params[j], "gate") == 0) {
             gate_buf = m->control_inputs[j];
+            break;
         }
     }
 
-    // Clamp + smooth
-    sus   = fminf(fmaxf(sus,   0.01f), 1.0f);
-    depth = fminf(fmaxf(depth, 0.0f),  1.0f);
+    // --- display values ---
+    float disp_att   = att_s;
+    float disp_rel   = rel_s;
+    float disp_depth = depth_s;
 
-    att   = process_smoother(&s->smooth_att,   att);
-    sus   = process_smoother(&s->smooth_sus,   sus);
-    rel   = process_smoother(&s->smooth_rel,   rel);
-    depth = process_smoother(&s->smooth_depth, depth);
-
-    // Write display params
-    pthread_mutex_lock(&s->lock);
-    s->display_att   = att;
-    s->display_sus   = sus;
-    s->display_rel   = rel;
-    s->display_depth = depth;
-    pthread_mutex_unlock(&s->lock);
-
-    // Envelope loop
     bool prev_gate = s->gate_prev;
     float sr = s->sample_rate;
+    float step = 1.0f / sr;
 
     for (unsigned long i = 0; i < frames; i++) {
-        float gate_sample = (gate_buf ? gate_buf[i] : 0.0f);
-        bool gate_now = (gate_sample >= s->threshold_gate);
 
-        // Rising edge starts attack
-        if (gate_now && !prev_gate) {
-            s->state = ENV_ATTACK;
+        float att   = att_s;
+        float sus   = sus_s;
+        float rel   = rel_s;
+        float depth = depth_s;
+
+        for (int j = 0; j < m->num_control_inputs; j++) {
+            if (!m->control_inputs[j] || !m->control_input_params[j]) continue;
+
+            const char* param = m->control_input_params[j];
+            if (strcmp(param, "gate") == 0) continue;
+
+            float control = m->control_inputs[j][i];
+            control = fminf(fmaxf(control, -1.0f), 1.0f);
+
+            if (strcmp(param, "att") == 0) {
+                float max_att = short_mode ? 10.0f : 1000.0f;
+                att += control * (max_att - base_att);
+            }
+            else if (strcmp(param, "rel") == 0) {
+                float max_rel = short_mode ? 10.0f : 1000.0f;
+                rel += control * (max_rel - base_rel);
+            }
+            else if (strcmp(param, "depth") == 0) {
+                depth += control * (1.0f - base_depth);
+            }
         }
 
-        float step = 1.0f / sr;
+        if (short_mode) {
+            clampf(&att, 0.01f, 10.0f);
+            clampf(&rel, 0.01f, 10.0f);
+        } else {
+            clampf(&att, 0.01f, INFINITY);
+            clampf(&rel, 0.01f, INFINITY);
+        }
+        clampf(&sus,   0.01f, 1.0f);
+        clampf(&depth, 0.0f,  1.0f);
+
+        float gate_sample = gate_buf ? gate_buf[i] : 0.0f;
+        bool gate_now = (gate_sample >= gate_thresh);
+
+        if (gate_now && !prev_gate) s->state = ENV_ATTACK;
 
         switch (s->state) {
 
-        case ENV_ATTACK: {
-            float inc = step / fmaxf(att, 0.001f);
-            s->envelope_out += inc;
-            if (s->envelope_out >= 1.0f) {
-                s->envelope_out = 1.0f;
-                s->state = ENV_SUSTAIN;
+            case ENV_ATTACK: {
+                float inc = step / fmaxf(att, 0.001f);
+                s->envelope_out += inc;
+                if (s->envelope_out >= 1.0f) {
+                    s->envelope_out = 1.0f;
+                    s->state = ENV_SUSTAIN;
+                }
+                break;
             }
-            break;
-        }
 
-        case ENV_SUSTAIN:
-            s->envelope_out = sus;
-            if (!gate_now) {
-                s->state = ENV_RELEASE;
+            case ENV_SUSTAIN:
+                s->envelope_out = sus;
+                if (!gate_now) s->state = ENV_RELEASE;
+                break;
+
+            case ENV_RELEASE: {
+                float dec = step / fmaxf(rel, 0.001f);
+                s->envelope_out -= dec;
+                if (s->envelope_out <= 0.0f) {
+                    s->envelope_out = 0.0f;
+                    s->state = ENV_IDLE;
+                }
+                break;
             }
-            break;
 
-        case ENV_RELEASE: {
-            float dec = step / fmaxf(rel, 0.001f);
-            s->envelope_out -= dec;
-            if (s->envelope_out <= 0.0f) {
+            case ENV_IDLE:
+            default:
                 s->envelope_out = 0.0f;
-                s->state = ENV_IDLE;
-            }
-            break;
-        }
-
-        case ENV_IDLE:
-        default:
-            // stay at zero; only rising gate restarts
-            s->envelope_out = 0.0f;
-            break;
+                break;
         }
 
         m->control_output[i] = s->envelope_out * depth;
+
+        disp_att   = att;
+        disp_rel   = rel;
+        disp_depth = depth;
+
         prev_gate = gate_now;
     }
 
     s->gate_prev = prev_gate;
+
+    pthread_mutex_lock(&s->lock);
+    s->display_att   = disp_att;
+    s->display_sus   = sus_s;
+    s->display_rel   = disp_rel;
+    s->display_depth = disp_depth;
+    pthread_mutex_unlock(&s->lock);
 }
 
 static void clamp_params(CASR* s) {
@@ -181,8 +197,8 @@ static void c_asr_handle_input(Module* m, int key) {
             case '=': s->attack_time += 0.1f; handled = 1; break;
             case '_': s->release_time -= 0.1f; handled = 1; break;
             case '+': s->release_time += 0.1f; handled = 1; break;
-            case '[': s->threshold_gate -= 0.1f; handled = 1; break;
-            case ']': s->threshold_gate += 0.1f; handled = 1; break;
+            case '[': s->threshold_gate -= 0.05f; handled = 1; break;
+            case ']': s->threshold_gate += 0.05f; handled = 1; break;
             case 'd': s->depth -= 0.01f; handled = 1; break;
             case 'D': s->depth += 0.01f; handled = 1; break;
             case ':':

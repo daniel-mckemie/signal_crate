@@ -10,53 +10,63 @@
 
 static void cv_monitor_process_control(Module* m, unsigned long frames) {
     CCVMonitor* s = (CCVMonitor*)m->state;
+	float* in_buf = (m->num_control_inputs > 0) ? m->control_inputs[0] : NULL;
+	float* out    = m->control_output;
 
-    // 1. Read UI params
-    float att_base, off_base;
+    float base_att, base_off;
     pthread_mutex_lock(&s->lock);
-    att_base = s->attenuvert;
-    off_base = s->offset;
+    base_att = s->attenuvert;
+    base_off = s->offset;
     pthread_mutex_unlock(&s->lock);
 
-    // 2. Smooth ONLY UI/OSC params
-    float att = process_smoother(&s->smooth_att, att_base);
-    float off = process_smoother(&s->smooth_off, off_base);
+    float att_s = process_smoother(&s->smooth_att, base_att);
+    float off_s = process_smoother(&s->smooth_off, base_off);
+	
+	float disp_att = att_s;
+	float disp_off = off_s;
+	float disp_in  = 0.0f;
+	float disp_out = 0.0f;
 
-    // 3. Apply CV modulation immediately (no smoothing)
-    for (int j = 0; j < m->num_control_inputs; j++) {
-        if (!m->control_inputs[j] || !m->control_input_params[j]) continue;
+	for (unsigned long i=0; i < frames; i++) {
+		float att = att_s;
+		float off = off_s;
 
-        const char* param = m->control_input_params[j];
-        float control = *(m->control_inputs[j]);
-        float norm = fminf(fmaxf(control, -1.0f), 1.0f);
+		for (int j=0; j < m->num_control_inputs; j++) {
+			
+			if (!m->control_inputs[j] || !m->control_input_params[j]) continue;
 
-        if (strcmp(param, "att") == 0) {
-            float mod_range = (2.0f - fabsf(att_base));
-            att = att + norm * mod_range;   // NO smoothing here
+			const char* param = m->control_input_params[j];
+			float control = m->control_inputs[j][i];
+			control = fminf(fmaxf(control, -1.0f), 1.0f);
 
-        } else if (strcmp(param, "offset") == 0) {
-            float mod_range = (1.0f - fabsf(off_base));
-            off = off + norm * mod_range;   // NO smoothing here
-        }
-    }
+			if (strcmp(param, "att") == 0) {
+				att += control * (2.0f - fabsf(base_att));
+			} else if (strcmp(param, "offset") == 0) {
+				off += control * (1.0f - fabsf(base_off));
+			}
+		}
 
-    // 4. CV in
-    float in = m->control_inputs[0] ? *(m->control_inputs[0]) : 0.0f;
-    float out = fminf(fmaxf(in * att + off, -1.0f), 1.0f);
+		clampf(&att, -2.0f, 2.0f);
+		clampf(&off, -1.0f, 1.0f);
 
-    // 5. Write state for UI
+		float in = in_buf ? in_buf[i] : 0.0f;
+		float val = fminf(fmaxf(in * att + off, -1.0f), 1.0f);
+
+		out[i] = val;
+
+		disp_att = att;
+		disp_off = off;
+		disp_in  = in;
+		disp_out = val;
+	}
+
     pthread_mutex_lock(&s->lock);
-    s->input = in;
-    s->output = out;
-    s->display_input  = in;
-    s->display_output = out;
-    s->display_att    = att;
-    s->display_off    = off;
+    s->display_input  = disp_in;
+    s->display_output = disp_out;
+    s->display_att    = disp_att;
+    s->display_off    = disp_off;
     pthread_mutex_unlock(&s->lock);
 
-    // 6. Output buffer
-    for (unsigned long i = 0; i < frames; i++)
-        m->control_output[i] = out;
 }
 
 

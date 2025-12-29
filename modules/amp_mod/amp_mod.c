@@ -24,51 +24,61 @@ static void ampmod_process(Module* m, float* in, unsigned long frames) {
 	}
 
 	pthread_mutex_lock(&state->lock);
-	float target_car = state->car_amp;
-	float target_mod = state->mod_amp;
-	float target_depth   = state->depth;
+	float base_car     = state->car_amp;
+	float base_mod     = state->mod_amp;
+	float base_depth   = state->depth;
 	pthread_mutex_unlock(&state->lock);
 
 
-	float car_amp = process_smoother(&state->smooth_car_amp, target_car);
-	float mod_amp = process_smoother(&state->smooth_mod_amp, target_mod);
-	float depth   = process_smoother(&state->smooth_depth,   target_depth);
+	float car_s     = process_smoother(&state->smooth_car_amp, base_car);
+	float mod_s     = process_smoother(&state->smooth_mod_amp, base_mod);
+	float depth_s   = process_smoother(&state->smooth_depth,   base_depth);
 
-	// Non-destructive control input
-	float mod_depth = 1.0f;
-	for (int i = 0; i < m->num_control_inputs; i++) {
-		if (!m->control_inputs[i] || !m->control_input_params[i]) continue;
+	float disp_car = car_s;
+	float disp_mod = mod_s;
+	float disp_depth = depth_s;
 
-		const char* param = m->control_input_params[i];
-		float control = *(m->control_inputs[i]);
-		float norm = fminf(fmaxf(control, -1.0f), 1.0f);
+	for (unsigned long i=0; i<frames; i++) {
 
-		if (strcmp(param, "mod_amp") == 0) {
-			float mod_range = (1.0f - state->mod_amp) * mod_depth;
-			mod_amp = state->mod_amp + norm * mod_range;
-		} else if (strcmp(param, "car_amp") == 0) {
-			float mod_range = (1.0f - state->car_amp) * mod_depth;
-			car_amp = state->car_amp + norm * mod_range;
-		} else if (strcmp(param, "depth") == 0) {
-			float mod_range = (1.0f - state->depth) * mod_depth;
-			depth = state->depth + norm * mod_range;
+		float car_amp = car_s;
+		float mod_amp = mod_s;
+		float depth   = depth_s;
 
+		for (int j = 0; j < m->num_control_inputs; j++) {
+			if (!m->control_inputs[j] || !m->control_input_params[j]) continue;
+
+			const char* param = m->control_input_params[j];
+			float control = m->control_inputs[j][i];
+			control = fminf(fmaxf(control, -1.0f), 1.0f);
+
+			if (strcmp(param, "car_amp") == 0) {
+				car_amp += control * (1.0f - base_car);
+			} else if (strcmp(param, "mod_amp") == 0) {
+				mod_amp += control * (1.0f - base_mod);
+			} else if (strcmp(param, "depth") == 0) {
+				depth += control * (1.0f - base_depth);
+
+			}
 		}
-	}
-	mod_amp = fminf(fmaxf(mod_amp, 0.0f), 1.0f);
-	car_amp = fminf(fmaxf(car_amp, 0.0f), 1.0f);
 
-	for (unsigned long i = 0; i < frames; i++) {
+		car_amp = fminf(fmaxf(car_amp, 0.0f), 1.0f);
+		mod_amp = fminf(fmaxf(mod_amp, 0.0f), 1.0f);
+		depth   = fminf(fmaxf(depth, 0.0f), 1.0f);
+
+        disp_car   = car_amp;
+        disp_mod   = mod_amp;
+        disp_depth = depth;
+
 		float c = in_car[i] * car_amp;
 		float mval = in_mod[i] * mod_amp;
-		// float mod_factor = (1.0f - depth) + (depth * mval);
+		
 		float mod_factor = (1.0f - depth) + depth * (0.5f * (mval + 1.0f));
 		out[i] = c * mod_factor;
 	}
 
-	state->display_car_amp = car_amp;
-	state->display_mod_amp = mod_amp;
-	state->display_depth   = depth;
+	state->display_car_amp = disp_car;
+	state->display_mod_amp = disp_mod;
+	state->display_depth   = disp_depth;
 }
 
 static void clamp_params(AmpMod *state) {

@@ -106,6 +106,7 @@ static void clamp_params(VCO *state) {
     float max_freq;
 
     switch (state->range_mode) {
+        case RANGE_LFO:   min_freq = 0.01f; max_freq = 100.0f; break;
         case RANGE_LOW:   max_freq = 2000.0f; break;
         case RANGE_MID:   max_freq = 8000.0f; break;
         case RANGE_FULL:  max_freq = 20000.0f; break;
@@ -119,7 +120,7 @@ static void clamp_params(VCO *state) {
 static void vco_draw_ui(Module *m, int y, int x) {
     VCO *state = (VCO*)m->state;
     const char *wave_names[] = {"Sine", "Saw", "Square", "Triangle"};
-	const char *range_names[] = {"Low", "Mid", "Full", "Super"};
+	const char *range_names[] = {"LFO", "Low", "Mid", "Full", "Super"};
 
     float freq, amp;
     Waveform waveform;
@@ -175,7 +176,7 @@ static void vco_handle_input(Module *m, int key) {
             case ']': state->amplitude += 0.01f; handled = 1; break;
             case '[': state->amplitude -= 0.01f; handled = 1; break;
             case 'w': state->waveform = (state->waveform + 1) % 4; handled = 1; break;
-			case 'r': state->range_mode = (state->range_mode + 1) % 4; handled = 1; break;
+			case 'r': state->range_mode = (state->range_mode + 1) % 5; handled = 1; break;
             case ':':
                 state->entering_command = true;
                 memset(state->command_buffer, 0, sizeof(state->command_buffer));
@@ -228,6 +229,7 @@ static void vco_set_osc_param(Module* m, const char* param, float value) {
 		float min_hz = 20.0f;
 		float max_hz;
 		switch (state->range_mode) {
+			case RANGE_LFO:   min_hz = 0.01f; max_hz = 100.0f; break;
 			case RANGE_LOW:   max_hz = 2000.0f; break;
 			case RANGE_MID:   max_hz = 8000.0f; break;
 			case RANGE_FULL:  max_hz = 20000.0f; break;

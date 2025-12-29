@@ -12,6 +12,7 @@ typedef enum {
 } Waveform;
 
 typedef enum {
+	RANGE_LFO,
 	RANGE_LOW,
 	RANGE_MID,
 	RANGE_FULL,

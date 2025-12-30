@@ -18,14 +18,14 @@ typedef struct {
 
     CParamSmooth smooth_attack;
     CParamSmooth smooth_decay;
-	CParamSmooth smooth_gain;
+	CParamSmooth smooth_sens;
 	CParamSmooth smooth_depth;
 
     pthread_mutex_t lock;
 
 	float display_att;
 	float display_dec;
-	float display_gain;
+	float display_sens;
 	float display_depth;
 
     // Command mode

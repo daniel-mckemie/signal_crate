@@ -8,39 +8,36 @@
 #include "util.h"
 #include "c_input.h"
 
-static void c_input_process(Module* m, float* in, unsigned long frames)
-{
+static void c_input_process(Module* m, float* in, unsigned long frames) {
     CInputState* s = (CInputState*)m->state;
     float* out = m->control_output;
+
+	float last = s->last_val;
 
     for (unsigned long i = 0; i < frames; i++) {
         float v = in ? in[i] : 0.0f;
 
-        // smooth it to control-rate output
         v = process_smoother(&s->smooth, v);
         out[i] = v;
-        s->last_val = v;
+        last = v;
     }
+
+	pthread_mutex_lock(&s->lock);
+	s->last_val = last;
+	pthread_mutex_unlock(&s->lock);
 }
 
-static void c_input_draw_ui(Module* m, int y, int x)
-{
+static void c_input_draw_ui(Module* m, int y, int x) {
     CInputState* s = (CInputState*)m->state;
     pthread_mutex_lock(&s->lock);
     float v = s->last_val;
-// UNCOMMENT IF THIS IS NOT WORKING WITH NEW SETUP
-   // int ch = s->channel_index;
+
     pthread_mutex_unlock(&s->lock);
 
     BLUE();
     mvprintw(y, x, "[c_input:%s] ", m->name);
     CLR();
 
-// UNCOMMENT IF THIS IS NOT WORKING WITH NEW SETUP, osc too
-/*
-    LABEL(2, "ch:");
-    ORANGE(); printw(" %d | ", ch); CLR();
-*/
     LABEL(2, "val:");
     ORANGE(); printw(" %.3f", v); CLR();
 
@@ -49,8 +46,7 @@ static void c_input_draw_ui(Module* m, int y, int x)
     BLACK();
 }
 
-static void c_input_handle_input(Module* m, int key)
-{
+static void c_input_handle_input(Module* m, int key) {
     CInputState* s = (CInputState*)m->state;
     int handled = 0;
 
@@ -91,31 +87,13 @@ static void c_input_handle_input(Module* m, int key)
     pthread_mutex_unlock(&s->lock);
 }
 
-// UNCOMMENT IF THIS IS NOT WORKING WITH NEW SETUP
-/*
-static void c_input_set_osc_param(Module* m, const char* param, float value)
-{
-    CInputState* s = (CInputState*)m->state;
-    pthread_mutex_lock(&s->lock);
-
-    if (strcmp(param, "ch") == 0)
-        s->channel_index = (int)value;
-    else
-        fprintf(stderr, "[c_input] Unknown param: %s\n", param);
-
-    pthread_mutex_unlock(&s->lock);
-}
-*/
-
-static void c_input_destroy(Module* m)
-{
+static void c_input_destroy(Module* m) {
     CInputState* s = (CInputState*)m->state;
     if (s) pthread_mutex_destroy(&s->lock);
     destroy_base_module(m);
 }
 
-Module* create_module(const char* args, float sample_rate)
-{
+Module* create_module(const char* args, float sample_rate) {
     int ch = 1;
 
     if (args && strstr(args, "ch="))
@@ -137,8 +115,6 @@ Module* create_module(const char* args, float sample_rate)
     m->process = c_input_process;
     m->draw_ui = c_input_draw_ui;
     m->handle_input = c_input_handle_input;
-// UNCOMMENT IF THIS IS NOT WORKING WITH NEW SETUP
-    // m->set_param = c_input_set_osc_param;
     m->destroy = c_input_destroy;
 
     // CONTROL output buffer

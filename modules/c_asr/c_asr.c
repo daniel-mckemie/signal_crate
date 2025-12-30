@@ -10,6 +10,7 @@
 
 static void c_asr_process_control(Module* m, unsigned long frames) {
     CASR* s = (CASR*)m->state;
+	float* out = m->control_output;
 
     float base_att, base_sus, base_rel, base_depth, gate_thresh;
     bool short_mode;
@@ -122,7 +123,8 @@ static void c_asr_process_control(Module* m, unsigned long frames) {
                 break;
         }
 
-        m->control_output[i] = s->envelope_out * depth;
+		float val = s->envelope_out * depth;
+		out[i] = val;
 
         disp_att   = att;
         disp_rel   = rel;

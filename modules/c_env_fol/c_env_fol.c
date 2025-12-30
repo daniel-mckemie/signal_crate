@@ -8,8 +8,6 @@
 #include "module.h"
 #include "util.h"
 
-#define ENV_UPDATE_INTERVAL 16
-
 static void c_env_fol_process_control(Module* m, unsigned long frames) {
     if (!m->inputs[0]) {
         endwin();
@@ -26,69 +24,76 @@ static void c_env_fol_process_control(Module* m, unsigned long frames) {
     float base_depth  = s->depth;
     pthread_mutex_unlock(&s->lock);
 
-    float mod_decay  = base_decay;
-    float mod_sens   = base_sens;
-    float mod_depth  = base_depth;
+	float att_s   = process_smoother(&s->smooth_attack, base_attack);
+	float dec_s   = process_smoother(&s->smooth_decay,  base_decay);
+	float sens_s  = process_smoother(&s->smooth_sens,   base_sens);
+	float depth_s = process_smoother(&s->smooth_depth,  base_depth);
 
-    float mod_depth_amount = 1.0f;
+	float disp_att = att_s;
+	float disp_dec = dec_s;
+	float disp_sens = sens_s;
+	float disp_depth = depth_s;
+	float disp_env = s->smoothed_env;
 
-    for (int j = 0; j < m->num_control_inputs; j++) {
-        if (!m->control_inputs[j] || !m->control_input_params[j]) continue;
+	float sr = s->sample_rate;
 
-        const char* param = m->control_input_params[j];
-        float control = *(m->control_inputs[j]);
-        float norm = fminf(fmaxf(control, -1.0f), 1.0f);
+	for (unsigned long i=0; i<frames; i++) {
+		float dec   = dec_s;
+		float sens  = sens_s;
+		float depth = depth_s;
 
-        if (strcmp(param, "dec") == 0) {
-            float mod_range = (5000.0f - base_decay) * mod_depth_amount;
-            mod_decay = base_decay + norm * mod_range;
 
-        } else if (strcmp(param, "sens") == 0) {
-            float mod_range = (1.0f - base_sens) * mod_depth_amount;
-            mod_sens = base_sens + norm * mod_range;
+		for (int j = 0; j < m->num_control_inputs; j++) {
 
-        } else if (strcmp(param, "depth") == 0) {
-            float mod_range = (1.0f - base_depth) * mod_depth_amount;
-            mod_depth = base_depth + norm * mod_range;
-        }
-    }
+			if (!m->control_inputs[j] || !m->control_input_params[j]) continue;
 
-    mod_decay = fminf(fmaxf(mod_decay, 1.0f), 5000.0f);
-    mod_sens  = fminf(fmaxf(mod_sens, 0.01f), 1.0f);
-    mod_depth = fminf(fmaxf(mod_depth, 0.0f), 1.0f);
+			const char* param = m->control_input_params[j];
+			float control = m->control_inputs[j][i];
+			control = fminf(fmaxf(control, -1.0f), 1.0f);
 
-    float smooth_att   = process_smoother(&s->smooth_attack, base_attack);
-    float smooth_decay = process_smoother(&s->smooth_decay, mod_decay);
-    float smooth_sens  = process_smoother(&s->smooth_gain,  mod_sens);
-    float smooth_depth = process_smoother(&s->smooth_depth, mod_depth);
+			if (strcmp(param, "dec") == 0) {
+				dec += control * (5000.0f - base_decay);
+			} else if (strcmp(param, "sens") == 0) {
+				sens += control * (1.0f - base_sens);
+			} else if (strcmp(param, "depth") == 0) {
+				depth += control * (1.0f - base_depth);
+			}
+		}
 
-    pthread_mutex_lock(&s->lock);
-    s->display_att   = smooth_att;
-    s->display_dec   = smooth_decay;
-    s->display_gain  = smooth_sens;
-    s->display_depth = smooth_depth;
-    s->display_env   = s->smoothed_env;
-    pthread_mutex_unlock(&s->lock);
+		clampf(&dec,  1.0f, 5000.0f);
+		clampf(&sens, 0.01f, 1.0f);
+		clampf(&depth,  0.0f, 1.0f);
 
-    float atk_coeff = expf(-1.0f / (0.001f * smooth_att   * s->sample_rate));
-    float dec_coeff = expf(-1.0f / (0.001f * smooth_decay * s->sample_rate));
+		float atk_coeff = expf(-1.0f / (0.001f * att_s * sr));
+		float dec_coeff = expf(-1.0f / (0.001f * dec   * sr));
 
-    for (unsigned long i = 0; i < frames; i++) {
-        float in = fabsf(m->inputs[0][i] * smooth_sens);
+		float in = fabsf(m->inputs[0][i] * sens);
 
-        if (in > s->env)
-            s->env = atk_coeff * (s->env - in) + in;
-        else
-            s->env = dec_coeff * (s->env - in) + in;
+		if (in > s->env) {
+			s->env = atk_coeff * (s->env - in) + in;
+		} else {
+			s->env = dec_coeff * (s->env - in) + in;
+		}
+		
+		s->smoothed_env += 0.05f * (s->env - s->smoothed_env);
 
-        // smoothing filter
-        s->smoothed_env += 0.05f * (s->env - s->smoothed_env);
+		float out = fminf(s->smoothed_env, 1.0f) * depth;
+		m->control_output[i] = out;
 
-        // final CV out
-        float out = fminf(s->smoothed_env, 1.0f) * smooth_depth;
+		disp_att = att_s;
+		disp_dec = dec;
+		disp_sens = sens;
+		disp_depth = depth;
+		disp_env = s->smoothed_env;
+	}
 
-        m->control_output[i] = out;
-    }
+	pthread_mutex_lock(&s->lock);
+	s->display_att     = disp_att;
+	s->display_dec     = disp_dec;
+	s->display_sens    = disp_sens;
+	s->display_depth   = disp_depth;
+	s->display_env     = disp_env;
+	pthread_mutex_unlock(&s->lock);
 }
 
 static void clamp_params(CEnvFol* state) {
@@ -103,7 +108,7 @@ static void c_env_fol_draw_ui(Module* m, int y, int x) {
     float dec, sensitivity, val, depth;
     pthread_mutex_lock(&state->lock);
     dec = state->display_dec;
-	sensitivity = state->display_gain;
+	sensitivity = state->display_sens;
 	depth = state->display_depth;
     val = fminf(1.0f, fmaxf(0.0f, state->display_env));
     pthread_mutex_unlock(&state->lock);
@@ -227,7 +232,7 @@ Module* create_module(const char* args, float sample_rate) {
     pthread_mutex_init(&s->lock, NULL);
     init_smoother(&s->smooth_attack, 0.75f);
     init_smoother(&s->smooth_decay, 0.75f);
-    init_smoother(&s->smooth_gain, 0.75f);
+    init_smoother(&s->smooth_sens, 0.75f);
     init_smoother(&s->smooth_depth, 0.75f);
 
     Module* m = calloc(1, sizeof(Module));

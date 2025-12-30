@@ -23,6 +23,8 @@ typedef struct {
 	bool trigger_held;
     bool short_mode;
 	bool gate_prev;
+	bool trig_prev;
+	bool cycle_prev_cv;
 
 	float attack_start_level;
 	float release_start_level;

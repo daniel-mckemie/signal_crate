@@ -18,6 +18,7 @@ typedef struct {
     float phase;
     float tri_state;
 	float depth;
+	int polarity;
     float sample_rate;
     LFOWaveform waveform;
 
@@ -30,6 +31,7 @@ typedef struct {
 	float display_freq;
 	float display_amp;
 	float display_depth;
+	LFOWaveform display_wave;
 
     // Command mode
     bool entering_command;

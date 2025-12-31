@@ -10,88 +10,97 @@
 
 static void c_lfo_process_control(Module* m, unsigned long frames) {
     CLFO* s = (CLFO*)m->state;
+	float* out = m->control_output;
 
-    float freq, amp, depth;
+    float base_freq, base_amp, base_depth;
     LFOWaveform wf;
 
-    // 1) Snapshot under lock
     pthread_mutex_lock(&s->lock);
-    float base_freq  = s->frequency;
-    float base_amp   = s->amplitude;
-    float base_depth = s->depth;
-    wf               = s->waveform;
+    base_freq  = s->frequency;
+    base_amp   = s->amplitude;
+    base_depth = s->depth;
+    wf         = s->waveform;
     pthread_mutex_unlock(&s->lock);
 
-    // 2) Smooth UI params (no lock needed)
-    freq  = process_smoother(&s->smooth_freq,  base_freq);
-    amp   = process_smoother(&s->smooth_amp,   base_amp);
-    depth = process_smoother(&s->smooth_depth, base_depth);
+    float freq_s  = process_smoother(&s->smooth_freq,  base_freq);
+    float amp_s   = process_smoother(&s->smooth_amp,   base_amp);
+    float depth_s = process_smoother(&s->smooth_depth, base_depth);
 
-    // 3) CV modulation (also no lock needed)
-    for (int j = 0; j < m->num_control_inputs; j++) {
-        if (!m->control_inputs[j] || !m->control_input_params[j]) continue;
+	float disp_freq  = freq_s;
+	float disp_amp   = amp_s;
+	float disp_depth = depth_s;
 
-        const char* param = m->control_input_params[j];
-        float control     = *(m->control_inputs[j]);
-        float norm        = fminf(fmaxf(control, -1.0f), 1.0f);
+	for (unsigned long i=0; i<frames; i++) {
+		float freq = freq_s;
+		float amp  = amp_s;
+		float depth = depth_s;
 
-        if (strcmp(param, "freq") == 0) {
-            float mod_range = freq * 0.5f;
-            freq += norm * mod_range;
+		for (int j=0; j<m->num_control_inputs; j++) {
+			if (!m->control_inputs[j] || !m->control_input_params[j]) continue;
 
-        } else if (strcmp(param, "amp") == 0) {
-            float mod_range = (1.0f - amp) * 0.5f;
-            amp += norm * mod_range;
+			const char* param = m->control_input_params[j];
+			float control = m->control_inputs[j][i];
+			control = fminf(fmaxf(control, -1.0f), 1.0f);
 
-        } else if (strcmp(param, "depth") == 0) {
-            float mod_range = (1.0f - depth) * 0.5f;
-            depth += norm * mod_range;
-        }
-    }
+			if (strcmp(param, "freq") == 0) {
+				freq += control * freq * 0.5f;
 
-    // 4) Clamp & update display values
-    amp   = fminf(fmaxf(amp,   0.0f), 1.0f);
-    depth = fminf(fmaxf(depth, 0.0f), 1.0f);
-    clampf(&freq, 0.001f, 100.0f);
+			} else if (strcmp(param, "amp") == 0) {
+				amp += control * 0.5f;
 
-    pthread_mutex_lock(&s->lock);
-    s->display_freq  = freq;
-    s->display_amp   = amp;
-    s->display_depth = depth;
-    pthread_mutex_unlock(&s->lock);
+			} else if (strcmp(param, "depth") == 0) {
+				depth += control * 0.5f;
+			}
+		}
 
-    // 5) Render LFO — NO LOCK HERE
-    float sr = s->sample_rate;
-    const float* sine_table = get_sine_table();
+		clampf(&freq, 0.001f, 100.0f);
+		clampf(&amp, 0.0f, 1.0f);
+		clampf(&depth, 0.0f, 1.0f);
 
-    for (unsigned long i = 0; i < frames; i++) {
-        float t = s->phase / TWO_PI;
-        float value = 0.0f;
+		float sr = s->sample_rate;
+		const float* sine_table = get_sine_table();
 
-        switch (wf) {
-        case LFO_SINE:
-            value = sine_table[(int)(t * SINE_TABLE_SIZE) % SINE_TABLE_SIZE];
-            break;
-        case LFO_SAW:
-            value = 2.0f * t - 1.0f;
-            break;
-        case LFO_SQUARE:
-            value = (t < 0.5f) ? 1.0f : -1.0f;
-            break;
-        case LFO_TRIANGLE: {
-            float sq = (t < 0.5f) ? 1.0f : -1.0f;
-            s->tri_state += 2.0f * freq / sr * sq;
-            value = tanhf(s->tri_state) * 2.0f;
-            break;
-        }
-        }
+		float t = s->phase / TWO_PI;
+		float value = 0.0f;
 
-        float out = depth * (amp * (0.5f + 0.5f * value));
-        m->control_output[i] = fminf(fmaxf(out, 0.0f), 1.0f);
+		switch (wf) {
+			case LFO_SINE:
+				value = sine_table[(int)(t * SINE_TABLE_SIZE) % SINE_TABLE_SIZE];
+				break;
+			case LFO_SAW:
+				value = 2.0f * t - 1.0f;
+				break;
+			case LFO_SQUARE:
+				value = (t < 0.5f) ? 1.0f : -1.0f;
+				break;
+			case LFO_TRIANGLE: {
+				float sq = (t < 0.5f) ? 1.0f : -1.0f;
+				s->tri_state += 2.0f * freq / sr * sq;
+				value = tanhf(s->tri_state) * 2.0f;
+				break;
+			}
+		}
 
-        s->phase += TWO_PI * freq / sr;
-        if (s->phase >= TWO_PI) s->phase -= TWO_PI;
-    }
+		disp_freq  = freq;
+		disp_amp   = amp;
+		disp_depth = depth;
+
+		if (s->polarity) {
+			value = depth * amp * value;
+		} else {
+			value = depth * (0.5f + 0.5f * amp * value);
+		}
+		out[i] = value;
+
+		s->phase += TWO_PI * freq / sr;
+		if (s->phase >= TWO_PI) s->phase -= TWO_PI;
+	}
+	pthread_mutex_lock(&s->lock);
+	s->display_freq  = disp_freq;
+	s->display_amp   = disp_amp;
+	s->display_depth = disp_depth;
+	s->display_wave = wf;
+	pthread_mutex_unlock(&s->lock);
 }
 
 static void clamp_params(CLFO* s) {
@@ -112,7 +121,7 @@ static void c_lfo_draw_ui(Module* m, int y, int x) {
     freq = state->display_freq;
     amp = state->display_amp;
 	depth = state->display_depth;
-    wf = state->waveform;
+    wf = state->display_wave;
     pthread_mutex_unlock(&state->lock);
 
 	BLUE();
@@ -120,19 +129,22 @@ static void c_lfo_draw_ui(Module* m, int y, int x) {
 	CLR();
 
 	LABEL(2, "freq:");
-	ORANGE(); printw(" %.2f Hz | ", freq); CLR();
+	ORANGE(); printw(" %.2f Hz|", freq); CLR();
 
 	LABEL(2, "amp:");
-	ORANGE(); printw(" %.2f Hz | ", amp); CLR();
+	ORANGE(); printw(" %.2f|", amp); CLR();
 
 	LABEL(2, "depth:");
-	ORANGE(); printw(" %.2f | ", depth); CLR();
+	ORANGE(); printw(" %.2f|", depth); CLR();
 
 	LABEL(2, "wave:");
-	ORANGE(); printw(" %s", names[wf]); CLR();
+	ORANGE(); printw("%s|", names[wf]); CLR();
+	
+	LABEL(2, "pole:");
+	ORANGE(); printw(" %s", state->polarity ? "bi" : "uni"); CLR();
 
 	YELLOW();
-    mvprintw(y+1, x, "Real-time keys: -/= (freq), _/+ (amp), d/D (depth), w (wave)");
+    mvprintw(y+1, x, "Keys: -/= (freq), _/+ (amp), d/D (depth), w (wave), p (polarity)");
     mvprintw(y+2, x, "Command mode: :1 [freq], :2 [amp], :d [depth]");
 	BLACK();
 }
@@ -151,6 +163,7 @@ static void c_lfo_handle_input(Module* m, int key) {
             case '_': s->amplitude -= 0.01f; handled = 1; break;
 			case 'D': s->depth += 0.01f; handled = 1; break;
 			case 'd': s->depth -= 0.01f; handled = 1; break;
+			case 'p': s->polarity = !s->polarity; handled = 1; break;
             case 'w': s->waveform = (s->waveform + 1) % 4; handled = 1; break;
             case ':':
                 s->entering_command = true;
@@ -197,12 +210,14 @@ static void c_lfo_set_osc_param(Module* m, const char* param, float value) {
         float norm = fminf(fmaxf(value, 0.0f), 1.0f);
         s->frequency = 0.1f * powf(100.0f / 0.1f, norm);  // exponential map
     } else if (strcmp(param, "amp") == 0) {
-        s->amplitude = value;
+        s->amplitude = fminf(fmaxf(value, 0.0f), 1.0f);
     } else if (strcmp(param, "depth") == 0) {
-		s->depth = value;
+		s->depth = fminf(fmaxf(value, 0.0f), 1.0f);
     } else if (strcmp(param, "wave") == 0) {
         if (value > 0.5f) s->waveform = (s->waveform + 1) % 4;
-    }
+    } else if (strcmp(param, "polarity") == 0) {
+		s->polarity = (value > 0.5f);
+	}
 
     pthread_mutex_unlock(&s->lock);
 }
@@ -233,6 +248,7 @@ Module* create_module(const char* args, float sample_rate) {
     s->waveform = LFO_SINE;
     s->phase = 0.0f;
     s->tri_state = 0.0f;
+	s->polarity = 0;
 	s->depth = depth;
     s->sample_rate = sample_rate;
 

@@ -61,9 +61,9 @@ static void ampmod_process(Module* m, float* in, unsigned long frames) {
 			}
 		}
 
-		car_amp = fminf(fmaxf(car_amp, 0.0f), 1.0f);
-		mod_amp = fminf(fmaxf(mod_amp, 0.0f), 1.0f);
-		depth   = fminf(fmaxf(depth, 0.0f), 1.0f);
+		clampf(&car_amp, 0.0f, 1.0f);
+		clampf(&mod_amp, 0.0f, 1.0f);
+		clampf(&depth,   0.0f, 1.0f);
 
         disp_car   = car_amp;
         disp_mod   = mod_amp;

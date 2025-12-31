@@ -8,26 +8,8 @@
 #include "module.h"
 #include "util.h"
 
-static inline void clamp_params(CRandom* s)
-{
-    clampf(&s->rate_hz,  0.01f, 100.0f);
-    clampf(&s->depth,    0.0f,   1.0f);
-
-    clampf(&s->range_min, -1.0f, 1.0f);
-    clampf(&s->range_max, -1.0f, 1.0f);
-
-    // enforce min <= max
-    if (s->range_min > s->range_max) {
-        float tmp = s->range_min;
-        s->range_min = s->range_max;
-        s->range_max = tmp;
-    }
-
-    // enum safety
-    if (s->type < 0) s->type = 0;
-    if (s->type > 2) s->type = 2;
-}
-
+// Add CV INS
+// Make architecturally compliant...
 
 static void c_random_process_control(Module* m, unsigned long frames) {
     CRandom* s = (CRandom*)m->state;
@@ -87,6 +69,26 @@ static void c_random_process_control(Module* m, unsigned long frames) {
     }
 }
 
+static inline void clamp_params(CRandom* s) {
+    clampf(&s->rate_hz,  0.01f, 100.0f);
+    clampf(&s->depth,    0.0f,   1.0f);
+
+    clampf(&s->range_min, -1.0f, 1.0f);
+    clampf(&s->range_max, -1.0f, 1.0f);
+
+    // enforce min <= max
+    if (s->range_min > s->range_max) {
+        float tmp = s->range_min;
+        s->range_min = s->range_max;
+        s->range_max = tmp;
+    }
+
+    // enum safety
+    if (s->type < 0) s->type = 0;
+    if (s->type > 2) s->type = 2;
+}
+
+
 static void c_random_draw_ui(Module* m, int y, int x) {
     CRandom* s = (CRandom*)m->state;
 
@@ -115,8 +117,8 @@ static void c_random_draw_ui(Module* m, int y, int x) {
     LABEL(2,"v:");    ORANGE(); printw(" %.3f", val);   CLR();
 
     YELLOW();
-    mvprintw(y+1,x, "-/= rate, [/] min, {/} max, n (type), d/D depth");
-    mvprintw(y+2,x, "Cmd: :1 rate, :2 type, :3 rmin, :4 rmax :d depth");
+    mvprintw(y+1,x, "Real-time keys: -/= (rate), [/] (min), {/} (max), n (type), d/D (depth)");
+    mvprintw(y+2,x, "Cmd: :1 [rate], :2 [rmin], :3 [rmax], :4 [type] :d [depth]");
     BLACK();
 }
 
@@ -128,8 +130,8 @@ static void c_random_handle_input(Module* m, int key) {
 
     if (!s->entering_command) {
         switch (key) {
-            case '=': s->rate_hz += 0.1f; handled=1; break;
-            case '-': s->rate_hz -= 0.1f; handled=1; break;
+            case '=': s->rate_hz += 0.05f; handled=1; break;
+            case '-': s->rate_hz -= 0.05f; handled=1; break;
             case '[': s->range_min -= 0.01f; handled=1; break;
             case ']': s->range_min += 0.01f; handled=1; break;
             case '{': s->range_max -= 0.01f; handled=1; break;

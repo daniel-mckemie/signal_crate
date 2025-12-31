@@ -76,7 +76,7 @@ static void c_lfo_process_control(Module* m, unsigned long frames) {
 			case LFO_TRIANGLE: {
 				float sq = (t < 0.5f) ? 1.0f : -1.0f;
 				s->tri_state += 2.0f * freq / sr * sq;
-				value = tanhf(s->tri_state) * 2.0f;
+				value = tanhf(s->tri_state);
 				break;
 			}
 		}

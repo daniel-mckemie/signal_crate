@@ -328,6 +328,7 @@ Low-frequency waveform modulator running on the control thread
 - `amp` - strength of signal output
 - `wave` - waveform (sine, sawtooth, square, triangle)
 - `depth` - range of output 
+- `polarity` - output is either unipolar or bipolar
 
 ---
 

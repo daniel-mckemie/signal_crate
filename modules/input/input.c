@@ -109,6 +109,7 @@ static void input_set_osc_param(Module* m, const char* param, float value) {
         fprintf(stderr, "[input] Unknown OSC param: %s\n", param);
     }
 
+	clamp_params(state);
     pthread_mutex_unlock(&state->lock);
 }
 

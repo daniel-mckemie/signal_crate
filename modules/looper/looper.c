@@ -9,97 +9,113 @@
 #include "util.h"
 
 static void looper_process(Module* m, float* in, unsigned long frames) {
-    Looper* state = (Looper*)m->state;
+    Looper* s = (Looper*)m->state;
+	float* input = (m->num_inputs > 0) ? m->inputs[0] : in;
+	float* out = m->output_buffer;
 
-	pthread_mutex_lock(&state->lock);
-	float* buffer      = state->buffer;
-	float read_pos     = state->read_pos;
-	unsigned long loop_start = state->loop_start;
-	unsigned long loop_end   = state->loop_end;
-	float raw_speed = state->playback_speed;
-	float raw_amp   = state->amp;
-	LooperState current_state = state->looper_state;
-	pthread_mutex_unlock(&state->lock);
+	pthread_mutex_lock(&s->lock);
+	float* buffer      = s->buffer;
+	unsigned long buffer_len = s->buffer_len;
+	float read_pos     = s->read_pos;
+	unsigned long write_pos  = s->write_pos;
+	unsigned long loop_start = s->loop_start;
+	unsigned long loop_end   = s->loop_end;
+	float base_speed = s->playback_speed;
+	float base_amp   = s->amp;
+	LooperState current_state = s->looper_state;
+	pthread_mutex_unlock(&s->lock);
 
-	float playback_speed = process_smoother(&state->smooth_speed, raw_speed);
-	float amp            = process_smoother(&state->smooth_amp,   raw_amp);
+	float playback_speed_s = process_smoother(&s->smooth_speed, base_speed);
+	float amp_s            = process_smoother(&s->smooth_amp,   base_amp);
 
+	float disp_playback_speed = playback_speed_s;
+	float disp_amp			  = amp_s;
+	float disp_read_pos		  = read_pos;
 
-	float mod_depth = 1.0f;
-    for (int i = 0; i < m->num_control_inputs; i++) {
-        if (!m->control_inputs[i] || !m->control_input_params[i]) continue;
+    for (unsigned long i=0; i<frames; i++) {
+		float playback_speed = playback_speed_s;
+		float amp            = amp_s;
+		
+		for (int j=0; j<m->num_control_inputs; j++) {
+			if (!m->control_inputs[j] || !m->control_input_params[j]) continue;
 
-        const char* param = m->control_input_params[i];
-        float control = *(m->control_inputs[i]);
-		float norm = fminf(fmaxf(control, -1.0f), 1.0f);
+			const char* param = m->control_input_params[j];
+			float control = m->control_inputs[j][i];
+			control = fminf(fmaxf(control, -1.0f), 1.0f);
 
-        if (strcmp(param, "speed") == 0) {
-			float mod_range = (4.0f - raw_speed) * mod_depth;
-            playback_speed = raw_speed + norm * mod_range; 
-        } else if (strcmp(param, "amp") == 0) {
-			float mod_range = (1.0f - raw_amp) * mod_depth;
-            amp = raw_amp + norm * mod_range; 
+			if (strcmp(param, "speed") == 0) {
+				playback_speed += control * (4.0f - playback_speed_s);
+			}
+			else if (strcmp(param, "amp") == 0) {
+				amp += control * (1.0f - amp_s);
+			}
 		}
-    }
 
-	state->display_playback_speed = playback_speed;
-	state->display_amp = amp;
+		clampf(&playback_speed, 0.1f, 4.0f);
+		clampf(&amp, 0.0, 1.0f);
 
-    for (unsigned long i = 0; i < frames; i++) {
-		float input = in[i];
-        float output = 0.0f;
+		disp_playback_speed = playback_speed;
+		disp_amp			= amp;
 
-        switch (current_state) {
-            case RECORDING:
-                buffer[state->write_pos % state->buffer_len] = input;
-				output = input; // monitor input
-                state->write_pos++;
-                if (state->write_pos >= loop_end) state->write_pos = loop_start;
-                break;
+		float in_s = input ? input[i] : 0.0f;
+		float output = 0.0f;
 
-            case PLAYING: {
-                int i1 = (int)read_pos % state->buffer_len;
-                int i2 = (i1 + 1) % state->buffer_len;
-                float frac = read_pos - (float)i1;
-                output = (1.0f - frac) * buffer[i1] + frac * buffer[i2];
+		switch (current_state) {
+			case RECORDING:
+				buffer[write_pos % buffer_len] = in_s;
+				output = in_s; // monitor input
+				write_pos++;
+				if (write_pos >= loop_end) write_pos = loop_start;
+				break;
+
+			case PLAYING: {
+				int i1 = (int)read_pos % buffer_len;
+				int i2 = (i1 + 1) % buffer_len;
+				float frac = read_pos - (float)i1;
+				output = (1.0f - frac) * buffer[i1] + frac * buffer[i2];
 				// Fade in at loop start to avoid click
-				if (read_pos < state->loop_start + 32) {
-					float fade = (read_pos - state->loop_start) / 32.0f;
+				if (read_pos < loop_start + 32) {
+					float fade = (read_pos - loop_start) / 32.0f;
 					if (fade < 0.0f) fade = 0.0f;
 					if (fade > 1.0f) fade = 1.0f;
 					output *= fade;
 				}
-                read_pos += playback_speed;
-                if (read_pos >= loop_end) read_pos = loop_start;
-                break;
-            }
+				read_pos += playback_speed;
+				if (read_pos >= loop_end) read_pos = loop_start;
+				break;
+			}
 
-            case OVERDUBBING: {
-                int widx = state->write_pos % state->buffer_len;
-                buffer[widx] += input; // overdub
-                state->write_pos++;
-                int i1 = (int)read_pos % state->buffer_len;
-                int i2 = (i1 + 1) % state->buffer_len;
-                float frac = read_pos - (float)i1;
-                output = (1.0f - frac) * buffer[i1] + frac * buffer[i2];
-                read_pos += playback_speed;
-                if (read_pos >= loop_end) read_pos = loop_start;
-                break;
-            }
+			case OVERDUBBING: {
+				int widx = write_pos % buffer_len;
+				buffer[widx] += in_s; // overdub
+				write_pos++;
+				int i1 = (int)read_pos % buffer_len;
+				int i2 = (i1 + 1) % buffer_len;
+				float frac = read_pos - (float)i1;
+				output = (1.0f - frac) * buffer[i1] + frac * buffer[i2];
+				read_pos += playback_speed;
+				if (read_pos >= loop_end) read_pos = loop_start;
+				break;
+			}
 
-            case STOPPED:
-            case IDLE:
-            default:
-                output = 0.0f;
-                break;
-        }
+			case STOPPED:
+			case IDLE:
+			default:
+				output = 0.0f;
+				break;
+		}
 
-        m->output_buffer[i] = output * amp;
-    }
+		disp_read_pos = read_pos;
+		float val = output * amp;
+		out[i] = val;
+	}
 
-    pthread_mutex_lock(&state->lock);
-    state->read_pos = read_pos;
-    pthread_mutex_unlock(&state->lock);
+    pthread_mutex_lock(&s->lock);
+    s->read_pos = disp_read_pos;
+    s->write_pos = write_pos;
+	s->display_playback_speed = disp_playback_speed;
+	s->display_amp = disp_amp;
+    pthread_mutex_unlock(&s->lock);
 }
 
 static void clamp_params(Looper *state) {
@@ -295,8 +311,6 @@ Module* create_module(const char* args, float sample_rate) {
 	state->write_pos = 0;
     pthread_mutex_init(&state->lock, NULL);
 	init_sine_table();
-    init_smoother(&state->smooth_start, 0.75f);
-    init_smoother(&state->smooth_end, 0.75f);
     init_smoother(&state->smooth_speed, 0.75f);
     init_smoother(&state->smooth_amp, 0.75f);
     clamp_params(state);

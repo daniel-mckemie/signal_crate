@@ -31,7 +31,7 @@ static void bit_crush_process(Module* m, float* in, unsigned long frames) {
 		float bits = bits_s;
 		float rate = rate_s;
 
-		for (int j = 0; j < m->num_control_inputs; j++) {
+		for (int j=0; j < m->num_control_inputs; j++) {
 			if (!m->control_inputs[j] || !m->control_input_params[j]) continue;
 
 			const char* param = m->control_input_params[j];

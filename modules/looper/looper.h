@@ -26,8 +26,6 @@ typedef struct {
 	float amp;
 	LooperState looper_state;
 
-	CParamSmooth smooth_start;
-	CParamSmooth smooth_end;
 	CParamSmooth smooth_speed;
 	CParamSmooth smooth_amp;
 

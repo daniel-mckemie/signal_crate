@@ -10,9 +10,8 @@
 
 static void ampmod_process(Module* m, float* in, unsigned long frames) {
 	AmpMod* state = (AmpMod*)m->state;
-
-	float* in_car = m->inputs[0];
-	float* in_mod = m->inputs[1];
+	float* in_car = (m->num_inputs > 0) ? m->inputs[0] : NULL;
+	float* in_mod = (m->num_inputs > 1) ? m->inputs[1] : NULL;
 	float* out = m->output_buffer;
 
 	if (!in_car || !in_mod) {
@@ -69,16 +68,20 @@ static void ampmod_process(Module* m, float* in, unsigned long frames) {
         disp_mod   = mod_amp;
         disp_depth = depth;
 
-		float c = in_car[i] * car_amp;
-		float mval = in_mod[i] * mod_amp;
-		
+		float car_in = in_car ? in_car[i] : 0.0f;
+		float mod_in = in_mod ? in_mod[i] : 0.0f;
+		float c = car_in * car_amp;
+		float mval = mod_in * mod_amp;
+
 		float mod_factor = (1.0f - depth) + depth * (0.5f * (mval + 1.0f));
 		out[i] = c * mod_factor;
 	}
 
+	pthread_mutex_lock(&state->lock);
 	state->display_car_amp = disp_car;
 	state->display_mod_amp = disp_mod;
 	state->display_depth   = disp_depth;
+	pthread_mutex_unlock(&state->lock);
 }
 
 static void clamp_params(AmpMod *state) {

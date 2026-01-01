@@ -11,68 +11,84 @@
 static void moog_filter_process(Module *m, float* in, unsigned long frames) {
 	MoogFilter *state = (MoogFilter*)m->state;
 	FilterType filt_type;
-
-	float raw_co, raw_res;
+	float* input = (m->num_inputs > 0) ? m->inputs[0] : in;
+	float* out   = m->output_buffer;
+	float* z = state->z; // filter stages
 
 	pthread_mutex_lock(&state->lock);
-	raw_co = state->cutoff;
-	raw_res = state->resonance;
+	float base_co = state->cutoff;
+	float base_res = state->resonance;
+	float sample_rate = state->sample_rate;
 	filt_type = state->filt_type;
 	pthread_mutex_unlock(&state->lock);
 
-	float co  = process_smoother(&state->smooth_co,  raw_co);
-	float res = process_smoother(&state->smooth_res, raw_res);
+	float co_s  = process_smoother(&state->smooth_co,  base_co);
+	float res_s = process_smoother(&state->smooth_res, base_res);
 
-	for (int i = 0; i < m->num_control_inputs; i++) {
-		if (!m->control_inputs[i] || !m->control_input_params[i]) continue;
-		const char* param = m->control_input_params[i];
-		float control = *(m->control_inputs[i]);
-		float norm = fminf(fmaxf(control, -1.0f), 1.0f);
-		if (strcmp(param, "cutoff") == 0) {
-			float mod_range = raw_co;
-			co = raw_co + norm * mod_range;
-		} else if (strcmp(param, "res") == 0) {
-			float mod_range = (4.2f - raw_res);
-			res = raw_res + norm * mod_range;
-		}
-	}
-
-	state->display_cutoff = co;
-	state->display_resonance = res;
-
-	float wc = 2.0f * M_PI * co / state->sample_rate;	
-	float g = wc / (wc + 1.0f); // Scale to appropriate ladder behavior
-	float k = res;
+	float disp_co  = co_s;
+	float disp_res = res_s;
+	
 	for (unsigned long i=0; i<frames; i++) {
-		float input_sample = in[i];
+		float co  = co_s;
+		float res = res_s;
+		
+		for (int j=0; j < m->num_control_inputs; j++) {
+			if (!m->control_inputs[j] || !m->control_input_params[j]) continue;
 
-		if (!isfinite(input_sample)) input_sample = 0.0f;
-		float x = tanhf(input_sample); // Input limiter
+			const char* param = m->control_input_params[j];
+			float control = m->control_inputs[j][i];
+			control = fminf(fmaxf(control, -1.0f), 1.0f);
 
-		x -= k * state->z[3]; // Feedback line
+			if (strcmp(param, "cutoff") == 0) {
+				co += control * base_co;
+			} else if (strcmp(param, "res") == 0) {
+				res += control * (4.2f - base_res);
+			}
+		}
+
+		clampf(&co, 10.0f, sample_rate * 0.45f);
+		clampf(&res, 0.0f, 4.2f);
+
+		disp_co  = co;
+		disp_res = res;
+
+		float wc = 2.0f * M_PI * co / sample_rate;	
+		float g = wc / (wc + 1.0f); // Scale to appropriate ladder behavior
+		float k = res;
+		float in_s = input ? input[i] : 0.0f;
+
+		if (!isfinite(in_s)) in_s = 0.0f;
+		float x = tanhf(in_s); // Input limiter
+
+		x -= k * z[3]; // Feedback line
 		x = tanhf(x); // Soft saturation
 
-		state->z[0] += g * (x - state->z[0]);
-		state->z[1] += g * (state->z[0] - state->z[1]);
-		state->z[2] += g * (state->z[1] - state->z[2]);
-		state->z[3] += g * (state->z[2] - state->z[3]);
+		z[0] += g * (x - z[0]);
+		z[1] += g * (z[0] - z[1]);
+		z[2] += g * (z[1] - z[2]);
+		z[3] += g * (z[2] - z[3]);
 
 		float y;
 		switch (filt_type) {
 			case LOWPASS:
-				y = tanhf(state->z[3]); break;	
+				y = tanhf(z[3]); break;	
 			case HIGHPASS:
-				y = tanhf(x - state->z[3]); break;
+				y = tanhf(x - z[3]); break;
 			case BANDPASS:
-				y = tanhf(state->z[2] - state->z[3]); break;
+				y = tanhf(z[2] - z[3]); break;
 			case NOTCH:
-				y = tanhf(x - k * state->z[3]); break;		
+				y = tanhf(x - k * z[3]); break;		
 			case RESONANT:
-				y = tanhf(state->z[3] + k * (state->z[3] - state->z[2])); break;
+				y = tanhf(z[3] + k * (z[3] - z[2])); break;
 		}
 				
-		m->output_buffer[i] = fminf(fmaxf(y, -1.0f), 1.0f);
+		float val = fminf(fmaxf(y, -1.0f), 1.0f);
+		out[i] = val;
 	}
+	pthread_mutex_lock(&state->lock);
+	state->display_cutoff = disp_co;
+	state->display_resonance = disp_res;
+	pthread_mutex_unlock(&state->lock);
 }
 
 static void clamp_params(MoogFilter *state) {
@@ -103,7 +119,7 @@ static void moog_filter_draw_ui(Module *m, int y, int x) {
 	LABEL(2, "res:");
 	ORANGE(); printw(" %.2f | ", res); CLR();
 
-	LABEL(2, "type:");
+	LABEL(2, "filt_type:");
 	ORANGE(); printw(" %s", filt_names[filt_type]); CLR();
 
 	YELLOW();
@@ -184,7 +200,8 @@ static void moog_filter_set_osc_param(Module* m, const char* param, float value)
     } else {
         fprintf(stderr, "[moog_filter] Unknown OSC param: %s\n", param);
     }
-
+	
+	clamp_params(state);
     pthread_mutex_unlock(&state->lock);
 }
 
@@ -222,6 +239,7 @@ Module* create_module(const char* args, float sample_rate) {
 	state->resonance = resonance;
 	state->filt_type = filt_type;
 	state->sample_rate = sample_rate;
+	state->z[0] = state->z[1] = state->z[2] = state->z[3] = 1e-6f;
 	pthread_mutex_init(&state->lock, NULL);
 	init_smoother(&state->smooth_co, 0.75f);
 	init_smoother(&state->smooth_res, 0.75f);

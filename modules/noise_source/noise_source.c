@@ -10,38 +10,49 @@
 #include "module.h"
 #include "util.h"
 
+static inline float rng_white(uint32_t *s) {
+    uint32_t x = *s;
+    x ^= x << 13;
+    x ^= x >> 17;
+    x ^= x << 5;
+    *s = x;
+    return ((float)x / 4294967296.0f) * 2.0f - 1.0f; // [-1, 1)
+}
+
 static void noise_source_process(Module* m, float* in, unsigned long frames) {
 	NoiseSource *state = (NoiseSource*)m->state;
-
-	float raw_amp;
 	NoiseType noise_type;
+	float* out = m->output_buffer;
 
 	pthread_mutex_lock(&state->lock);
-	raw_amp    = state->amplitude;
+	float base_amp    = state->amplitude;
 	noise_type = state->noise_type;
 	pthread_mutex_unlock(&state->lock);
 
-	float amp = process_smoother(&state->smooth_amp, raw_amp);
+	float amp_s = process_smoother(&state->smooth_amp, base_amp);
 
-	float mod_depth = 1.0f;
-	for (int i = 0; i < m->num_control_inputs; i++) {
-		if (!m->control_inputs[i] || !m->control_input_params[i]) continue;
+	float disp_amp = amp_s;
 
-		const char* param = m->control_input_params[i];
-		float control = *(m->control_inputs[i]);
-		float norm = fminf(fmaxf(control, -1.0f), 1.0f);
-
-		if (strcmp(param, "amp") == 0) {
-			float mod_range = (1.0f - raw_amp) * mod_depth;
-			amp = raw_amp + norm * mod_range;
-		}
-	}
-	amp = fminf(fmaxf(amp, 0.0f), 1.0f);
-
-	state->display_amp = amp;
-	
 	for (unsigned long i=0; i<frames; i++) {
-		float white = ((float)rand() / RAND_MAX) * 2.0 - 1.0;
+		float amp = amp_s;
+
+		for (int j=0; j<m->num_control_inputs; j++) {
+			if (!m->control_inputs[j] || !m->control_input_params[j]) continue;
+
+			const char* param = m->control_input_params[j];
+			float control = m->control_inputs[j][i];
+			control = fminf(fmaxf(control, -1.0f), 1.0f);
+
+			if (strcmp(param, "amp") == 0) {
+				amp += control * (1.0f - base_amp);
+			}
+		}
+
+		clampf(&amp, 0.0f, 1.0f);
+
+		disp_amp = amp;
+		
+		float white = rng_white(&state->rng);
 		float value = 0.0f;
 		switch (noise_type) {
 			case WHITE_NOISE:	value = white; break;
@@ -49,8 +60,11 @@ static void noise_source_process(Module* m, float* in, unsigned long frames) {
 			case BROWN_NOISE:	value = brown_noise_process(&state->brown, white); break;
 
 		}
-		m->output_buffer[i] = amp * value;
+		out[i] = amp * value;
 	}
+	pthread_mutex_lock(&state->lock);
+	state->display_amp = disp_amp;
+	pthread_mutex_unlock(&state->lock);
 }
 
 static void clamp_params(NoiseSource *state) {
@@ -147,6 +161,7 @@ static void noise_source_set_osc_param(Module* m, const char* param, float value
         fprintf(stderr, "[noise_source] Unknown OSC param: %s\n", param);
     }
 
+	clamp_params(state);
     pthread_mutex_unlock(&state->lock);
 }
 
@@ -177,6 +192,7 @@ Module* create_module(const char* args, float sample_rate) {
 	state->amplitude = amplitude;
 	state->noise_type = noise_type;
 	state->sample_rate = sample_rate;
+	state->rng = (uint32_t)time(NULL) ^ (uintptr_t)state;
 	pink_filter_init(&state->pink, sample_rate);
 	brown_noise_init(&state->brown);
 	pthread_mutex_init(&state->lock, NULL);

@@ -17,6 +17,8 @@ typedef struct {
 	NoiseType noise_type;
 	float sample_rate;
 
+	uint32_t rng;
+
 	CParamSmooth smooth_amp;
 
 	PinkFilter pink;

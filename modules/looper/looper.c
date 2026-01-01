@@ -44,10 +44,10 @@ static void looper_process(Module* m, float* in, unsigned long frames) {
 			control = fminf(fmaxf(control, -1.0f), 1.0f);
 
 			if (strcmp(param, "speed") == 0) {
-				playback_speed += control * (4.0f - playback_speed_s);
+				playback_speed += control * (4.0f - base_speed);
 			}
 			else if (strcmp(param, "amp") == 0) {
-				amp += control * (1.0f - amp_s);
+				amp += control * (1.0f - base_amp);
 			}
 		}
 

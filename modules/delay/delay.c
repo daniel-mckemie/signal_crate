@@ -12,82 +12,92 @@
 
 static void delay_process(Module* m, float* in, unsigned long frames) {
     Delay* state = (Delay*)m->state;
+	float* input = (m->num_inputs > 0) ? m->inputs[0] : in;
+	float* out   = m->output_buffer;
 
-	float mix, fb, delay_ms;
-	float raw_mix, raw_fb, raw_delay_ms;
 	pthread_mutex_lock(&state->lock);
-	raw_mix      = state->mix;
-	raw_fb       = state->feedback;
-	raw_delay_ms = state->delay_ms;
+	float base_mix      = state->mix;
+	float base_fb       = state->feedback;
+	float base_delay_ms = state->delay_ms;
+	float* buffer = state->buffer;
+	unsigned int buffer_size = state->buffer_size;
+	unsigned int write_index = state->write_index;
+	float delay_samples = state->last_delay_samples;
+	float sample_rate = state->sample_rate;
 	pthread_mutex_unlock(&state->lock);
 
-	mix      = process_smoother(&state->smooth_mix,      raw_mix);
-	fb       = process_smoother(&state->smooth_feedback, raw_fb);
-	delay_ms = process_smoother(&state->smooth_delay,    raw_delay_ms);
+	float mix_s      = process_smoother(&state->smooth_mix,      base_mix);
+	float fb_s       = process_smoother(&state->smooth_feedback, base_fb);
+	float delay_ms_s = process_smoother(&state->smooth_delay,    base_delay_ms);
 
+	float disp_mix		= mix_s;
+	float disp_fb		= fb_s;
+	float disp_delay_ms = delay_ms_s;
     
-    // Control-rate modulation - non-destructive
-	float mod_depth = 1.0f;
-    for (int i = 0; i < m->num_control_inputs; i++) {
-        if (!m->control_inputs[i] || !m->control_input_params[i]) continue;
+    for (unsigned long i=0; i<frames; i++) {
+		float mix	   = mix_s;
+		float fb	   = fb_s;
+		float delay_ms = delay_ms_s;
+		
+		for (int j=0; j<m->num_control_inputs; j++) {
+			if (!m->control_inputs[j] || !m->control_input_params[j]) continue;
 
-        const char* param = m->control_input_params[i];
-        float control = *(m->control_inputs[i]);
-		float norm = fminf(fmaxf(control, -1.0f), 1.0f);	
+			const char* param = m->control_input_params[j];
+			float control = m->control_inputs[j][i];
+			control = fminf(fmaxf(control, -1.0f), 1.0f);	
 
-        if (strcmp(param, "time") == 0) {
-			float mod_range = state->delay_ms * mod_depth;
-            // delay_ms = min_ms * powf(max_ms / min_ms, control); // exponential map
-            delay_ms = state->delay_ms + norm * mod_range;
-        } else if (strcmp(param, "mix") == 0) {
-			float mod_range = (1.0f - state->mix) * mod_depth;
-            mix = state->mix + norm * mod_range;
-        } else if (strcmp(param, "fb") == 0) {
-			float mod_range = (1.0f - state->feedback) * mod_depth;
-            fb = state->feedback + norm * mod_range;
-        }
+			if (strcmp(param, "time") == 0) {
+				delay_ms += control * (MAX_DELAY_MS - base_delay_ms);
+			} else if (strcmp(param, "mix") == 0) {
+				mix += control * (1.0f - base_mix);
+			} else if (strcmp(param, "fb") == 0) {
+				fb += control * (1.0f - base_fb); 
+			}
+		}
+	
+		clampf(&mix, 0.0f, 1.0f);
+		clampf(&fb, 0.0f, 0.99f);
+		clampf(&delay_ms, 1.0f, MAX_DELAY_MS);
+
+		disp_mix	  = mix;
+		disp_fb		  = fb;
+		disp_delay_ms = delay_ms;
+
+		// Smooth delay time per sample
+		float target_delay_samples = (delay_ms / 1000.0f) * sample_rate;
+		if (target_delay_samples > (float)(buffer_size - 1)) target_delay_samples = (float)(buffer_size - 1);
+		if (target_delay_samples < 1.0f) target_delay_samples = 1.0f;
+
+		float smoothing = 0.001f;  // smaller is smoother; increase if too sluggish
+
+		// Smooth toward target
+		delay_samples += smoothing * (target_delay_samples - delay_samples);
+
+		float read_pos = (float)write_index - delay_samples;
+		if (read_pos < 0.0f) read_pos += buffer_size;
+
+		unsigned int base = (unsigned int)read_pos;
+		float frac = read_pos - base;
+		float s1 = buffer[base % buffer_size];
+		float s2 = buffer[(base + 1) % buffer_size];
+		float delayed = (1.0f - frac) * s1 + frac * s2;
+
+		float dry = input ? input[i] : 0.0f;
+		float val = dry * (1.0f - mix) + delayed * mix;
+		out[i] = val;
+
+		buffer[write_index] = dry + delayed * fb;
+
+		write_index = (write_index + 1) % buffer_size;
     }
 
-    // For display
-    state->display_mix = mix;
-    state->display_feedback = fb;
-    state->display_delay = delay_ms;
-
-    unsigned int buffer_size = state->buffer_size;
-    unsigned int write_index = state->write_index;
-
-    // Smooth delay time per sample
-    float target_delay_samples = (delay_ms / 1000.0f) * state->sample_rate;
-    if (target_delay_samples > (float)(buffer_size - 1)) target_delay_samples = (float)(buffer_size - 1);
-    if (target_delay_samples < 1.0f) target_delay_samples = 1.0f;
-
-    float delay_samples = state->last_delay_samples;
-    float smoothing = 0.001f;  // smaller is smoother; increase if too sluggish
-
-    for (unsigned long i = 0; i < frames; i++) {
-        // Smooth toward target
-        delay_samples += smoothing * (target_delay_samples - delay_samples);
-
-        float read_pos = (float)write_index - delay_samples;
-        if (read_pos < 0.0f) read_pos += buffer_size;
-
-        unsigned int base = (unsigned int)read_pos;
-        float frac = read_pos - base;
-        float s1 = state->buffer[base % buffer_size];
-        float s2 = state->buffer[(base + 1) % buffer_size];
-        float delayed = (1.0f - frac) * s1 + frac * s2;
-
-        float dry = in[i];
-        float out = dry * (1.0f - mix) + delayed * mix;
-        m->output_buffer[i] = out;
-
-        state->buffer[write_index] = dry + delayed * fb;
-
-        write_index = (write_index + 1) % buffer_size;
-    }
-
-    state->write_index = write_index;
-    state->last_delay_samples = delay_samples;
+	pthread_mutex_lock(&state->lock);
+	state->write_index = write_index;
+	state->last_delay_samples = delay_samples;
+	state->display_mix = disp_mix;
+	state->display_feedback = disp_fb;
+	state->display_delay = disp_delay_ms;
+	pthread_mutex_unlock(&state->lock);
 }
 
 static void clamp_params(Delay* state) {
@@ -189,7 +199,8 @@ static void delay_set_osc_param(Module* m, const char* param, float value) {
     } else {
         fprintf(stderr, "[delay] Unknown OSC param: %s\n", param);
     }
-
+	
+	clamp_params(state);
     pthread_mutex_unlock(&state->lock);
 }
 

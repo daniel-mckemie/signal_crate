@@ -172,6 +172,7 @@ static void c_fluct_set_osc_param(Module* m, const char* param, float value) {
         if (value > 0.5f) {
 			s->mode = (s->mode == FLUCT_WALK) ? FLUCT_NOISE : FLUCT_WALK;
 		}
+	clamp_params(s);
     pthread_mutex_unlock(&s->lock);
 }
 

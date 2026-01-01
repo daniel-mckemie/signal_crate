@@ -200,6 +200,7 @@ Module* create_module(const char* args, float sample_rate) {
     s->sample_rate = sample_rate;
 
     pthread_mutex_init(&s->lock, NULL);
+	clamp_params(s);
 
     Module* m = calloc(1, sizeof(Module));
     m->name            = "c_clock_u";

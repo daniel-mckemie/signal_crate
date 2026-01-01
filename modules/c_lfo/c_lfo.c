@@ -44,10 +44,8 @@ static void c_lfo_process_control(Module* m, unsigned long frames) {
 
 			if (strcmp(param, "freq") == 0) {
 				freq += control * freq * 0.5f;
-
 			} else if (strcmp(param, "amp") == 0) {
 				amp += control * 0.5f;
-
 			} else if (strcmp(param, "depth") == 0) {
 				depth += control * 0.5f;
 			}
@@ -218,7 +216,7 @@ static void c_lfo_set_osc_param(Module* m, const char* param, float value) {
     } else if (strcmp(param, "polarity") == 0) {
 		s->polarity = (value > 0.5f);
 	}
-
+	clamp_params(s);
     pthread_mutex_unlock(&s->lock);
 }
 

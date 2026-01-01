@@ -452,6 +452,7 @@ Module* create_module(const char* args, float sample_rate) {
     memset(s->command_buffer, 0, sizeof(s->command_buffer));
 
     pthread_mutex_init(&s->lock, NULL);
+	clamp_params(s);
     register_clock(s);
 
     Module* m = calloc(1, sizeof(Module));

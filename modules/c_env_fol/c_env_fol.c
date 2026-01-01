@@ -196,6 +196,7 @@ static void c_env_fol_set_osc_param(Module* m, const char* param, float value) {
     } else if (strcmp(param, "depth") == 0) {
 		s->depth = value;
 	}
+	clamp_params(s);
     pthread_mutex_unlock(&s->lock);
 }
 
@@ -234,6 +235,7 @@ Module* create_module(const char* args, float sample_rate) {
     init_smoother(&s->smooth_decay, 0.75f);
     init_smoother(&s->smooth_sens, 0.75f);
     init_smoother(&s->smooth_depth, 0.75f);
+	clamp_params(s);
 
     Module* m = calloc(1, sizeof(Module));
     m->name = "c_env_fol";

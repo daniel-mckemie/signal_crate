@@ -254,6 +254,7 @@ static void c_asr_set_osc_param(Module* m, const char* param, float value) {
     } else if (strcmp(param, "gate") == 0) {
 		s->threshold_gate = value;
 	}
+	clamp_params(s);
     pthread_mutex_unlock(&s->lock);
 }
 
@@ -294,6 +295,7 @@ Module* create_module(const char* args, float sample_rate) {
     init_smoother(&s->smooth_rel, 0.75f);
     init_smoother(&s->smooth_sus, 0.75f);
 	init_smoother(&s->smooth_depth, 0.75f);
+	clamp_params(s);
 
     Module* m = calloc(1, sizeof(Module));
     m->name = "c_asr";

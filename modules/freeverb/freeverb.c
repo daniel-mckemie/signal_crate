@@ -36,60 +36,76 @@ static float allpass_process(DelayLine* d, float input) {
 
 static void freeverb_process(Module* m, float* in, unsigned long frames) {
     Freeverb* s = (Freeverb*)m->state;
+	float* input = (m->num_inputs > 0) ? m->inputs[0] : in;
+	float* out = m->output_buffer;
 
-	float base_fb, base_damp, base_wet;
 	pthread_mutex_lock(&s->lock);
-	base_fb   = s->feedback;
-	base_damp = s->damping;
-	base_wet  = s->wet;
+	float base_fb   = s->feedback;
+	float base_damp = s->damping;
+	float base_wet  = s->wet;
 	pthread_mutex_unlock(&s->lock);
 
-    float fb = process_smoother(&s->smooth_feedback, base_fb);
-    float damp = process_smoother(&s->smooth_damping, base_damp);
-    float wet = process_smoother(&s->smooth_wet, base_wet);
+    float fb_s   = process_smoother(&s->smooth_feedback, base_fb);
+    float damp_s = process_smoother(&s->smooth_damping, base_damp);
+    float wet_s  = process_smoother(&s->smooth_wet, base_wet);
 
-	float mod_depth = 1.0f;
-	for (int i = 0; i < m->num_control_inputs; i++) {
-		if (!m->control_inputs[i] || !m->control_input_params[i]) continue;
+	float disp_fb   = fb_s;
+	float disp_damp = damp_s;
+	float disp_wet  = wet_s;
 
-		const char* param = m->control_input_params[i];
-		float control = *(m->control_inputs[i]);
-		float norm = fminf(fmaxf(control, -1.0f), 1.0f);
-		if (strcmp(param, "fb") == 0) {
-			float mod_range = s->feedback * mod_depth;
-			fb = s->feedback + norm * mod_range;
-		} else if (strcmp(param, "damp") == 0) {
-			float mod_range = (1.0f - s->damping) * mod_depth;
-			damp = s->damping + norm * mod_range;
-		} else if (strcmp(param, "wet") == 0) {
-			float mod_range = (1.0f - s->wet) * mod_depth;
-			wet = s->wet + norm * mod_range;
-		}
-	}
+	for (unsigned long i=0; i<frames; i++) {
+		float fb   = fb_s;
+		float damp = damp_s;
+		float wet  = wet_s;
 
-    s->display_feedback = fb;
-    s->display_damping = damp;
-    s->display_wet = wet;
+		for (int j=0; j<m->num_control_inputs; j++) {
 
-    for (unsigned long i = 0; i < frames; i++) {
-        float input = in[i];
-        float acc = 0.0f;
+			if (!m->control_inputs[j] || !m->control_input_params[j]) continue;
 
-        for (int j = 0; j < NUM_COMBS; j++) {
-            float out = delayline_process(&s->combs[j], input + s->comb_filterstore[j] * fb);
-            s->comb_filterstore[j] = damp * s->comb_filterstore[j] + (1 - damp) * out;
-            acc += out;
-        }
+			const char* param = m->control_input_params[j];
+			float control = m->control_inputs[j][i];
+			control = fminf(fmaxf(control, -1.0f), 1.0f);
 
-        float allpass_out = acc;
-		for (int j = 0; j < NUM_ALLPASS; j++) {
-		    allpass_out = allpass_process(&s->allpasses[j], allpass_out);
+			if (strcmp(param, "fb") == 0) {
+				fb += control * (1.0f - base_fb);
+			} else if (strcmp(param, "damp") == 0) {
+				damp += control * (1.0f - base_damp);
+			} else if (strcmp(param, "wet") == 0) {
+				wet += control * (1.0f - base_wet);
+			}
 		}
 
+		clampf(&fb, 0.0f, 0.99f);
+		clampf(&damp, 0.0f, 1.0f);
+		clampf(&wet, 0.0f, 1.0f);
+
+		disp_fb   = fb;
+		disp_damp = damp;
+		disp_wet  = wet;
+
+		float in_s = input ? input[i] : 0.0f;
+		float acc = 0.0f;
+
+		for (int k=0; k<NUM_COMBS; k++) {
+			float comb_out = delayline_process(&s->combs[k], in_s + s->comb_filterstore[k] * fb);
+			s->comb_filterstore[k] = damp * s->comb_filterstore[k] + (1 - damp) * comb_out;
+			acc += comb_out;
+		}
+
+		float allpass_out = acc;
+		for (int k=0; k<NUM_ALLPASS; k++) {
+			allpass_out = allpass_process(&s->allpasses[k], allpass_out);
+		}
 
 		float dry = 1.0f - wet;
-        m->output_buffer[i] = dry * input + wet * (allpass_out / NUM_COMBS);
-    }
+		out[i] = dry * in_s + wet * (allpass_out / NUM_COMBS);
+	}
+
+	pthread_mutex_lock(&s->lock);
+	s->display_feedback = disp_fb;
+	s->display_damping  = disp_damp;
+	s->display_wet      = disp_wet;
+	pthread_mutex_unlock(&s->lock);
 }
 
 static void clamp_params(Freeverb* s) {
@@ -177,7 +193,7 @@ static void freeverb_handle_input(Module* m, int key) {
     pthread_mutex_unlock(&s->lock);
 }
 
-static void freeverb_set_param(Module* m, const char* param, float value) {
+static void freeverb_set_osc_param(Module* m, const char* param, float value) {
     Freeverb* s = (Freeverb*)m->state;
     pthread_mutex_lock(&s->lock);
 
@@ -228,7 +244,7 @@ Module* create_module(const char* args, float sample_rate) {
     m->process = freeverb_process;
     m->draw_ui = freeverb_draw_ui;
     m->handle_input = freeverb_handle_input;
-    m->set_param = freeverb_set_param;
+    m->set_param = freeverb_set_osc_param;
     m->destroy = freeverb_destroy;
     return m;
 }

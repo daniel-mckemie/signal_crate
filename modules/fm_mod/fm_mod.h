@@ -4,7 +4,16 @@
 #include <pthread.h>
 #include "util.h"
 
+#define FM_MOD_MIN_FREQ 0.01f
+#define FM_MOD_MAX_FREQ 21600.0f
+#define FM_MOD_MAX_INDEX 10.0f
+#define HILBERT_LEN 129
+
 typedef struct {
+	float hilbert_delay[HILBERT_LEN];
+	int hilbert_pos;
+
+	float carrier_phase;
 	float modulator_phase;
 	float mod_freq;
 	float car_amp;

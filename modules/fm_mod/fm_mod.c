@@ -9,68 +9,114 @@
 #include "module.h"
 #include "util.h"
 
+static const float hilbert_taps[HILBERT_LEN] = {
+	// Truncated Hilbert transformer...
+    0.0f, -0.0062f, 0.0f, -0.0070f, 0.0f, -0.0081f, 0.0f, -0.0096f,
+    0.0f, -0.0117f, 0.0f, -0.0148f, 0.0f, -0.0193f, 0.0f, -0.0260f,
+    0.0f, -0.0366f, 0.0f, -0.0553f, 0.0f, -0.0967f, 0.0f, -0.3183f,
+    0.0f,
+     0.3183f, 0.0f, 0.0967f, 0.0f, 0.0553f, 0.0f, 0.0366f,
+    0.0f, 0.0260f, 0.0f, 0.0193f, 0.0f, 0.0148f, 0.0f, 0.0117f,
+    0.0f, 0.0096f, 0.0f, 0.0081f, 0.0f, 0.0070f, 0.0f, 0.0062f,
+    0.0f
+};
+
 static void fm_mod_process(Module *m, float* in, unsigned long frames) {
     FMMod *state = (FMMod*)m->state;
+	float* input = (m->num_inputs > 0) ? m->inputs[0] : in;
+	float* out = m->output_buffer;
 	
-	float mf, car_amp, mod_amp, idx;
-    float base_mf, base_car_amp, base_mod_amp, base_idx;
-
     pthread_mutex_lock(&state->lock);
-    base_mf      = state->mod_freq;
-    base_car_amp = state->car_amp;
-    base_mod_amp = state->mod_amp;
-    base_idx     = state->index;
+    float base_mod_freq = state->mod_freq;
+    float base_car_amp  = state->car_amp;
+    float base_mod_amp  = state->mod_amp;
+    float base_idx      = state->index;
+	float sr            = state->sample_rate;
     pthread_mutex_unlock(&state->lock);
 
-    mf      = process_smoother(&state->smooth_freq,      base_mf);
-    car_amp = process_smoother(&state->smooth_car_amp,   base_car_amp);
-    mod_amp = process_smoother(&state->smooth_mod_amp,   base_mod_amp);
-    idx     = process_smoother(&state->smooth_index,     base_idx);
+    float mod_freq_s = process_smoother(&state->smooth_freq, base_mod_freq);
+    float car_amp_s = process_smoother(&state->smooth_car_amp, base_car_amp);
+    float mod_amp_s = process_smoother(&state->smooth_mod_amp, base_mod_amp);
+    float idx_s = process_smoother(&state->smooth_index, base_idx);
 
-    // --- Control Modulation Block ---
-	float mod_depth = 1.0f;
-    for (int i = 0; i < m->num_control_inputs; i++) {
-        if (!m->control_inputs[i] || !m->control_input_params[i]) continue;
+	float disp_mod_freq = mod_freq_s;
+	float disp_car_amp = car_amp_s;
+	float disp_mod_amp = mod_amp_s;
+	float disp_idx = idx_s;
 
-        const char* param = m->control_input_params[i];
-        float control = *(m->control_inputs[i]);
-		float norm = fminf(fmaxf(control, -1.0f), 1.0f);
+	for (unsigned long i=0; i<frames; i++) {
+		float mod_freq = mod_freq_s;
+		float car_amp  = car_amp_s;
+		float mod_amp  = mod_amp_s;
+		float idx      = idx_s;
 
-        if (strcmp(param, "mod_freq") == 0) {
-			float mod_range = state->mod_freq * mod_depth;
-			mf = state->mod_freq + norm * mod_range;
-        } else if (strcmp(param, "car_amp") == 0) {
-			float mod_range = (1.0f - state->car_amp) * mod_depth;
-            car_amp = state->car_amp + norm * mod_range;
-        } else if (strcmp(param, "mod_amp") == 0) {
-			float mod_range = (1.0f - state->mod_amp) * mod_depth;
-            mod_amp = state->mod_amp + norm * mod_range;
-        } else if (strcmp(param, "idx") == 0) {
-			float mod_range = (10.0f - state->index) * mod_depth;
-            idx = state->index + norm * mod_range;
+		for (int j=0; j < m->num_control_inputs; j++) {
+			if (!m->control_inputs[j] || !m->control_input_params[j]) continue;
+
+			const char* param = m->control_input_params[j];
+			float control = m->control_inputs[j][i];
+			control = fminf(fmaxf(control, -1.0f), 1.0f);
+
+			if (strcmp(param, "mod_freq") == 0) {
+				mod_freq += control * base_mod_freq;
+			} else if (strcmp(param, "car_amp") == 0) {
+				car_amp += control * (1.0f - base_car_amp);
+			} else if (strcmp(param, "mod_amp") == 0) {
+				mod_amp += control * (1.0f - base_mod_amp); 
+			} else if (strcmp(param, "idx") == 0) {
+				idx += control * base_idx;
+			}
 		}
-    }
 
-	state->display_freq = mf;
-	state->display_car_amp = car_amp;
-	state->display_mod_amp = mod_amp;
-	state->display_index = idx;
-	
-    for (unsigned long i=0; i<frames; i++) {
-		float input = in[i];
-        float mod = sinf(2.0f * M_PI * state->modulator_phase);
-        float fm = sinf(2.0f * M_PI * (idx + mod_amp * mod));
-		m->output_buffer[i] = car_amp * input * fm;
+		clampf(&mod_freq, FM_MOD_MIN_FREQ, FM_MOD_MAX_FREQ);
+		clampf(&car_amp, 0.0f, 1.0f);
+		clampf(&mod_amp, 0.0f, 1.0f);
+		clampf(&idx, 0.01f, FM_MOD_MAX_INDEX);
 
-        state->modulator_phase += mf / state->sample_rate;
-        if (state->modulator_phase >= 1.0f)
-            state->modulator_phase -= 1.0f;
-    }
+		disp_mod_freq = mod_freq;
+		disp_car_amp = car_amp;
+		disp_mod_amp = mod_amp;
+		disp_idx = idx;
+
+		
+		state->hilbert_delay[state->hilbert_pos] = input[i];
+
+		float imag = 0.0f;
+		int p = state->hilbert_pos;
+		for (int k = 0; k < HILBERT_LEN; k++) {
+			imag += hilbert_taps[k] * state->hilbert_delay[p];
+			if (--p < 0) p = HILBERT_LEN - 1;
+		}
+
+		float real = state->hilbert_delay[
+			(state->hilbert_pos + HILBERT_LEN/2) % HILBERT_LEN
+		];
+
+		if (++state->hilbert_pos >= HILBERT_LEN)
+			state->hilbert_pos = 0;
+
+		/* carrier instantaneous phase */
+		float carrier_phase = atan2f(imag, real);
+		float mod = sinf(TWO_PI * state->modulator_phase);
+		float phase = carrier_phase + idx * mod_amp * mod;
+		out[i] = car_amp * cosf(phase);
+
+		state->modulator_phase += mod_freq / sr;
+		if (state->modulator_phase >= 1.0f)
+			state->modulator_phase -= 1.0f;
+	}
+
+    pthread_mutex_lock(&state->lock);
+    state->display_freq    = disp_mod_freq;
+    state->display_car_amp = disp_car_amp;
+    state->display_mod_amp = disp_mod_amp;
+    state->display_index   = disp_idx;
+    pthread_mutex_unlock(&state->lock);
 }
 
 static void clamp_params(FMMod *state) {
 	clampf(&state->index, 0.01f, 10.0f);
-	clampf(&state->mod_freq, 0.01f, state->sample_rate * 0.45f);
+	clampf(&state->mod_freq, FM_MOD_MIN_FREQ, FM_MOD_MAX_FREQ);
 	clampf(&state->car_amp, 0.0f, 1.0f);
 	clampf(&state->mod_amp, 0.0f, 1.0f);
 }
@@ -168,22 +214,21 @@ static void fm_mod_set_osc_param(Module* m, const char* param, float value) {
     pthread_mutex_lock(&state->lock);
 
     if (strcmp(param, "mod_freq") == 0) {
-        float min_hz = 0.01f;
-        float max_hz = 20000.0f;
-        float norm = fminf(fmaxf(value, 0.0f), 1.0f); // clamp
-        float hz = min_hz * powf(max_hz / min_hz, norm);
-        state->mod_freq = hz;
+        float min_hz = FM_MOD_MIN_FREQ;
+        float max_hz = FM_MOD_MAX_FREQ;
+        float norm = fminf(fmaxf(value, 0.0f), 1.0f);
+        state->mod_freq = min_hz * powf(max_hz / min_hz, norm);
     } else if (strcmp(param, "car_amp") == 0) {
         state->car_amp = fmaxf(value, 0.0f);
     } else if (strcmp(param, "mod_amp") == 0) {
         state->mod_amp = fmaxf(value, 0.0f);
-    } else if (strcmp(param, "index") == 0) {
+    } else if (strcmp(param, "index") == 0 || strcmp(param, "idx") == 0) {
 		float norm = fminf(fmaxf(value, 0.0f), 1.0f);
-        state->index = norm * 10.0f;
+        state->index = norm * FM_MOD_MAX_INDEX;
 	} else {
         fprintf(stderr, "[fm_mod] Unknown OSC param: %s\n", param);
     }
-
+	clamp_params(state);
     pthread_mutex_unlock(&state->lock);
 }
 

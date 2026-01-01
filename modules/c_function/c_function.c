@@ -371,7 +371,6 @@ Module* create_module(const char* args, float sample_rate) {
     init_smoother(&s->smooth_att,   0.75f);
     init_smoother(&s->smooth_rel,   0.75f);
     init_smoother(&s->smooth_depth, 0.75f);
-
     clamp_params(s);
 
     Module* m = calloc(1, sizeof(Module));

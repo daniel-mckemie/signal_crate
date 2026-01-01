@@ -26,12 +26,11 @@ static void c_output_process(Module* m, float* in, unsigned long frames) {
     if (smoothed_base >  1.0f) smoothed_base =  1.0f;
 
     const float* cv = NULL;
-    for (int i = 0; i < m->num_control_inputs; i++)
-    {
-        if (!m->control_inputs[i] || !m->control_input_params[i])
-            continue;
-        if (strcmp(m->control_input_params[i], "val") == 0)
-        {
+    for (int i = 0; i < m->num_control_inputs; i++) {
+        if (!m->control_inputs[i] || !m->control_input_params[i]) {
+			continue;
+		}
+        if (strcmp(m->control_input_params[i], "val") == 0) {
             cv = m->control_inputs[i];
             break;
         }

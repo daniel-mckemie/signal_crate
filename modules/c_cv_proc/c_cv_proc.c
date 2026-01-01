@@ -43,8 +43,7 @@ static void c_cv_proc_process_control(Module* m, unsigned long frames) {
 			control = fminf(fmaxf(control, -1.0f), 1.0f);
 
 			if (strcmp(param, "k") == 0) {
-				float range = fabsf(base_k) > 0.0f ? fabsf(base_k) : 2.0f;
-				k += control * range;
+				k += control * (2.0f - fabsf(base_k));
 			} else if (strcmp(param, "m") == 0) {
 				m_amt += control * (1.0f - base_m);
 			} else if (strcmp(param, "offset") == 0) {
@@ -185,7 +184,7 @@ static void c_cv_proc_set_osc_param(Module* m, const char* param, float value) {
     } else {
         fprintf(stderr, "[c_cv_proc] Unknown OSC param: %s\n", param);
     }
-
+	clamp_params(s);
     pthread_mutex_unlock(&s->lock);
 }
 
@@ -222,6 +221,7 @@ Module* create_module(const char* args, float sample_rate) {
     init_smoother(&s->smooth_k, 0.75f);
     init_smoother(&s->smooth_m, 0.75f);
     init_smoother(&s->smooth_offset, 0.75f);
+	clamp_params(s);
 
     Module* mod = calloc(1, sizeof(Module));
     mod->name = "c_cv_proc";

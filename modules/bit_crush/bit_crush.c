@@ -46,18 +46,18 @@ static void bit_crush_process(Module* m, float* in, unsigned long frames) {
 			}
 		}
 
-		// 4) Clamp final values
 		clampf(&rate, 20.0f, s->sample_rate * 0.45f);
 		clampf(&bits, 2.0f, 16.0f);
 
 		disp_bits = bits;
 		disp_rate = rate;
 
-		// Compute derived quantities from the FINAL rate/bits
 		float step = rate / s->sample_rate;
 		if (step <= 0.0f) step = 1.0f;
 
-		float bit_levels = powf(2.0f, bits) - 1.0f;
+		float bits_q = roundf(bits);
+		float bit_levels = powf(2.0f, bits_q) - 1.0f;
+
 
 		phs += step;
 		if (phs >= 1.0f) {
@@ -68,10 +68,12 @@ static void bit_crush_process(Module* m, float* in, unsigned long frames) {
 		out[i] = held;
 	}
 
+	pthread_mutex_lock(&s->lock);
     s->phase = phs;
     s->last_sample = held;
     s->display_bits = disp_bits;
     s->display_rate = disp_rate;
+	pthread_mutex_unlock(&s->lock);
 }
 
 static void bit_crush_draw_ui(Module* m, int y, int x) {
@@ -200,6 +202,7 @@ Module* create_module(const char* args, float sample_rate) {
     pthread_mutex_init(&s->lock, NULL);
     init_smoother(&s->smooth_bits, 0.75f);
     init_smoother(&s->smooth_rate, 0.75f);
+	clamp_params(s);
 
     Module* m = calloc(1, sizeof(Module));
     m->name = "bit_crush";

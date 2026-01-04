@@ -11,78 +11,89 @@
 
 static void pm_mod_process(Module *m, float* in, unsigned long frames) {
     PMMod *state = (PMMod*)m->state;
-
-	float* in_car = m->inputs[0];
-	float* in_mod = m->inputs[1];
+	float* in_car = (m->num_inputs > 0) ? m->inputs[0] : NULL;
+	float* in_mod = (m->num_inputs > 1) ? m->inputs[1] : NULL;
 	float* out = m->output_buffer;
 
 	if (!in_car || !in_mod) {
+		if (!in_mod) {
+			printf("[pm_mod] WARNING: missing 2nd audio input\n");
+		}
 		memset(out, 0, frames * sizeof(float));
 		return;
 	}
 
-	float raw_car_amp, raw_mod_amp, raw_base_freq, raw_idx, sr;
-
 	pthread_mutex_lock(&state->lock);
-	raw_car_amp   = state->car_amp;
-	raw_mod_amp   = state->mod_amp;
-	raw_base_freq = state->base_freq;
-	raw_idx       = state->index;
-	sr            = state->sample_rate;
+	float base_car_amp = state->car_amp;
+	float base_mod_amp = state->mod_amp;
+	float base_freq    = state->base_freq;
+	float base_idx     = state->index;
+	float phase        = state->modulator_phase;
+	float sr           = state->sample_rate;
 	pthread_mutex_unlock(&state->lock);
 
-	float car_amp   = process_smoother(&state->smooth_car_amp,   raw_car_amp);
-	float mod_amp   = process_smoother(&state->smooth_mod_amp,   raw_mod_amp);
-	float base_freq = process_smoother(&state->smooth_base_freq, raw_base_freq);
-	float idx       = process_smoother(&state->smooth_index,     raw_idx);
+	float car_amp_s   = process_smoother(&state->smooth_car_amp,   base_car_amp);
+	float mod_amp_s   = process_smoother(&state->smooth_mod_amp,   base_mod_amp);
+	float freq_s      = process_smoother(&state->smooth_base_freq, base_freq);
+	float idx_s       = process_smoother(&state->smooth_index,     base_idx);
 
-	// --- Control Modulation Block ---
-	float mod_depth = 1.0f;
-    for (int i = 0; i < m->num_control_inputs; i++) {
-        if (!m->control_inputs[i] || !m->control_input_params[i]) continue;
+	float disp_car_amp = car_amp_s;
+	float disp_mod_amp = mod_amp_s;
+	float disp_freq    = freq_s;
+	float disp_idx     = idx_s;
 
-        const char* param = m->control_input_params[i];
-        float control = *(m->control_inputs[i]);
-		float norm = fminf(fmaxf(control, -1.0f), 1.0f);
-
-        if (strcmp(param, "mod_amp") == 0) {
-			float mod_range = (1.0f - raw_mod_amp) * mod_depth; 
-			mod_amp = raw_mod_amp + norm * mod_range;
-		} else if (strcmp(param, "car_amp") == 0) {
-			float mod_range = (1.0f - raw_car_amp) * mod_depth;
-			car_amp = raw_car_amp + norm * mod_range;
-        } else if (strcmp(param, "idx") == 0) {
-			float mod_range = (10.0f - raw_idx) * mod_depth;
-            idx = raw_idx + norm * mod_range;
-        } else if (strcmp(param, "freq") == 0) {
-			float mod_range = raw_base_freq * mod_depth;
-			base_freq = raw_base_freq + norm * mod_range;
-		}
-    }
-
-	mod_amp = fminf(fmaxf(mod_amp, 0.0f), 1.0f);
-	car_amp = fminf(fmaxf(car_amp, 0.0f), 1.0f);
-	idx = fminf(fmaxf(idx, 0.0f), 10.0f);
-
-	// Audio core
-	float phase = state->modulator_phase;
     for (unsigned long i=0; i<frames; i++) {
+		float car_amp = car_amp_s;
+		float mod_amp = mod_amp_s;
+		float freq    = freq_s;
+		float idx     = idx_s;
+
+		for (int j=0; j < m->num_control_inputs; j++) {
+			if (!m->control_inputs[j] || !m->control_input_params[j]) continue;
+
+			const char* param = m->control_input_params[j];
+			float control = m->control_inputs[j][i];
+			control = fminf(fmaxf(control, -1.0f), 1.0f);
+
+			if (strcmp(param, "mod_amp") == 0) {
+				mod_amp += control * (1.0f - base_mod_amp);
+			} else if (strcmp(param, "car_amp") == 0) {
+				car_amp += control * (1.0f - base_car_amp);
+			} else if (strcmp(param, "idx") == 0) {
+				idx += control * base_idx;
+			} else if (strcmp(param, "freq") == 0) {
+				freq += control * base_freq;
+			}
+		}
+
+		clampf(&car_amp, 0.0f, 1.0f);
+		clampf(&mod_amp, 0.0f, 1.0f);
+		clampf(&freq, 0.01f, sr * 0.45f);
+		clampf(&idx, 0.01f, 10.0f);
+
+		disp_car_amp = car_amp;
+		disp_mod_amp = mod_amp;
+		disp_freq    = freq;
+		disp_idx     = idx;
+
 		float car = in_car[i] * car_amp;
-        float mod = in_mod[i] * mod_amp;
+		float mod = in_mod[i] * mod_amp;
 
 		float fm = car * sinf(phase + idx * mod);
 
-		phase += TWO_PI * base_freq / sr;
+		phase += TWO_PI * freq / sr;
 		if (phase >= TWO_PI) phase -= TWO_PI;
 
-		m->output_buffer[i] = fm;
+		out[i] = fm;
     }
-	state->modulator_phase = phase;
 
-	state->display_mod_amp = mod_amp;
-	state->display_car_amp = car_amp;
-	state->display_base_freq = base_freq;
-	state->display_index = idx;
+	pthread_mutex_lock(&state->lock);
+	state->display_mod_amp = disp_mod_amp;
+	state->display_car_amp = disp_car_amp;
+	state->display_base_freq = disp_freq;
+	state->display_index = disp_idx;
+	state->modulator_phase = phase;
+	pthread_mutex_unlock(&state->lock);
 }
 
 static void clamp_params(PMMod *state) {
@@ -202,6 +213,7 @@ static void pm_mod_set_osc_param(Module* m, const char* param, float value) {
         fprintf(stderr, "[pm_mod] Unknown OSC param: %s\n", param);
     }
 
+	clamp_params(state);
     pthread_mutex_unlock(&state->lock);
 }
 

@@ -10,66 +10,76 @@
 
 static void ringmod_process(Module* m, float* in, unsigned long frames) {
     RingMod* state = (RingMod*)m->state;
-
-    float* in_car = m->inputs[0];
-    float* in_mod = m->inputs[1];
+    float* in_car = (m->num_inputs > 0) ? m->inputs[0] : NULL;
+    float* in_mod = (m->num_inputs > 1) ? m->inputs[1] : NULL;
     float* out = m->output_buffer;
 
     if (!in_car || !in_mod) {
+		if (!in_mod) {
+			printf("[ring_mod] WARNING: missing 2nd audio input\n");
+		}
         memset(out, 0, frames * sizeof(float));
         return;
     }
 
-    float raw_car, raw_mod, raw_depth;
-
     pthread_mutex_lock(&state->lock);
-    raw_car   = state->car_amp;
-    raw_mod   = state->mod_amp;
-    raw_depth = state->depth;
+    float base_car   = state->car_amp;
+    float base_mod   = state->mod_amp;
+    float base_depth = state->depth;
     pthread_mutex_unlock(&state->lock);
 
-    float car_amp = process_smoother(&state->smooth_car_amp, raw_car);
-    float mod_amp = process_smoother(&state->smooth_mod_amp, raw_mod);
-    float depth   = process_smoother(&state->smooth_depth,   raw_depth);
+    float car_s     = process_smoother(&state->smooth_car_amp, base_car);
+    float mod_s     = process_smoother(&state->smooth_mod_amp, base_mod);
+    float depth_s   = process_smoother(&state->smooth_depth,   base_depth);
 
-    float mod_depth = 1.0f;
+	float disp_car   = car_s;
+	float disp_mod   = mod_s;
+	float disp_depth = depth_s;
 
-    for (int i = 0; i < m->num_control_inputs; i++) {
-        if (!m->control_inputs[i] || !m->control_input_params[i]) continue;
+    for (unsigned long i=0; i<frames; i++) {
 
-        const char* param = m->control_input_params[i];
-        float control = *(m->control_inputs[i]);
-        float norm = fminf(fmaxf(control, -1.0f), 1.0f);
+		float car_amp = car_s;
+		float mod_amp = mod_s;
+		float depth   = depth_s;
 
-        if (strcmp(param, "depth") == 0) {
-            float mod_range = (1.0f - raw_depth) * mod_depth;
-            depth = raw_depth + norm * mod_range;
+		for (int j=0; j<m->num_control_inputs; j++) {
+			if (!m->control_inputs[j] || !m->control_input_params[j]) continue;
 
-        } else if (strcmp(param, "car_amp") == 0) {
-            float mod_range = (1.0f - raw_car) * mod_depth;
-            car_amp = raw_car + norm * mod_range;
+        const char* param = m->control_input_params[j];
+        float control = m->control_inputs[j][i];
+        control = fminf(fmaxf(control, -1.0f), 1.0f);
 
+        if (strcmp(param, "car_amp") == 0) {
+            car_amp += control * (1.0f - base_car); 
         } else if (strcmp(param, "mod_amp") == 0) {
-            float mod_range = (1.0f - raw_mod) * mod_depth;
-            mod_amp = raw_mod + norm * mod_range;
-        }
+            mod_amp += control * (1.0f - base_mod); 
+        } else if (strcmp(param, "depth") == 0) {
+            depth += control * (1.0f - base_depth); 
+		}
     }
+	
+	clampf(&car_amp, 0.0f, 1.0f);
+	clampf(&mod_amp, 0.0f, 1.0f);
+	clampf(&depth, 0.0f, 1.0f);
 
-    car_amp = fminf(fmaxf(car_amp, 0.0f), 1.0f);
-    mod_amp = fminf(fmaxf(mod_amp, 0.0f), 1.0f);
-    depth   = fminf(fmaxf(depth,   0.0f), 1.0f);
+	disp_car   = car_amp;
+	disp_mod   = mod_amp;
+	disp_depth = depth;
 
-    state->display_car_amp = car_amp;
-    state->display_mod_amp = mod_amp;
-    state->display_depth   = depth;
+    float car_in = in_car ? in_car[i] : 0.0f;
+    float mod_in = in_mod ? in_mod[i] : 0.0f;
+    float ring = (car_amp * car_in) * (mod_amp * mod_in);
 
-    for (unsigned long i = 0; i < frames; i++) {
-        float car = in_car[i];
-        float mod = in_mod[i];
-        float ring = (car_amp * car) * (mod_amp * mod);
+	float val = (1.0f - depth) * car_in + depth * ring;
+    out[i] = val;
+    
+	}
 
-        out[i] = (1.0f - depth) * car + depth * ring;
-    }
+	pthread_mutex_lock(&state->lock);
+	state->display_car_amp = disp_car;
+	state->display_mod_amp = disp_mod;
+	state->display_depth   = disp_depth;
+	pthread_mutex_unlock(&state->lock);
 }
 
 static void clamp_params(RingMod* state) {
@@ -140,7 +150,7 @@ static void ringmod_handle_input(Module* m, int key) {
             if (sscanf(state->command_buffer, "%c %f", &type, &val) == 2) {
                 if (type == '1') state->car_amp = val;
                 else if (type == '2') state->mod_amp = val;
-                else if (type == '3') state->depth = val;
+                else if (type == 'd') state->depth = val;
             }
 			handled = 1;
         } else if (key == 27) {

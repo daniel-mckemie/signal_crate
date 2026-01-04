@@ -33,8 +33,8 @@ static void ampmod_process(Module* m, float* in, unsigned long frames) {
 	float mod_s     = process_smoother(&state->smooth_mod_amp, base_mod);
 	float depth_s   = process_smoother(&state->smooth_depth,   base_depth);
 
-	float disp_car = car_s;
-	float disp_mod = mod_s;
+	float disp_car   = car_s;
+	float disp_mod   = mod_s;
 	float disp_depth = depth_s;
 
 	for (unsigned long i=0; i<frames; i++) {
@@ -43,7 +43,7 @@ static void ampmod_process(Module* m, float* in, unsigned long frames) {
 		float mod_amp = mod_s;
 		float depth   = depth_s;
 
-		for (int j = 0; j < m->num_control_inputs; j++) {
+		for (int j=0; j < m->num_control_inputs; j++) {
 			if (!m->control_inputs[j] || !m->control_input_params[j]) continue;
 
 			const char* param = m->control_input_params[j];
@@ -56,7 +56,6 @@ static void ampmod_process(Module* m, float* in, unsigned long frames) {
 				mod_amp += control * (1.0f - base_mod);
 			} else if (strcmp(param, "depth") == 0) {
 				depth += control * (1.0f - base_depth);
-
 			}
 		}
 
@@ -187,6 +186,7 @@ static void amp_mod_set_osc_param(Module* m, const char* param, float value) {
 	else
 		fprintf(stderr, "[amp_mod] Unknown OSC param: %s\n", param);
 
+	clamp_params(state);
 	pthread_mutex_unlock(&state->lock);
 }
 

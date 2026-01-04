@@ -34,6 +34,7 @@ typedef struct {
 	float* output_buffer;
 
 	int hop_write_index;
+	unsigned int in_write_index;
 
 	// For command mode input
 	bool entering_command;

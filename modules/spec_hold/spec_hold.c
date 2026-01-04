@@ -20,105 +20,127 @@ static void init_hann_window() {
 	}
 }
 
-static void spec_hold_process(Module* m, float* in, unsigned long frames) {
-	SpecHold* state = (SpecHold*)m->state;
+static void spec_hold_process(Module* m, float* in, unsigned long frames)
+{
+    SpecHold* state = (SpecHold*)m->state;
+    float* input = (m->num_inputs > 0) ? m->inputs[0] : in;
+    float* out   = m->output_buffer;
 
-	for (unsigned long i = 0; i < frames; i++) {
-		// Shift input buffer left by 1 sample and insert new input
-		memmove(state->input_buffer, state->input_buffer + 1, sizeof(float) * (FFT_SIZE - 1));
-		state->input_buffer[FFT_SIZE - 1] = in[i];
-		state->hop_write_index++;
+    /* Snapshot params */
+    pthread_mutex_lock(&state->lock);
+    float base_pivot  = state->pivot_hz;
+    float base_tilt   = state->tilt;
+    int   freeze      = state->freeze;
+    float sample_rate = state->sample_rate;
+    pthread_mutex_unlock(&state->lock);
 
-		if (state->hop_write_index >= HOP_SIZE) {
-			state->hop_write_index = 0;
+    float pivot_s = process_smoother(&state->smooth_pivot_hz, base_pivot);
+    float tilt_s  = process_smoother(&state->smooth_tilt, base_tilt);
 
-			// Apply Hann window
-			for (int j = 0; j < FFT_SIZE; j++) {
-				state->time_buffer[j] = state->input_buffer[j] * hann[j];
-			}
+    float disp_pivot = pivot_s;
+    float disp_tilt  = tilt_s;
 
-			// FFT
-			fftwf_execute(state->fft_plan);
+    for (unsigned long i = 0; i < frames; i++) {
+        float pivot = pivot_s;
+        float tilt  = tilt_s;
 
-			int bins = FFT_SIZE / 2 + 1;
-			float nyquist = state->sample_rate / 2.0f;
+        for (int j = 0; j < m->num_control_inputs; j++) {
+            if (!m->control_inputs[j] || !m->control_input_params[j]) continue;
 
-			float raw_pivot, raw_tilt;
+            const char* param = m->control_input_params[j];
+            float control = m->control_inputs[j][i];
+            control = fminf(fmaxf(control, -1.0f), 1.0f);
 
-			pthread_mutex_lock(&state->lock);
-			raw_pivot = state->pivot_hz;
-			raw_tilt  = state->tilt;
-			pthread_mutex_unlock(&state->lock);
+            if (strcmp(param, "pivot") == 0) {
+                pivot += control * base_pivot;
+            } else if (strcmp(param, "tilt") == 0) {
+                tilt += control * (1.0f - fabsf(base_tilt));
+            }
+        }
 
-			float pivot_hz = process_smoother(&state->smooth_pivot_hz, raw_pivot);
-			float tilt     = process_smoother(&state->smooth_tilt, raw_tilt);
+        clampf(&pivot, 1.0f, sample_rate * 0.45f);
+        clampf(&tilt, -1.0f, 1.0f);
 
-			float mod_depth = 1.0f;
-			for (int i = 0; i < m->num_control_inputs; i++) {
-				if (!m->control_inputs[i] || !m->control_input_params[i]) continue;
+        disp_pivot = pivot;
+        disp_tilt  = tilt;
 
-				const char* param = m->control_input_params[i];
-				float control = *(m->control_inputs[i]);
-				float norm = fminf(fmaxf(control, -1.0f), 1.0f);
+        state->input_buffer[state->in_write_index] = input ? input[i] : 0.0f;
+        state->in_write_index++;
+        if (state->in_write_index >= FFT_SIZE)
+            state->in_write_index = 0;
 
-				if (strcmp(param, "pivot") == 0) {
-					float mod_range = pivot_hz * mod_depth;
-					pivot_hz = pivot_hz + norm * mod_range;
-				} else if (strcmp(param, "tilt") == 0) {
-					float mod_range = (1.0f - tilt) * mod_depth;
-					tilt = tilt + norm * mod_range; 
-				}
-			}
+        state->hop_write_index++;
 
-			state->display_pivot = pivot_hz;
-			state->display_tilt = tilt;
+        if (state->hop_write_index >= HOP_SIZE) {
+            state->hop_write_index = 0;
 
-			for (int j = 0; j < bins; j++) {
-				float mag, phase;
+            unsigned int idx = state->in_write_index;
+            for (int k = 0; k < FFT_SIZE; k++) {
+                state->time_buffer[k] =
+                    state->input_buffer[idx] * hann[k];
+                idx++;
+                if (idx >= FFT_SIZE)
+                    idx = 0;
+            }
 
-				if (!state->freeze) {
-					mag = hypotf(state->freq_buffer[j][0], state->freq_buffer[j][1]);
-					phase = atan2f(state->freq_buffer[j][1], state->freq_buffer[j][0]);
+            fftwf_execute(state->fft_plan);
 
-					state->frozen_mag[j] = mag;
-					state->frozen_phase[j] = phase;
-				} else {
-					mag = state->frozen_mag[j];
-					phase = state->frozen_phase[j];
-				}
+            int bins = FFT_SIZE / 2 + 1;
+            float nyquist = sample_rate * 0.5f;
 
-				// Always apply tilt
-				float bin_hz = ((float)j / (float)bins) * nyquist;
-				bin_hz = fmaxf(bin_hz, 1.0f);  // avoid log(0)
-				float gain_db = tilt * 3.0f * log2f(bin_hz / pivot_hz);
-				float gain = powf(10.0f, gain_db / 20.0f);
+            for (int k = 0; k < bins; k++) {
+                float mag, phase;
 
-				state->freq_buffer[j][0] = gain * mag * cosf(phase);
-				state->freq_buffer[j][1] = gain * mag * sinf(phase);
-			}
+                if (!freeze) {
+                    mag   = hypotf(state->freq_buffer[k][0],
+                                   state->freq_buffer[k][1]);
+                    phase = atan2f(state->freq_buffer[k][1],
+                                   state->freq_buffer[k][0]);
+                    state->frozen_mag[k]   = mag;
+                    state->frozen_phase[k] = phase;
+                } else {
+                    mag   = state->frozen_mag[k];
+                    phase = state->frozen_phase[k];
+                }
 
+                float hz = ((float)k / (float)bins) * nyquist;
+                if (hz < 1.0f) hz = 1.0f;
 
-			// IFFT
-			fftwf_execute(state->ifft_plan);
+                float gain_db = tilt * 3.0f * log2f(hz / pivot);
+                float gain    = powf(10.0f, gain_db / 20.0f);
 
-			// Prevent DC buildup
-			float dc = 0.0f;
-			for (int j = 0; j < FFT_SIZE; j++) dc += state->time_buffer[j];
-			dc /= FFT_SIZE;
-			for (int j = 0; j < FFT_SIZE; j++) state->time_buffer[j] -= dc;
+                state->freq_buffer[k][0] = gain * mag * cosf(phase);
+                state->freq_buffer[k][1] = gain * mag * sinf(phase);
+            }
 
-			// Window and overlap-add
-			for (int j = 0; j < FFT_SIZE; j++) {
-				float val = (state->time_buffer[j] * 0.5f) / FFT_SIZE;
-				state->output_buffer[j] += val;
-			}
-		}
-	}
+            fftwf_execute(state->ifft_plan);
 
-	// Output frames
-	memcpy(m->output_buffer, state->output_buffer, sizeof(float) * frames);
-	memmove(state->output_buffer, state->output_buffer + frames, sizeof(float) * (FFT_SIZE - frames));
-	memset(state->output_buffer + (FFT_SIZE - frames), 0, sizeof(float) * frames);
+            float dc = 0.0f;
+            for (int k = 0; k < FFT_SIZE; k++)
+                dc += state->time_buffer[k];
+            dc /= FFT_SIZE;
+            for (int k = 0; k < FFT_SIZE; k++)
+                state->time_buffer[k] -= dc;
+
+            for (int k = 0; k < FFT_SIZE; k++) {
+                state->output_buffer[k] += state->time_buffer[k] / FFT_SIZE;
+            }
+        }
+
+        out[i] = state->output_buffer[i];
+    }
+
+    memmove(state->output_buffer,
+            state->output_buffer + frames,
+            sizeof(float) * (FFT_SIZE - frames));
+    memset(state->output_buffer + (FFT_SIZE - frames),
+           0,
+           sizeof(float) * frames);
+
+    pthread_mutex_lock(&state->lock);
+    state->display_pivot = disp_pivot;
+    state->display_tilt  = disp_tilt;
+    pthread_mutex_unlock(&state->lock);
 }
 
 static void clamp_params(SpecHold* state) {
@@ -131,11 +153,13 @@ static void spec_hold_draw_ui(Module* m, int y, int x) {
 
     float tilt;
 	float pivot_hz;
+	int freeze;
     char cmd[64] = "";
 
     pthread_mutex_lock(&state->lock);
     tilt = state->display_tilt;
 	pivot_hz = state->display_pivot;
+	freeze = state->freeze;
     if (state->entering_command)
         snprintf(cmd, sizeof(cmd), ":%s", state->command_buffer);
     pthread_mutex_unlock(&state->lock);
@@ -151,7 +175,7 @@ static void spec_hold_draw_ui(Module* m, int y, int x) {
 	ORANGE(); printw(" %.2f | ", tilt); CLR();
 	
 	LABEL(2, "freeze:");
-	ORANGE(); printw(" %s | ", state->freeze ? "ON" : "OFF"); CLR();
+	ORANGE(); printw(" %s | ", freeze ? "ON" : "OFF"); CLR();
 
 	YELLOW();
     mvprintw(y+1, x, "Real-time Keys: -/= tilt, _/+ pivot, [f] freeze");
@@ -282,6 +306,7 @@ Module* create_module(const char* args, float sample_rate) {
     state->ifft_plan = fftwf_plan_dft_c2r_1d(FFT_SIZE, state->freq_buffer, state->time_buffer, FFTW_ESTIMATE);
 
 	state->hop_write_index = 0;
+	state->in_write_index = 0;
 
     Module* m = calloc(1, sizeof(Module));
     m->name = "spec_tilt";

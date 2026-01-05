@@ -10,95 +10,101 @@
 
 static void vco_process(Module *m, float* in, unsigned long frames) {
     VCO *state = (VCO*)m->state;
-    float raw_freq, raw_amp;
     Waveform waveform;
+	float* out   = m->output_buffer;
 
     pthread_mutex_lock(&state->lock);
-    raw_freq = state->frequency;
-    raw_amp  = state->amplitude;
+    float base_freq = state->frequency;
+    float base_amp  = state->amplitude;
+	float sample_rate = state->sample_rate;
+	float phs = state->phase;
+	float tri   = state->tri_state;
     waveform = state->waveform;
     pthread_mutex_unlock(&state->lock);
 
-    float freq = process_smoother(&state->smooth_freq, raw_freq);
-    float amp  = process_smoother(&state->smooth_amp,  raw_amp);
+    float freq_s = process_smoother(&state->smooth_freq, base_freq);
+    float amp_s  = process_smoother(&state->smooth_amp,  base_amp);
 
-    // --- Apply CV mod (UNSMOOTHED, after smoothing) ---
-    float mod_depth = 1.0f;
+	float disp_freq = freq_s;
+	float disp_amp  = amp_s;
 
-    for (int i = 0; i < m->num_control_inputs; i++) {
-        if (!m->control_inputs[i] || !m->control_input_params[i])
-            continue;
+    for (unsigned long i=0; i<frames; i++) {
+		float freq = freq_s;
+		float amp = amp_s;
 
-        const char *param = m->control_input_params[i];
-        float control = *(m->control_inputs[i]);
-        float norm = fminf(fmaxf(control, -1.0f), 1.0f);
+		for (int j=0; j < m->num_control_inputs; j++) {
+			if (!m->control_inputs[j] || !m->control_input_params[j]) continue;
 
-        if (strcmp(param, "freq") == 0) {
-            float mod_range = raw_freq * mod_depth;
-            freq = raw_freq + norm * mod_range;
-        }
-        else if (strcmp(param, "amp") == 0) {
-            float mod_range = (1.0f - raw_amp) * mod_depth;
-            amp = raw_amp + norm * mod_range;
-        }
+			const char* param = m->control_input_params[j];
+			float control = m->control_inputs[j][i];
+			control = fminf(fmaxf(control, -1.0f), 1.0f);
+
+			if (strcmp(param, "freq") == 0) {
+				freq += control * base_freq;
+			}
+			else if (strcmp(param, "amp") == 0) {
+				amp += control;
+			}
+		}
+
+		clampf(&freq, 0.01, sample_rate * 0.45f);
+		clampf(&amp, 0.00f, 1.00f);
+
+		disp_freq = freq;
+		disp_amp  = amp;
+
+		int idx;
+		const float *sine_table = get_sine_table();
+
+		float value = 0.0f;
+		float t = phs / TWO_PI;
+		float dt = freq / sample_rate;
+
+		idx = (int)(t * SINE_TABLE_SIZE) % SINE_TABLE_SIZE;
+
+		switch (waveform) {
+			case WAVE_SINE:
+				value = sine_table[idx];
+				break;
+
+			case WAVE_SAW:
+				value = 2.0f * t - 1.0f;
+				value -= poly_blep(t, dt);
+				break;
+
+			case WAVE_SQUARE:
+				value = (t < 0.5f) ? 1.0f : -1.0f;
+				value += poly_blep(t, dt);                        // falling
+				value -= poly_blep(fmodf(t + 0.5f, 1.0f), dt);    // rising
+				break;
+
+			case WAVE_TRIANGLE: {
+				float sq = (t < 0.5f) ? 1.0f : -1.0f;
+				sq += poly_blep(t, dt);
+				sq -= poly_blep(fmodf(t + 0.5f, 1.0f), dt);
+				tri += 2.0f * freq / sample_rate * sq;
+				tri *= 0.999f;
+				if (tri > 1.0f)  tri = 1.0f;
+				if (tri < -1.0f) tri = -1.0f;
+				value = tri * 2.0f;
+				break;
+			}
+		}
+
+		float val = amp * value;
+		out[i] = val;
+
+		// Advance phase
+		phs += TWO_PI * freq / sample_rate;
+		if (phs >= TWO_PI) phs -= TWO_PI;
     }
 
-    amp = fminf(fmaxf(amp, 0.0f), 1.0f);
-
-    // Update UI
-    state->display_freq = freq;
-    state->display_amp  = amp;
-
-    // --- Oscillator processing loop ---
-    float phs = state->phase;
-    int idx;
-    const float *sine_table = get_sine_table();
-
-    for (unsigned long i = 0; i < frames; i++) {
-
-        float value = 0.0f;
-        float t = phs / TWO_PI;
-        float dt = freq / state->sample_rate;
-
-        idx = (int)(t * SINE_TABLE_SIZE) % SINE_TABLE_SIZE;
-
-        switch (waveform) {
-            case WAVE_SINE:
-                value = sine_table[idx];
-                break;
-
-            case WAVE_SAW:
-                value = 2.0f * t - 1.0f;
-                value -= poly_blep(t, dt);
-                break;
-
-            case WAVE_SQUARE:
-                value = (t < 0.5f) ? 1.0f : -1.0f;
-                value += poly_blep(t, dt);                        // falling
-                value -= poly_blep(fmodf(t + 0.5f, 1.0f), dt);    // rising
-                break;
-
-            case WAVE_TRIANGLE: {
-                float sq = (t < 0.5f) ? 1.0f : -1.0f;
-                sq += poly_blep(t, dt);
-                sq -= poly_blep(fmodf(t + 0.5f, 1.0f), dt);
-                state->tri_state += 2.0f * freq / state->sample_rate * sq;
-                state->tri_state *= 0.999f;
-                if (state->tri_state > 1.0f)  state->tri_state = 1.0f;
-                if (state->tri_state < -1.0f) state->tri_state = -1.0f;
-                value = state->tri_state * 2.0f;
-                break;
-            }
-        }
-
-        m->output_buffer[i] = amp * value;
-
-        // Advance phase
-        phs += TWO_PI * freq / state->sample_rate;
-        if (phs >= TWO_PI) phs -= TWO_PI;
-    }
-
+	pthread_mutex_lock(&state->lock);
+	state->display_freq = disp_freq;
+	state->display_amp = disp_amp;
     state->phase = phs;
+	state->tri_state = tri;
+	pthread_mutex_unlock(&state->lock);
 }
 
 static void clamp_params(VCO *state) {
@@ -209,10 +215,9 @@ static void vco_handle_input(Module *m, int key) {
         }
     }
 
-    if (handled)
+    if (handled) {
         clamp_params(state);
-		state->display_freq = state->frequency;
-		state->display_amp = state->amplitude;
+	}
 
     pthread_mutex_unlock(&state->lock);
 }
@@ -249,6 +254,7 @@ static void vco_set_osc_param(Module* m, const char* param, float value) {
         fprintf(stderr, "[vco] Unknown OSC param: %s\n", param);
     }
 
+	clamp_params(state);
     pthread_mutex_unlock(&state->lock);
 }
 

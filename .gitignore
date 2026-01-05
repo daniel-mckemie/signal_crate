@@ -16,3 +16,4 @@ SignalCrate
 *.txt
 other_files/
 .DS_Store
+cv_changes.c

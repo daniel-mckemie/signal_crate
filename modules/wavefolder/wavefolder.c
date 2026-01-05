@@ -8,92 +8,99 @@
 #include "module.h"
 #include "util.h"
 
-float folder(float x, float amt) {
-    // Optional: add rectification or nonlinear behavior
-    x = fabsf(x);  // full-wave rectify
-    x = tanhf(x * amt); // nonlinear shaping
+static inline float folder(float x, float amt, float *lp_z, float sample_rate) {
+	// 2x oversampling - analog style
+    if (amt <= 0.0f) return 0.0f;
+    x = tanhf(x * amt);
+    float x0 = x;
+    float xm = 0.5f * x0;
 
-    while (fabsf(x) > amt) {
-        if (x > amt) {
-            x = 2 * amt - x;
-        } else {
-            x = -2 * amt - x;
-        }
-    }
-    return x;
+    float y0 = tanhf(x0);
+    float y1 = tanhf(xm);
+
+    // simple one-pole lowpass before decimation
+    float cutoff = 0.45f * sample_rate;
+    float a = cutoff / (cutoff + sample_rate);
+
+    *lp_z += a * (y0 - *lp_z);
+    *lp_z += a * (y1 - *lp_z);
+
+    return *lp_z;
 }
 
 static void wavefolder_process(Module *m, float* in, unsigned long frames) {
     Wavefolder *state = (Wavefolder*)m->state;
+	float* input = (m->num_inputs > 0) ? m->inputs[0] : in;
+	float* out   = m->output_buffer;
 
-    if (!in) {
-        // No audio input → silence
-        memset(m->output_buffer, 0, frames * sizeof(float));
-        return;
-    }
-
-    float raw_fold, raw_blend, raw_drive;
     pthread_mutex_lock(&state->lock);
-    raw_fold  = state->fold_amt;
-    raw_blend = state->blend;
-    raw_drive = state->drive;
+    float base_fold  = state->fold;
+    float base_blend = state->blend;
+    float base_drive = state->drive;
     pthread_mutex_unlock(&state->lock);
 
-    float fold  = process_smoother(&state->smooth_fold,  raw_fold);
-    float blend = process_smoother(&state->smooth_blend, raw_blend);
-    float drive = process_smoother(&state->smooth_drive, raw_drive);
+    float fold_s  = process_smoother(&state->smooth_fold,  base_fold);
+    float blend_s = process_smoother(&state->smooth_blend, base_blend);
+    float drive_s = process_smoother(&state->smooth_drive, base_drive);
 
-    float mod_depth = 1.0f;
-    for (int i = 0; i < m->num_control_inputs; i++) {
-        if (!m->control_inputs[i] || !m->control_input_params[i]) continue;
-        const char* param = m->control_input_params[i];
-        float control = *(m->control_inputs[i]);
-        float norm = fminf(fmaxf(control, -1.0f), 1.0f);
+	float disp_fold  = fold_s;
+	float disp_blend = blend_s;
+	float disp_drive = drive_s;
 
-        if (strcmp(param, "fold") == 0) {
-            float base      = state->fold_amt;
-            float mod_range = (5.0f - base) * mod_depth;    // target [0, 5]
-            fold = base + norm * mod_range;
-        } else if (strcmp(param, "blend") == 0) {
-            float base      = state->blend;
-            float mod_range = (1.0f - base) * mod_depth;    // [0, 1]
-            blend = base + norm * mod_range;
-        } else if (strcmp(param, "drive") == 0) {
-            float base      = state->drive;
-            float mod_range = (10.0f - base) * mod_depth;   // [0, 10]
-            drive = base + norm * mod_range;
-        }
-    }
+    for (unsigned long i=0; i<frames; i++) {
+		float fold  = fold_s;
+		float blend = blend_s;
+		float drive = drive_s;
 
-    if (fold  < 0.01f) fold  = 0.01f;  else if (fold  > 5.0f)  fold  = 5.0f;
-    if (blend < 0.0f)  blend = 0.0f;   else if (blend > 1.0f)  blend = 1.0f;
-    if (drive < 0.01f) drive = 0.01f;  else if (drive > 10.0f) drive = 10.0f;
+		for (int j=0; j<m->num_control_inputs; j++) {
+			if (!m->control_inputs[j] || !m->control_input_params[j]) continue;
 
-    state->display_fold_amt = fold;
-    state->display_blend    = blend;
-    state->display_drive    = drive;
+			const char* param = m->control_input_params[j];
+			float control = m->control_inputs[j][i];
+			control = fminf(fmaxf(control, -1.0f), 1.0f);
 
-    for (unsigned long i = 0; i < frames; i++) {
-        float input  = in[i];
-        float warped = input * drive;
-        float f      = folder(warped, fold);
-        m->output_buffer[i] = (1.0f - blend) * input + blend * f;
-    }
+			if (strcmp(param, "fold") == 0) {
+				fold += control * 5.0;
+			} else if (strcmp(param, "blend") == 0) {
+				blend += control; 
+			} else if (strcmp(param, "drive") == 0) {
+				drive += control* 10.0f;
+			}
+		}
+
+		clampf(&fold,  0.01f, 5.0f);
+		clampf(&blend, 0.0f,  1.0f);
+		clampf(&drive, 0.01f, 10.0f);
+
+		disp_fold  = fold;
+		disp_blend = blend;
+		disp_drive = drive;
+
+		float in_s = input ? input[i] : 0.0f;
+		float f = folder(in_s * drive, fold, &state->lp_z, state->sample_rate);
+		float val = (1.0f - blend) * in_s + blend * f;
+		out[i] = val;
+	}
+	pthread_mutex_lock(&state->lock);
+	state->display_fold   = disp_fold;
+	state->display_blend  = disp_blend;
+	state->display_drive  = disp_drive;
+	pthread_mutex_unlock(&state->lock);
 }
 
 static void clamp_params(Wavefolder *state) {
-    clampf(&state->fold_amt, 0.01f, 5.0f);
-    clampf(&state->blend,    0.01f, 1.0f);
+    clampf(&state->fold, 0.01f, 5.0f);
+    clampf(&state->blend,    0.0f,  1.0f);
     clampf(&state->drive,    0.01f, 10.0f);
 }
 
 static void wavefolder_draw_ui(Module *m, int y, int x) {
     Wavefolder *state = (Wavefolder*)m->state;
 
-    float fold_amt, blend, drive;
+    float fold, blend, drive;
 
     pthread_mutex_lock(&state->lock);
-    fold_amt = state->display_fold_amt;
+    fold = state->display_fold;
     blend = state->display_blend;
     drive = state->display_drive;
     pthread_mutex_unlock(&state->lock);
@@ -103,7 +110,7 @@ static void wavefolder_draw_ui(Module *m, int y, int x) {
 	CLR();
 	
 	LABEL(2, "fold:");
-	ORANGE(); printw(" %.2f | ", fold_amt); CLR();
+	ORANGE(); printw(" %.2f | ", fold); CLR();
 	
 	LABEL(2, "blend:");
 	ORANGE(); printw(" %.2f | ", blend); CLR();
@@ -125,8 +132,8 @@ static void wavefolder_handle_input(Module *m, int key) {
 
     if (!state->entering_command) {
         switch (key) {
-            case '=': state->fold_amt += 0.01f; handled = 1; break;
-            case '-': state->fold_amt -= 0.01f; handled = 1; break;
+            case '=': state->fold += 0.01f; handled = 1; break;
+            case '-': state->fold -= 0.01f; handled = 1; break;
             case '+': state->blend += 0.01f; handled = 1; break;
             case '_': state->blend -= 0.01f; handled = 1; break;
             case ']': state->drive += 0.01f; handled = 1; break;
@@ -144,7 +151,7 @@ static void wavefolder_handle_input(Module *m, int key) {
             char type;
             float val;
             if (sscanf(state->command_buffer, "%c %f", &type, &val) == 2) {
-                if (type == '1') state->fold_amt = val;
+                if (type == '1') state->fold = val;
                 else if (type == '2') state->blend = val;
                 else if (type == '3') state->drive = val;
             }
@@ -173,16 +180,14 @@ static void wavefolder_set_osc_param(Module* m, const char* param, float value) 
     Wavefolder* state = (Wavefolder*)m->state;
     pthread_mutex_lock(&state->lock);
 
+    float norm = fminf(fmaxf(value, 0.0f), 1.0f);
     if (strcmp(param, "fold") == 0) {
-        state->fold_amt = fminf(fmaxf(value * 5.0f, 0.01f), 5.0f);  // map [0–1] → [0.01–5]
+        state->fold = 0.01f + norm * (5.0f - 0.01f);
     } else if (strcmp(param, "blend") == 0) {
-        state->blend = fminf(fmaxf(value, 0.01f), 1.0f);
+        state->blend = norm;
     } else if (strcmp(param, "drive") == 0) {
-        state->drive = fminf(fmaxf(value * 10.0f, 0.01f), 10.0f);  // map [0–1] → [0.01–10]
-    } else {
-        fprintf(stderr, "[wavefolder] Unknown OSC param: %s\n", param);
+        state->drive = 0.01f + norm * (10.0f - 0.01f);
     }
-
     clamp_params(state);
     pthread_mutex_unlock(&state->lock);
 }
@@ -194,12 +199,12 @@ static void wavefolder_destroy(Module* m) {
 }
 
 Module* create_module(const char* args, float sample_rate) {
-	float fold_amt = 0.5f;
-	float blend = 0.01f;
+	float fold = 0.5f;
+	float blend = 0.0f;
 	float drive = 1.0f;
 
 	if (args && strstr(args, "fold=")) {
-        sscanf(strstr(args, "fold="), "fold=%f", &fold_amt);
+        sscanf(strstr(args, "fold="), "fold=%f", &fold);
     }
     if (args && strstr(args, "blend=")) {
         sscanf(strstr(args, "blend="), "blend=%f", &blend);
@@ -209,7 +214,7 @@ Module* create_module(const char* args, float sample_rate) {
     }
 
     Wavefolder *state = calloc(1, sizeof(Wavefolder));
-    state->fold_amt = fold_amt;
+    state->fold = fold;
     state->blend = blend;
     state->drive = drive;
     state->sample_rate = sample_rate;

@@ -5,10 +5,11 @@
 #include "util.h"
 
 typedef struct {
-	float fold_amt;
+	float fold;
 	float blend;
 	float drive;
 	float sample_rate;
+	float lp_z;
 	
 	CParamSmooth smooth_fold;
 	CParamSmooth smooth_blend;
@@ -16,7 +17,7 @@ typedef struct {
 
 	pthread_mutex_t lock;
 
-	float display_fold_amt;
+	float display_fold;
 	float display_blend;
 	float display_drive;
 

@@ -11,82 +11,100 @@
 #include "util.h"
 
 static void player_process(Module* m, float* in, unsigned long frames) {
-    Player* state = (Player*)m->state;
+    Player* s = (Player*)m->state;
+    float* out = m->output_buffer;
 
-    float raw_pos, raw_speed, raw_amp;
-    unsigned long max_frames;
+    pthread_mutex_lock(&s->lock);
+    unsigned long max_frames = s->num_frames;
+    float pos         = s->playing ? s->play_pos : s->external_play_pos;
+    float scrub_target= s->scrub_target;
+    float base_speed  = s->playback_speed;
+    float base_amp    = s->amp;
+    bool  playing     = s->playing;
+    float file_rate   = s->file_rate;
+    float sr          = s->sample_rate;
+    pthread_mutex_unlock(&s->lock);
 
-    pthread_mutex_lock(&state->lock);
-    max_frames = state->num_frames;
-    raw_pos    = state->playing ? state->play_pos : state->external_play_pos;
-    raw_speed  = state->playback_speed;
-    raw_amp    = state->amp;
-    pthread_mutex_unlock(&state->lock);
+    float speed_s = process_smoother(&s->smooth_speed, base_speed);
+    float amp_s   = process_smoother(&s->smooth_amp,   base_amp);
 
-    float speed = process_smoother(&state->smooth_speed, raw_speed);
-    float amp   = process_smoother(&state->smooth_amp, raw_amp);
-    float pos = raw_pos;
-    float mod_depth = 1.0f;
+    float disp_speed = speed_s;
+    float disp_amp   = amp_s;
+    float disp_pos   = pos;
 
-    for (int i = 0; i < m->num_control_inputs; i++) {
-        if (!m->control_inputs[i] || !m->control_input_params[i])
-            continue;
-
-        const char* param = m->control_input_params[i];
-        float control = *(m->control_inputs[i]);
-        float norm = fminf(fmaxf(control, -1.0f), 1.0f);
-
-        if (strcmp(param, "speed") == 0) {
-            float mod_range = (4.0f - raw_speed) * mod_depth;
-            speed = raw_speed + norm * mod_range;
-        }
-        else if (strcmp(param, "amp") == 0) {
-            float mod_range = (1.0f - raw_amp) * mod_depth;
-            amp = raw_amp + norm * mod_range;
-        }
+    if (max_frames < 2) {
+        for (unsigned long i = 0; i < frames; i++) out[i] = 0.0f;
+        return;
     }
 
-    if (speed < 0.1f) speed = 0.1f;
-    if (speed > 4.0f) speed = 4.0f;
-    if (amp < 0.0f) amp = 0.0f;
-    if (amp > 1.0f) amp = 1.0f;
-
-    state->display_pos   = pos;
-    state->display_speed = speed;
-    state->display_amp   = amp;
-
-    if (pos < 0) pos = 0;
-    if (pos > max_frames - 2) pos = max_frames - 2;
+    clampf(&scrub_target, 0.0f, (float)(max_frames - 1));
+    clampf(&pos,          0.0f, (float)(max_frames - 1));
 
     for (unsigned long i = 0; i < frames; i++) {
+        float speed = speed_s;
+        float amp   = amp_s;
+
+        for (int j=0; j<m->num_control_inputs; j++) {
+            if (!m->control_inputs[j] || !m->control_input_params[j]) continue;
+
+            const char* param = m->control_input_params[j];
+            float control = m->control_inputs[j][i];
+            control = fminf(fmaxf(control, -1.0f), 1.0f);
+
+            if (strcmp(param, "speed") == 0) {
+                speed += control * 4.0f;
+            } else if (strcmp(param, "amp") == 0) {
+                amp += control;
+            } else if (strcmp(param, "scrub") == 0) {
+                scrub_target += control * (0.1f * (float)max_frames);
+            }
+        }
+
+        clampf(&speed, 0.1f, 4.0f);
+        clampf(&amp,   0.0f, 1.0f);
+        clampf(&scrub_target, 0.0f, (float)(max_frames - 1));
+
+        disp_speed = speed;
+        disp_amp   = amp;
+
+        if (!playing) {
+            pos = scrub_target;
+        }
+
+        if (pos < 0.0f) pos = 0.0f;
+        if (pos > (float)(max_frames - 2)) pos = (float)(max_frames - 2);
 
         int i1 = (int)pos;
-        int i2 = (i1 + 1 < max_frames) ? i1 + 1 : i1;
+        int i2 = i1 + 1;
         float frac = pos - (float)i1;
 
-        float s1 = state->data[i1];
-        float s2 = state->data[i2];
+        float s1 = s->data[i1];
+        float s2 = s->data[i2];
 
-        float sample = (1.0f - frac) * s1 + frac * s2;
-        m->output_buffer[i] = sample * amp;
+        float val = (1.0f - frac) * s1 + frac * s2;
+        out[i] = val * amp;
 
-        if (state->playing) {
-            pos += speed * (state->file_rate / state->sample_rate);
-
-            if (pos >= max_frames - 1)
-                pos = 0.0f;
+        if (playing) {
+            pos += speed * (file_rate / sr);
+            if (pos >= (float)(max_frames - 1)) pos = 0.0f;
         }
+
+        disp_pos = pos;
     }
 
-    pthread_mutex_lock(&state->lock);
-    if (state->playing) {
-        state->play_pos = pos;
+    pthread_mutex_lock(&s->lock);
+    if (playing) {
+        s->play_pos = pos;
+        s->external_play_pos = pos;   // keep UI coherent while playing
     } else {
-        // Freeze the visual playhead if stopped
-        state->external_play_pos = state->play_pos;
+        s->external_play_pos = pos;   // show scrub position when stopped
     }
-    pthread_mutex_unlock(&state->lock);
+    s->display_pos   = disp_pos;
+    s->display_speed = disp_speed;
+    s->display_amp   = disp_amp;
+    pthread_mutex_unlock(&s->lock);
 }
+
 
 static void clamp_params(Player* state) {
     clampf(&state->scrub_target, 0.0f, (float)(state->num_frames - 1));
@@ -124,7 +142,7 @@ static void player_draw_ui(Module* m, int y, int x) {
 	ORANGE(); printw(" %.2f", amp); CLR();
 
 	YELLOW();
-	mvprintw(y+1, x, "Keys: -/= scrub | _/+ (speed) | p=play, s=stop"); 
+	mvprintw(y+1, x, "Keys: -/= scrub | _/+ (speed) | [/] (amp) | p=play, s=stop"); 
 	mvprintw(y+2, x, "Cmd: :1=pos :2=speed :3=amp"); 
 	BLACK();
 }
@@ -273,6 +291,7 @@ Module* create_module(const char* args, float sample_rate) {
 	pthread_mutex_init(&state->lock, NULL);
 	init_smoother(&state->smooth_speed, 0.75f);
 	init_smoother(&state->smooth_amp, 0.75f);
+	clamp_params(state);
 
 	Module* m = calloc(1, sizeof(Module));
 	m->name = "player";

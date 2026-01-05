@@ -40,9 +40,9 @@ static void cv_monitor_process_control(Module* m, unsigned long frames) {
 			control = fminf(fmaxf(control, -1.0f), 1.0f);
 
 			if (strcmp(param, "att") == 0) {
-				att += control * (2.0f - fabsf(base_att));
+				att += control;
 			} else if (strcmp(param, "offset") == 0) {
-				off += control * (1.0f - fabsf(base_off));
+				off += control;
 			}
 		}
 

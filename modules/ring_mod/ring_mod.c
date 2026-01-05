@@ -50,11 +50,11 @@ static void ringmod_process(Module* m, float* in, unsigned long frames) {
         control = fminf(fmaxf(control, -1.0f), 1.0f);
 
         if (strcmp(param, "car_amp") == 0) {
-            car_amp += control * (1.0f - base_car); 
+            car_amp += control;
         } else if (strcmp(param, "mod_amp") == 0) {
-            mod_amp += control * (1.0f - base_mod); 
+            mod_amp += control;
         } else if (strcmp(param, "depth") == 0) {
-            depth += control * (1.0f - base_depth); 
+            depth += control;
 		}
     }
 	

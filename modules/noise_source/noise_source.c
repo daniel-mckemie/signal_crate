@@ -44,7 +44,7 @@ static void noise_source_process(Module* m, float* in, unsigned long frames) {
 			control = fminf(fmaxf(control, -1.0f), 1.0f);
 
 			if (strcmp(param, "amp") == 0) {
-				amp += control * (1.0f - base_amp);
+				amp += control;
 			}
 		}
 

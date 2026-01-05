@@ -56,9 +56,9 @@ static void pm_mod_process(Module *m, float* in, unsigned long frames) {
 			control = fminf(fmaxf(control, -1.0f), 1.0f);
 
 			if (strcmp(param, "mod_amp") == 0) {
-				mod_amp += control * (1.0f - base_mod_amp);
+				mod_amp += control;
 			} else if (strcmp(param, "car_amp") == 0) {
-				car_amp += control * (1.0f - base_car_amp);
+				car_amp += control;
 			} else if (strcmp(param, "idx") == 0) {
 				idx += control * base_idx;
 			} else if (strcmp(param, "freq") == 0) {
@@ -68,8 +68,8 @@ static void pm_mod_process(Module *m, float* in, unsigned long frames) {
 
 		clampf(&car_amp, 0.0f, 1.0f);
 		clampf(&mod_amp, 0.0f, 1.0f);
-		clampf(&freq, 0.01f, sr * 0.45f);
 		clampf(&idx, 0.01f, 10.0f);
+		clampf(&freq, 0.01f, sr * 0.45f);
 
 		disp_car_amp = car_amp;
 		disp_mod_amp = mod_amp;

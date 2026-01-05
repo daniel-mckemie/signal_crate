@@ -60,9 +60,9 @@ static void fm_mod_process(Module *m, float* in, unsigned long frames) {
 			if (strcmp(param, "mod_freq") == 0) {
 				mod_freq += control * base_mod_freq;
 			} else if (strcmp(param, "car_amp") == 0) {
-				car_amp += control * (1.0f - base_car_amp);
+				car_amp += control;
 			} else if (strcmp(param, "mod_amp") == 0) {
-				mod_amp += control * (1.0f - base_mod_amp); 
+				mod_amp += control;
 			} else if (strcmp(param, "idx") == 0) {
 				idx += control * base_idx;
 			}

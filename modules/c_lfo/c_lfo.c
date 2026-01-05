@@ -43,11 +43,11 @@ static void c_lfo_process_control(Module* m, unsigned long frames) {
 			control = fminf(fmaxf(control, -1.0f), 1.0f);
 
 			if (strcmp(param, "freq") == 0) {
-				freq += control * freq * 0.5f;
+				freq += control * freq_s;
 			} else if (strcmp(param, "amp") == 0) {
-				amp += control * 0.5f;
+				amp += control;
 			} else if (strcmp(param, "depth") == 0) {
-				depth += control * 0.5f;
+				depth += control;
 			}
 		}
 

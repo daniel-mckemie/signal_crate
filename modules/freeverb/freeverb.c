@@ -67,11 +67,11 @@ static void freeverb_process(Module* m, float* in, unsigned long frames) {
 			control = fminf(fmaxf(control, -1.0f), 1.0f);
 
 			if (strcmp(param, "fb") == 0) {
-				fb += control * (1.0f - base_fb);
+				fb += control;
 			} else if (strcmp(param, "damp") == 0) {
-				damp += control * (1.0f - base_damp);
+				damp += control;
 			} else if (strcmp(param, "wet") == 0) {
-				wet += control * (1.0f - base_wet);
+				wet += control;
 			}
 		}
 

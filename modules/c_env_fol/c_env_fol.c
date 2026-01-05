@@ -52,11 +52,11 @@ static void c_env_fol_process_control(Module* m, unsigned long frames) {
 			control = fminf(fmaxf(control, -1.0f), 1.0f);
 
 			if (strcmp(param, "dec") == 0) {
-				dec += control * (5000.0f - base_decay);
+				dec += control * 5000.0f;
 			} else if (strcmp(param, "sens") == 0) {
-				sens += control * (1.0f - base_sens);
+				sens += control;
 			} else if (strcmp(param, "depth") == 0) {
-				depth += control * (1.0f - base_depth);
+				depth += control;
 			}
 		}
 

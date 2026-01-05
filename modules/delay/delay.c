@@ -47,11 +47,11 @@ static void delay_process(Module* m, float* in, unsigned long frames) {
 			control = fminf(fmaxf(control, -1.0f), 1.0f);	
 
 			if (strcmp(param, "time") == 0) {
-				delay_ms += control * (MAX_DELAY_MS - base_delay_ms);
+				delay_ms += control * MAX_DELAY_MS;
 			} else if (strcmp(param, "mix") == 0) {
-				mix += control * (1.0f - base_mix);
+				mix += control;
 			} else if (strcmp(param, "fb") == 0) {
-				fb += control * (1.0f - base_fb); 
+				fb += control;
 			}
 		}
 	

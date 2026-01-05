@@ -39,10 +39,10 @@ static void bit_crush_process(Module* m, float* in, unsigned long frames) {
 			control = fminf(fmaxf(control, -1.0f), 1.0f);
 
 			if (strcmp(param, "rate") == 0) {
-				rate += control * base_rate;
+				rate += control;
 			}
 			else if (strcmp(param, "bits") == 0) {
-				bits += control * (16.0f - 2.0f);
+				bits += control;
 			}
 		}
 

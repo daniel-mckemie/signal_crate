@@ -42,7 +42,7 @@ static void moog_filter_process(Module *m, float* in, unsigned long frames) {
 			if (strcmp(param, "cutoff") == 0) {
 				co += control * base_co;
 			} else if (strcmp(param, "res") == 0) {
-				res += control * (4.2f - base_res);
+				res += control * 4.2f;
 			}
 		}
 

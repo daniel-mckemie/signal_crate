@@ -64,14 +64,14 @@ static void c_asr_process_control(Module* m, unsigned long frames) {
 
             if (strcmp(param, "att") == 0) {
                 float max_att = short_mode ? 10.0f : 1000.0f;
-                att += control * (max_att - base_att);
+                att += control * max_att;
             }
             else if (strcmp(param, "rel") == 0) {
                 float max_rel = short_mode ? 10.0f : 1000.0f;
-                rel += control * (max_rel - base_rel);
+                rel += control * max_rel;
             }
             else if (strcmp(param, "depth") == 0) {
-                depth += control * (1.0f - base_depth);
+                depth += control;
             }
         }
 
@@ -79,8 +79,8 @@ static void c_asr_process_control(Module* m, unsigned long frames) {
             clampf(&att, 0.01f, 10.0f);
             clampf(&rel, 0.01f, 10.0f);
         } else {
-            clampf(&att, 0.01f, INFINITY);
-            clampf(&rel, 0.01f, INFINITY);
+            clampf(&att, 0.01f, 1000.0f);
+            clampf(&rel, 0.01f, 1000.0f);
         }
         clampf(&sus,   0.01f, 1.0f);
         clampf(&depth, 0.0f,  1.0f);

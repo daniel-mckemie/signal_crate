@@ -15,9 +15,7 @@ typedef struct {
     float display_gain;
     float display_pan;
 
-    float gain_prev;
-    float gain_step;
-
+    CParamSmooth smooth_gain;
     CParamSmooth smooth_pan;
 
     bool entering_command;

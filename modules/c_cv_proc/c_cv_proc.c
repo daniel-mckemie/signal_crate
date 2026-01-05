@@ -43,11 +43,11 @@ static void c_cv_proc_process_control(Module* m, unsigned long frames) {
 			control = fminf(fmaxf(control, -1.0f), 1.0f);
 
 			if (strcmp(param, "k") == 0) {
-				k += control * (2.0f - fabsf(base_k));
+				k += control;
 			} else if (strcmp(param, "m") == 0) {
-				m_amt += control * (1.0f - base_m);
+				m_amt += control;
 			} else if (strcmp(param, "offset") == 0) {
-				offset += control * (1.0f - fabsf(base_offset));
+				offset += control;
 			}
 		}
 

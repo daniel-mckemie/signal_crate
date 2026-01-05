@@ -44,10 +44,10 @@ static void looper_process(Module* m, float* in, unsigned long frames) {
 			control = fminf(fmaxf(control, -1.0f), 1.0f);
 
 			if (strcmp(param, "speed") == 0) {
-				playback_speed += control * (4.0f - base_speed);
+				playback_speed += control * 4.0f;
 			}
 			else if (strcmp(param, "amp") == 0) {
-				amp += control * (1.0f - base_amp);
+				amp += control;
 			}
 		}
 
@@ -173,10 +173,10 @@ static void looper_draw_ui(Module* m, int y, int x) {
 
 	LABEL(2,"");
 	ORANGE(); printw(" %s|", state_names[lstate]); CLR();
-	LABEL(2, "sp:");
-	ORANGE(); printw(" %.2fx|", speed); CLR();
 	LABEL(2, "range:");
 	ORANGE(); printw(" %.2f->%.2f|", start_sec, end_sec); CLR();
+	LABEL(2, "sp:");
+	ORANGE(); printw(" %.2fx|", speed); CLR();
 	LABEL(2, "pos:");
 	ORANGE(); printw(" %.2f|", pos_sec); CLR();
 	LABEL(2, "amp:");

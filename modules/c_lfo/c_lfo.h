@@ -14,6 +14,7 @@ typedef enum {
 
 typedef struct {
     float frequency;
+	float freq_norm;
     float amplitude;
     float phase;
     float tri_state;

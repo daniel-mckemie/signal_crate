@@ -39,9 +39,9 @@ static void c_fluct_process_control(Module* m, unsigned long frames) {
 			control = fminf(fmaxf(control, -1.0f), 1.0f);
 
 			if (strcmp(param, "rate") == 0) {
-				rate += control * (20.0f - base_rate);
+				rate += control * 20.0f;
 			} else if (strcmp(param, "depth") == 0) {
-				depth += control * (1.0f - base_depth);
+				depth += control;
 			}
 		}
 

@@ -54,7 +54,7 @@ static void spec_hold_process(Module* m, float* in, unsigned long frames)
             if (strcmp(param, "pivot") == 0) {
                 pivot += control * base_pivot;
             } else if (strcmp(param, "tilt") == 0) {
-                tilt += control * (1.0f - fabsf(base_tilt));
+                tilt += control;
             }
         }
 

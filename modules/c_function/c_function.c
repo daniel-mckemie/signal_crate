@@ -77,12 +77,12 @@ static void c_function_process_control(Module* m, unsigned long frames) {
 
             if (strcmp(p, "att") == 0) {
                 float max = short_mode ? 10.0f : 1000.0f;
-                att += cv * (max - base_att);
+                att += cv * max;
             } else if (strcmp(p, "rel") == 0) {
                 float max = short_mode ? 10.0f : 1000.0f;
-                rel += cv * (max - base_rel);
+                rel += cv * max;
             } else if (strcmp(p, "depth") == 0) {
-                depth += cv * (1.0f - base_depth);
+                depth += cv;
             }
         }
 
@@ -90,8 +90,8 @@ static void c_function_process_control(Module* m, unsigned long frames) {
             clampf(&att, 0.01f, 10.0f);
             clampf(&rel, 0.01f, 10.0f);
         } else {
-            clampf(&att, 0.01f, INFINITY);
-            clampf(&rel, 0.01f, INFINITY);
+            clampf(&att, 0.01f, 1000.0f);
+            clampf(&rel, 0.01f, 1000.0f);
         }
         clampf(&depth, 0.0f, 1.0f);
 

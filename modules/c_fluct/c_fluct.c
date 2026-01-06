@@ -31,7 +31,7 @@ static void c_fluct_process_control(Module* m, unsigned long frames) {
 		float rate = rate_s;
 		float depth = depth_s;
 
-		for (int j = 0; j < m->num_control_inputs; j++) {
+		for (int j=0; j<m->num_control_inputs; j++) {
 			if (!m->control_inputs[j] || !m->control_input_params[j]) continue;
 
 			const char* param = m->control_input_params[j];
@@ -71,11 +71,10 @@ static void c_fluct_process_control(Module* m, unsigned long frames) {
 
 		float val = depth * s->current_value;
 		out[i] = val;
-
+		
 		disp_rate = rate;
 		disp_depth = depth;
 	}
-
 	pthread_mutex_lock(&s->lock);
 	s->display_rate = disp_rate;
 	s->display_depth = disp_depth;

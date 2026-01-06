@@ -8,23 +8,6 @@
 #include "module.h"
 #include "util.h"
 
-static void clamp_params(ResBank* s) {
-    if (s->lo_hz < 20.0f) s->lo_hz = 20.0f;
-    float ny = s->sample_rate * 0.45f;
-    if (s->hi_hz > ny) s->hi_hz = ny;
-    if (s->hi_hz < s->lo_hz + 1.0f) s->hi_hz = s->lo_hz + 1.0f;
-
-    clampf(&s->mix,   0.0f, 1.0f);
-    clampf(&s->drive, 0.0f, 1.0f);
-    clampf(&s->regen, 0.0f, 1.0f);
-    clampf(&s->q,     0.3f, 40.0f);
-    clampf(&s->tilt, -1.0f, 1.0f);
-    clampf(&s->odd,  -1.0f, 1.0f);
-
-    if (s->bands < 1) s->bands = 1;
-    if (s->bands > RES_MAX_BANDS) s->bands = RES_MAX_BANDS;
-}
-
 static void rebuild_centers(ResBank* s) {
     int N = s->bands;
     double lo = s->display_lo_hz;
@@ -89,131 +72,190 @@ static inline float soft_sat(float x, float drive) {
 
 static void res_bank_process(Module* m, float* in, unsigned long frames) {
     ResBank* s = (ResBank*)m->state;
-
-    float raw_mix, raw_q, raw_lo, raw_hi, raw_tilt, raw_odd, raw_drive, raw_regen;
-    int   raw_bands;
-    int   need_coeffs = 0;
-    int   need_centers = 0;
+	float* input = (m->num_inputs > 0) ? m->inputs[0] : in;
+	float* out   = m->output_buffer;
 
     pthread_mutex_lock(&s->lock);
-    raw_mix   = s->mix;
-    raw_q     = s->q;
-    raw_lo    = s->lo_hz;
-    raw_hi    = s->hi_hz;
-    raw_tilt  = s->tilt;
-    raw_odd   = s->odd;
-    raw_drive = s->drive;
-    raw_regen = s->regen;
-    raw_bands = s->bands;
-
-    need_coeffs  = s->need_coeffs;
-    need_centers = s->need_centers;
-
+    float base_mix   = s->mix;
+    float base_q     = s->q;
+    float base_lo    = s->lo_hz;
+    float base_hi    = s->hi_hz;
+    float base_tilt  = s->tilt;
+    float base_odd   = s->odd;
+    float base_drive = s->drive;
+    float base_regen = s->regen;
+    int base_bands = s->bands;
+    int need_coeffs  = s->need_coeffs;
+    int need_centers = s->need_centers;
+	float sample_rate = s->sample_rate;
     pthread_mutex_unlock(&s->lock);
 
-    float mix   = process_smoother(&s->smooth_mix,     raw_mix);
-    float q     = process_smoother(&s->smooth_q,       raw_q);
-    float lo    = process_smoother(&s->smooth_lo_hz,   raw_lo);
-    float hi    = process_smoother(&s->smooth_hi_hz,   raw_hi);
-    float tilt  = process_smoother(&s->smooth_tilt,    raw_tilt);
-    float odd   = process_smoother(&s->smooth_odd,     raw_odd);
-    float drive = process_smoother(&s->smooth_drive,   raw_drive);
-    float regen = process_smoother(&s->smooth_regen,   raw_regen);
-    int   bands = raw_bands;
+    float mix_s   = process_smoother(&s->smooth_mix,   base_mix);
+    float q_s     = process_smoother(&s->smooth_q,     base_q);
+    float lo_s    = process_smoother(&s->smooth_lo_hz, base_lo);
+    float hi_s    = process_smoother(&s->smooth_hi_hz, base_hi);
+    float tilt_s  = process_smoother(&s->smooth_tilt,  base_tilt);
+    float odd_s   = process_smoother(&s->smooth_odd,   base_odd);
+    float drive_s = process_smoother(&s->smooth_drive, base_drive);
+    float regen_s = process_smoother(&s->smooth_regen, base_regen);
+    int   bands_s = base_bands;
 
-    // Rebuild coeffs when Q drifts
-    if (fabsf(q - s->display_q) > 0.01f)
-        need_coeffs = 1;
+	int need_centers_block = need_centers;
+	int need_coeffs_block  = need_coeffs;
 
-    float mod_depth = 1.0f;
+	float disp_mix   = mix_s;
+	float disp_q     = q_s;
+	float disp_lo    = lo_s;
+	float disp_hi    = hi_s;
+	float disp_tilt  = tilt_s;
+	float disp_odd   = odd_s;
+	float disp_drive = drive_s;
+	float disp_regen = regen_s;
+	int disp_bands   = bands_s;
 
-    for (int i = 0; i < m->num_control_inputs; i++) {
-        if (!m->control_inputs[i] || !m->control_input_params[i]) continue;
 
-        const char* param = m->control_input_params[i];
-        float control = *(m->control_inputs[i]);
-        float norm = fminf(fmaxf(control, -1.0f), 1.0f);
+    for (unsigned int i=0; i<frames; i++) {
+		float mix   = mix_s;
+		float q     = q_s;
+		float lo    = lo_s;
+		float hi    = hi_s;
+		float tilt  = tilt_s;
+		float odd   = odd_s;
+		float drive = drive_s;
+		float regen = regen_s;
+		int bands   = bands_s;
 
-        if (strcmp(param, "mix") == 0) {
-            mix = raw_mix + norm * ((1.0f - raw_mix) * mod_depth);
-        }
-        else if (strcmp(param, "q") == 0) {
-            q = raw_q + norm * ((40.0f - raw_q) * mod_depth);
-            need_coeffs = 1;
-        }
-        else if (strcmp(param, "lo") == 0) {
-            lo = raw_lo + norm * (raw_lo * mod_depth);
-            need_centers = 1;
-        }
-        else if (strcmp(param, "hi") == 0) {
-            hi = raw_hi + norm * (raw_hi * mod_depth);
-            need_centers = 1;
-        }
-        else if (strcmp(param, "tilt") == 0) {
-            tilt = raw_tilt + norm * ((2.0f - fabsf(raw_tilt)) * mod_depth);
-        }
-        else if (strcmp(param, "odd") == 0) {
-            odd = raw_odd + norm * ((2.0f - fabsf(raw_odd)) * mod_depth);
-        }
-        else if (strcmp(param, "drive") == 0) {
-            drive = raw_drive + norm * ((1.0f - raw_drive) * mod_depth);
-        }
-        else if (strcmp(param, "regen") == 0) {
-            regen = raw_regen + norm * ((1.0f - raw_regen) * mod_depth);
-        }
-        else if (strcmp(param, "bands") == 0) {
-            float mod_range = (RES_MAX_BANDS - raw_bands) * mod_depth;
-            bands = raw_bands + norm * mod_range;
-            if (bands < 1) bands = 1;
-            if (bands > RES_MAX_BANDS) bands = RES_MAX_BANDS;
-            need_centers = 1;
-        }
-    }
 
-    s->display_mix = mix;
-    s->display_q   = q;
-    s->display_lo_hz = lo;
-    s->display_hi_hz = hi;
-    s->display_tilt = tilt;
-    s->display_odd  = odd;
-    s->display_drive = drive;
-    s->display_regen = regen;
-    s->display_bands = bands;
+		for (int j=0; j < m->num_control_inputs; j++) {
+			if (!m->control_inputs[j] || !m->control_input_params[j]) continue;
 
-    if (need_centers) {
-        s->display_lo_hz = lo;
-        s->display_hi_hz = hi;
-        rebuild_centers(s);
-    }
-    rebuild_weights(s);
-    if (need_coeffs || s->need_coeffs) {
-        s->display_q = q;
-        rebuild_coeffs(s);
-    }
+			const char* param = m->control_input_params[j];
+			float control = m->control_inputs[j][i];
+			control = fminf(fmaxf(control, -1.0f), 1.0f);
 
-    for (unsigned long n = 0; n < frames; n++) {
-        float x = in[n] + 1e-20f; // denorm guard
+			if (strcmp(param, "mix") == 0) {
+				mix += control;
+			}
+			else if (strcmp(param, "q") == 0) {
+				q += control * 40.0f;
+				need_coeffs_block = 1;
+			}
+			else if (strcmp(param, "lo") == 0) {
+				lo += control * base_lo;
+				need_centers_block = 1;
+			}
+			else if (strcmp(param, "hi") == 0) {
+				hi += control * base_hi;
+				need_centers_block = 1;
+			}
+			else if (strcmp(param, "tilt") == 0) {
+				tilt += control;
+			}
+			else if (strcmp(param, "odd") == 0) {
+				odd += control;
+			}
+			else if (strcmp(param, "drive") == 0) {
+				drive += control;
+			}
+			else if (strcmp(param, "regen") == 0) {
+				regen += control;
+			}
+			else if (strcmp(param, "bands") == 0) {
+				bands += (int) lrintf(control);
+				need_centers_block = 1;
+			}
+		}
+
+		float ny = sample_rate * 0.45f;
+		if (lo < 20.0f) lo = 20.0f;
+		if (hi > ny) hi = ny;
+		if (hi < lo + 1.0f) hi = lo + 1.0f;
+
+		clampf(&mix,   0.0f, 1.0f);
+		clampf(&drive, 0.0f, 1.0f);
+		clampf(&regen, 0.0f, 1.0f);
+		clampf(&q,     0.3f, 40.0f);
+		clampf(&tilt, -1.0f, 1.0f);
+		clampf(&odd,  -1.0f, 1.0f);
+
+		if (bands < 1) bands = 1;
+		if (bands > RES_MAX_BANDS) bands = RES_MAX_BANDS;
+
+		disp_mix   = mix;
+		disp_q     = q;
+		disp_lo    = lo;
+		disp_hi    = hi;
+		disp_tilt  = tilt;
+		disp_odd   = odd;
+		disp_drive = drive;
+		disp_regen = regen;
+		disp_bands = bands;
+
+		/* DSP */
+        float x = (input ? input[i] : 0.0f) + 1e-20f;
+        if (!isfinite(x)) x = 0.0f;
+
         float sum = 0.0f;
         float fb_input = x;
 
-        for (int i = 0; i < bands; i++) {
-            float y = biquad_tick(s, i, fb_input);
-            sum += s->w[i] * y;
-
-            fb_input += regen * (0.008f / (float)bands) * tanhf(y);
+        for (int b=0; b<disp_bands; b++) {
+            float y = biquad_tick(s, b, fb_input);
+            sum += s->w[b] * y;
+            fb_input += disp_regen * (0.008f / (float)disp_bands) * tanhf(y);
         }
 
-        float wet = soft_sat(sum, drive);
-        float out = mix * wet + (1.0f - mix) * x;
+        float wet = soft_sat(sum, disp_drive);
+        float yout = disp_mix * wet + (1.0f - disp_mix) * x;
 
-        if (!isfinite(out)) out = 0.0f;
-        if (out > 1.0f) out = 1.0f;
-        if (out < -1.0f) out = -1.0f;
+        if (!isfinite(yout)) yout = 0.0f;
+        yout = fminf(fmaxf(yout, -1.0f), 1.0f);
 
-        m->output_buffer[n] = out;
+        out[i] = yout;
+    }
+
+	pthread_mutex_lock(&s->lock);
+    s->display_mix = disp_mix;
+    s->display_q   = disp_q;
+    s->display_lo_hz = disp_lo;
+    s->display_hi_hz = disp_hi;
+    s->display_tilt = disp_tilt;
+    s->display_odd  = disp_odd;
+    s->display_drive = disp_drive;
+    s->display_regen = disp_regen;
+    s->display_bands = disp_bands;
+	pthread_mutex_unlock(&s->lock);
+
+    if (need_centers_block) {
+        rebuild_centers(s); 
+        need_coeffs_block = 1;
+    }
+
+    rebuild_weights(s);
+
+    if (need_coeffs_block) {
+		pthread_mutex_lock(&s->lock);
+        s->display_q = disp_q;
+		pthread_mutex_unlock(&s->lock);
+        rebuild_coeffs(s);
     }
 }
 
+static void clamp_params(ResBank* s) {
+    if (s->lo_hz < 20.0f) s->lo_hz = 20.0f;
+    float ny = s->sample_rate * 0.45f;
+    if (s->hi_hz > ny) s->hi_hz = ny;
+    if (s->hi_hz < s->lo_hz + 1.0f) s->hi_hz = s->lo_hz + 1.0f;
+
+    clampf(&s->mix,   0.0f, 1.0f);
+    clampf(&s->drive, 0.0f, 1.0f);
+    clampf(&s->regen, 0.0f, 1.0f);
+    clampf(&s->q,     0.3f, 40.0f);
+    clampf(&s->tilt, -1.0f, 1.0f);
+    clampf(&s->odd,  -1.0f, 1.0f);
+
+    if (s->bands < 1) s->bands = 1;
+    if (s->bands > RES_MAX_BANDS) s->bands = RES_MAX_BANDS;
+}
 
 static void res_bank_draw_ui(Module* m, int y, int x) {
     ResBank* s = (ResBank*)m->state;

@@ -8,13 +8,13 @@ typedef enum {
 	CHOICE_1,
 	CHOICE_2,
 	CHOICE_3
-} ExampleEnum;
+} CustomType;
 
 typedef struct {
 	float param1;
 	float param2;
-	CustomParam custom_param;
-	CustomMode custom_mode;
+	
+	CustomType cust_type;
 	
 	// put these for all
 	float sample_rate;
@@ -32,6 +32,6 @@ typedef struct {
 	bool entering_command;
 	char command_buffer[64];
 	int command_index;
-} Template // Name of module
+} Template; // Name of module
 
 #endif

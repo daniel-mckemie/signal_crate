@@ -97,8 +97,8 @@ static void clamp_params(MoogFilter *state) {
 }
 
 static void moog_filter_draw_ui(Module *m, int y, int x) {
-    MoogFilter *state = (MoogFilter*)m->state;
-	const char *filt_names[] = {"LP", "HP", "BP", "Notch", "Res"};
+    MoogFilter* state = (MoogFilter*)m->state;
+	const char* filt_names[] = {"LP", "HP", "BP", "Notch", "Res"};
 
     float co, res;
 	FilterType filt_type;

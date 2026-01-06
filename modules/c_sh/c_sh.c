@@ -8,38 +8,55 @@
 #include "module.h"
 #include "util.h"
 
-static inline void clamp_params(CSH* s) {
-    clampf(&s->rate_hz, 0.01f, 100.0f);
-    clampf(&s->depth,   0.0f, 1.0f);
-}
-
 static void c_sh_process(Module* m, float* in, unsigned long frames) {
     CSH* s = (CSH*)m->state;
+    float* input = (m->num_inputs > 0) ? m->inputs[0] : in;
+    float* out   = m->control_output;
 
-    float raw_rate, raw_depth;
-
-    // 1) Snapshot UI parameters ONLY under lock
     pthread_mutex_lock(&s->lock);
-    raw_rate  = s->rate_hz;
-    raw_depth = s->depth;
+    float base_rate  = s->rate_hz;
+    float base_depth = s->depth;
     pthread_mutex_unlock(&s->lock);
 
-    // 2) Smooth UI/OSC parameters outside the lock once per block
-    float rate  = process_smoother(&s->smooth_rate,  raw_rate);
-    float depth = process_smoother(&s->smooth_depth, raw_depth);
+    float rate_s  = process_smoother(&s->smooth_rate,  base_rate);
+    float depth_s = process_smoother(&s->smooth_depth, base_depth);
 
-    float* out = m->control_output;
-    if (!out) return;
+	float disp_rate = rate_s;
+	float disp_depth = depth_s;
 
-    // Trigger input (optional)
-    float* trig = (m->num_control_inputs > 0) ? m->control_inputs[0] : NULL;
-
-    const float dt = 1.0f / s->sample_rate;
+    float sr = s->sample_rate;
+    float dt = 1.0f / sr;
 
     float last_trig = s->last_trig;
     float phase     = s->phase;
 
-    for (unsigned long i = 0; i < frames; i++) {
+    float* trig = NULL;
+    for (int j = 0; j < m->num_control_inputs; j++) {
+        if (m->control_input_params[j] &&
+            strcmp(m->control_input_params[j], "trig") == 0)
+            trig = m->control_inputs[j];
+    }
+
+    for (unsigned long i=0; i<frames; i++) {
+        float rate  = rate_s;
+        float depth = depth_s;
+
+        for (int j=0; j<m->num_control_inputs; j++) {
+            if (!m->control_inputs[j] || !m->control_input_params[j]) continue;
+
+            const char* param = m->control_input_params[j];
+            float control = m->control_inputs[j][i];
+            control = fminf(fmaxf(control, -1.0f), 1.0f);
+
+            if (strcmp(param, "rate") == 0) {
+                rate += control * 20.0f;
+            } else if (strcmp(param, "depth") == 0) {
+                depth += control;
+			}
+        }
+
+        clampf(&rate,  0.01f, 100.0f);
+        clampf(&depth, 0.0f,  1.0f);
 
         int triggered = 0;
 
@@ -49,7 +66,6 @@ static void c_sh_process(Module* m, float* in, unsigned long frames) {
                 triggered = 1;
             last_trig = x;
         } else {
-            // internal free-run clock
             phase += dt * rate;
             if (phase >= 1.0f) {
                 phase -= 1.0f;
@@ -58,22 +74,33 @@ static void c_sh_process(Module* m, float* in, unsigned long frames) {
         }
 
         if (triggered) {
-            // sample audio input (or zero)
-            float sample = in ? in[i] : 0.0f;
-
+            float sample = input ? input[i] : 0.0f;
             float v = sample * depth;
             s->current_val = v;
 
-            // Update display safely
             pthread_mutex_lock(&s->lock);
             s->display_val = v;
             pthread_mutex_unlock(&s->lock);
         }
 
         out[i] = s->current_val;
+
+		disp_rate = rate;
+		disp_depth = depth;
     }
+
     s->last_trig = last_trig;
     s->phase     = phase;
+
+    pthread_mutex_lock(&s->lock);
+    s->display_rate  = disp_rate;
+    s->display_depth = disp_depth;
+    pthread_mutex_unlock(&s->lock);
+}
+
+static inline void clamp_params(CSH* s) {
+    clampf(&s->rate_hz, 0.01f, 100.0f);
+    clampf(&s->depth,   0.0f, 1.0f);
 }
 
 static void c_sh_draw_ui(Module* m, int y, int x) {
@@ -83,14 +110,14 @@ static void c_sh_draw_ui(Module* m, int y, int x) {
 
     pthread_mutex_lock(&s->lock);
     val   = s->display_val;
-    rate  = s->rate_hz;
-    depth = s->depth;
+    rate  = s->display_rate;
+    depth = s->display_depth;
     pthread_mutex_unlock(&s->lock);
 
     BLUE(); mvprintw(y, x, "[S&H:%s] ", m->name); CLR();
-    LABEL(2,"r:");   ORANGE(); printw(" %.2f Hz | ", rate);   CLR();
-    LABEL(2,"d:");   ORANGE(); printw(" %.2f | ",   depth);   CLR();
-    LABEL(2,"v:");   ORANGE(); printw(" %.3f",      val);     CLR();
+    LABEL(2,"rate:");   ORANGE(); printw(" %.2f Hz | ", rate);   CLR();
+    LABEL(2,"depth:");   ORANGE(); printw(" %.2f | ",   depth);   CLR();
+    LABEL(2,"val:");   ORANGE(); printw(" %.3f",      val);     CLR();
 
     YELLOW();
     mvprintw(y+1,x, "-/= rate, d/D depth");
@@ -189,12 +216,13 @@ Module* create_module(const char* args, float sample_rate) {
     s->phase       = 0.0f;
     s->current_val = 0.0f;
     s->display_val = 0.0f;
+	s->display_rate = 0.0f;
+	s->display_depth = 0.0f;
     s->last_trig   = 0.0f;
 
     pthread_mutex_init(&s->lock, NULL);
     init_smoother(&s->smooth_rate,  0.75f);
     init_smoother(&s->smooth_depth, 0.75f);
-
     clamp_params(s);
 
     Module* m = calloc(1, sizeof(Module));

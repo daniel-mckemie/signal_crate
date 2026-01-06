@@ -6,10 +6,20 @@
 void destroy_base_module(Module* m) {
     if (!m) return;
 
-    if (m->state) free(m->state);
-    if (m->name) free((void*)m->name);
-    if (m->output_bufferL) free(m->output_bufferL);
-    if (m->output_bufferR) free(m->output_bufferR);
+    for (int i = 0; i < m->num_control_inputs; i++) {
+        if (m->control_input_params[i]) {
+            free((void*)m->control_input_params[i]); /* strdup */
+            m->control_input_params[i] = NULL;
+        }
+    }
+
+    free(m->output_buffer);
+    free(m->output_bufferL);
+    free(m->output_bufferR);
+    free(m->control_output);
+    free(m->state);
+    free((void*)m->name);
+
     free(m);
 }
 

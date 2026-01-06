@@ -6,23 +6,20 @@
 #include "util.h"
 
 typedef struct {
-    // base params
-    float rate_hz;      // internal sample rate in Hz (used if no trig input)
-    float depth;        // scales the sampled value
+    float rate_hz;
+    float depth;
     float sample_rate;
 
-    // state
-    float phase;        // for internal clock
-    float current_val;  // held output value
-    float display_val;  // UI display value
+    float phase;
+    float current_val;
+    float display_val;
+	float display_rate;
+	float display_depth;
+    float last_trig;
 
-    float last_trig;    // last trigger sample for edge detect
-
-    // smoothing for params
     CParamSmooth smooth_rate;
     CParamSmooth smooth_depth;
 
-    // UI / command
     pthread_mutex_t lock;
     bool  entering_command;
     char  command_buffer[64];

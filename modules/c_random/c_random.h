@@ -15,7 +15,7 @@ typedef enum {
 
 typedef struct {
     float rate_hz;
-    float depth;          // <-- REQUIRED
+    float depth;
     float range_min;
     float range_max;
 
@@ -24,6 +24,8 @@ typedef struct {
 
     float current_val;
     float display_val;
+	float display_rate;
+	float display_depth;
 
     RandomType type;
 
@@ -31,7 +33,7 @@ typedef struct {
     BrownNoise brown;
 
     CParamSmooth smooth_rate;
-    CParamSmooth smooth_depth;   // <-- REQUIRED
+    CParamSmooth smooth_depth;
 
     pthread_mutex_t lock;
 

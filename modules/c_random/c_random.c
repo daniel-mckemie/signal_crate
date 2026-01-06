@@ -8,32 +8,48 @@
 #include "module.h"
 #include "util.h"
 
-// Add CV INS
-// Make architecturally compliant...
-
 static void c_random_process_control(Module* m, unsigned long frames) {
     CRandom* s = (CRandom*)m->state;
-
-    float rate, rmin, rmax, depth;
-    RandomType type;
+	RandomType type;
+	float* out = m->control_output;
 
     pthread_mutex_lock(&s->lock);
-    float raw_rate  = s->rate_hz;
-    float raw_depth = s->depth;
-    rmin            = s->range_min;
-    rmax            = s->range_max;
-    type            = s->type;
+    float base_rate  = s->rate_hz;
+    float base_depth = s->depth;
+    float rmin            = s->range_min;
+    float rmax            = s->range_max;
+    type                  = s->type;
     pthread_mutex_unlock(&s->lock);
 
-    rate  = process_smoother(&s->smooth_rate,  raw_rate);
-    depth = process_smoother(&s->smooth_depth, raw_depth);
+    float rate_s  = process_smoother(&s->smooth_rate,  base_rate);
+    float depth_s = process_smoother(&s->smooth_depth, base_depth);
 
-    float* out = m->control_output;
-    if (!out) return;
+	float disp_rate  = rate_s;
+	float disp_depth = depth_s;
 
-    float dt = 1.0f / s->sample_rate;
+	float sr = s->sample_rate;
+    float dt = 1.0f / sr;
 
-    for (int i = 0; i < frames; i++) {
+    for (int i=0; i<frames; i++) {
+		float rate  = rate_s;
+		float depth = depth_s;
+
+		for (int j=0; j<m->num_control_inputs; j++) {
+			if (!m->control_inputs[j] || !m->control_input_params[j]) continue;
+				
+			const char* param = m->control_input_params[j];
+			float control = m->control_inputs[j][i];
+			control = fminf(fmaxf(control, -1.0f), 1.0f);
+
+			if (strcmp(param, "rate") == 0) {
+				rate += control * 20.0f;
+			} else if (strcmp(param, "depth") == 0) {
+				depth += control;
+			}
+		}
+
+		clampf(&rate, 0.01f, 100.0f);
+		clampf(&depth, 0.0f, 1.0f);
 
         s->phase += dt * rate;
         if (s->phase >= 1.0f) {
@@ -52,38 +68,35 @@ static void c_random_process_control(Module* m, unsigned long frames) {
             if (shaped < -1.0f) shaped = -1.0f;
 
             float u = (shaped + 1.0f) * 0.5f;
-
             float u_depth = 0.5f + (u - 0.5f) * depth;
-
             float u_range = rmin + u_depth * (rmax - rmin);
 
-            float final = u_range; 
-            s->current_val = final;
-
-            pthread_mutex_lock(&s->lock);
-            s->display_val = final;
-            pthread_mutex_unlock(&s->lock);
+            float val = u_range; 
+            s->current_val = val;
         }
 
         out[i] = s->current_val;
+
+		disp_rate = rate;
+		disp_depth = depth;
     }
+    pthread_mutex_lock(&s->lock);
+    s->display_rate = disp_rate;
+    s->display_depth = disp_depth;
+    s->display_val = s->current_val;
+    pthread_mutex_unlock(&s->lock);
 }
 
 static inline void clamp_params(CRandom* s) {
     clampf(&s->rate_hz,  0.01f, 100.0f);
     clampf(&s->depth,    0.0f,   1.0f);
-
     clampf(&s->range_min, -1.0f, 1.0f);
     clampf(&s->range_max, -1.0f, 1.0f);
-
-    // enforce min <= max
     if (s->range_min > s->range_max) {
         float tmp = s->range_min;
         s->range_min = s->range_max;
         s->range_max = tmp;
     }
-
-    // enum safety
     if (s->type < 0) s->type = 0;
     if (s->type > 2) s->type = 2;
 }
@@ -97,10 +110,10 @@ static void c_random_draw_ui(Module* m, int y, int x) {
 
     pthread_mutex_lock(&s->lock);
     val   = s->display_val;
-    rate  = s->rate_hz;
+    rate  = s->display_rate;
     rmin  = s->range_min;
     rmax  = s->range_max;
-    depth = s->depth;
+    depth = s->display_depth;
     type  = s->type;
     pthread_mutex_unlock(&s->lock);
 
@@ -245,7 +258,6 @@ Module* create_module(const char* args, float sample_rate) {
     pthread_mutex_init(&s->lock,NULL);
     init_smoother(&s->smooth_rate,  0.75f);
     init_smoother(&s->smooth_depth, 0.75f);
-
     clamp_params(s);
 
     Module* m = calloc(1,sizeof(Module));

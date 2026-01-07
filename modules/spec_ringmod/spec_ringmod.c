@@ -44,7 +44,7 @@ static void spec_ringmod_process(Module* m, float* in, unsigned long frames) {
     const int bins = N / 2 + 1;
     const float nyq = sr * 0.5f;
 
-    for (unsigned long i = 0; i < frames; i++) {
+    for (unsigned long i=0; i<frames; i++) {
 
         float mix = mix_s;
         float car = car_s;
@@ -100,38 +100,89 @@ static void spec_ringmod_process(Module* m, float* in, unsigned long frames) {
 
         /* analysis window */
         for (int n = 0; n < N; n++) {
-            s->td_car[n] *= s->window[n];
-            s->td_mod[n] *= s->window[n];
+            s->td_car_win[n] = s->td_car[n] * s->window[n];
+            s->td_mod_win[n] = s->td_mod[n] * s->window[n];
         }
 
         fftwf_execute(s->plan_car_fwd);
         fftwf_execute(s->plan_mod_fwd);
 
-        int bin_low  = (int)((bl / nyq) * (bins - 1));
-        int bin_high = (int)((bh / nyq) * (bins - 1));
-        clampi(&bin_low,  0, bins - 1);
-        clampi(&bin_high, 0, bins - 1);
+		int bin_low  = (int)((bl / nyq) * (bins - 1));
+		int bin_high = (int)((bh / nyq) * (bins - 1));
+		clampi(&bin_low,  0, bins - 1);
+		clampi(&bin_high, 0, bins - 1);
 
-        /* spectral ring-mod: magnitude × magnitude, carrier phase */
-        for (int k = 0; k < bins; k++) {
-            if (k < bin_low || k > bin_high) {
-                s->Z[k][0] = 0.0f;
-                s->Z[k][1] = 0.0f;
-                continue;
-            }
+		/* smooth + hold mod magnitudes ONCE per frame */
+		for (int k = 0; k < bins; k++) {
+			float yr = s->Y[k][0];
+			float yi = s->Y[k][1];
+			float y_mag = hypotf(yr, yi);
 
-            float xr = s->X[k][0], xi = s->X[k][1];
-            float yr = s->Y[k][0], yi = s->Y[k][1];
+			const float a = 0.15f;
+			s->y_mag_smooth[k] =
+				(1.0f - a) * s->y_mag_smooth[k] + a * y_mag;
 
-            float mag_x = sqrtf(xr * xr + xi * xi);
-            float mag_y = sqrtf(yr * yr + yi * yi);
+			s->y_mag_hold[k] = s->y_mag_smooth[k];
+		}
 
-            float phase = atan2f(xi, xr);
-            float mag   = mag_x * mag_y;
+		/* spectral processing */
+		for (int k = 0; k < bins; k++) {
 
-            s->Z[k][0] = mag * cosf(phase);
-            s->Z[k][1] = mag * sinf(phase);
-        }
+			float xr = s->X[k][0];
+			float xi = s->X[k][1];
+
+			if (k < bin_low || k > bin_high) {
+				s->Z[k][0] = xr;
+				s->Z[k][1] = xi;
+				continue;
+			}
+
+			float x_mag = hypotf(xr, xi) + 1e-12f;   // carrier magnitude
+			float y_mag = s->y_mag_hold[k];    // modulator magnitude
+			float env   = y_mag / x_mag;             // dimensionless envelope
+			float scale;
+
+			switch (s->op) {
+
+				case SPEC_OP_RING:
+					scale = y_mag;
+					break;
+
+				case SPEC_OP_AMP_ONLY:
+					scale = fminf(env, 1.0f);
+					break;
+
+				case SPEC_OP_CROSS_SYNTH:
+					scale = env;
+					break;
+
+				case SPEC_OP_SPECTRAL_AM:
+					scale = 1.0f + env;
+					break;
+
+				case SPEC_OP_SUBTRACT:
+					scale = fmaxf(0.0f, 1.0f - env); 
+					break;
+
+				case SPEC_OP_MIN_MAG:
+					scale = fminf(1.0f, env);
+					break;
+
+				default:
+					scale = 1.0f;
+					break;
+			}
+			clampf(&scale, 0.0f, 8.0f);
+
+			if (s->op == SPEC_OP_RING) {
+				s->Z[k][0] = (xr / x_mag) * scale;
+				s->Z[k][1] = (xi / x_mag) * scale;
+			} else {
+				s->Z[k][0] = xr * scale;
+				s->Z[k][1] = xi * scale;
+			}
+
+		}
 
         fftwf_execute(s->plan_inv);
 
@@ -182,6 +233,10 @@ static void spec_ringmod_draw_ui(Module* m, int y, int x) {
     float mix, car, mod, bl, bh;
     char cmd[64] = "";
 
+	static const char* op_names[] = {
+		"ring","amp","cross","am","sub","min"
+	};
+
     pthread_mutex_lock(&s->lock);
     mix = s->display_mix;
     car = s->display_car_amp;
@@ -208,8 +263,11 @@ static void spec_ringmod_draw_ui(Module* m, int y, int x) {
     LABEL(2, "mix:");
     ORANGE(); printw(" %.2f ", mix); CLR();
 
+    LABEL(2, "op:");
+    ORANGE(); printw("%s", op_names[s->op]); CLR();
+
     YELLOW();
-    mvprintw(y+1, x, "Keys: -/= (bl) _/+ (bh) [/] (car) {/} (mod) \'/;");
+    mvprintw(y+1, x, "Keys: -/= (bl) _/+ (bh) [/] (car) {/} (mod) \'/; p (op)");
     mvprintw(y+2, x, "Cmd: :1 band_low :2 band_high :3 car_amp :4 mod_amp :5 mix");
     BLACK();
 }
@@ -232,6 +290,7 @@ static void spec_ringmod_handle_input(Module* m, int key) {
             case '{': s->mod_amp -= 0.01f; handled = 1; break;
             case '\'': s->mix += 0.01f; handled = 1; break;
             case ';': s->mix -= 0.01f; handled = 1; break;
+			case 'o': s->op = (s->op + 1) % SPEC_OP_COUNT; handled = 1; break;
             case ':':
                 s->entering_command = 1;
                 memset(s->command_buffer, 0, sizeof(s->command_buffer));
@@ -315,7 +374,12 @@ static void spec_ringmod_destroy(Module* m) {
     fftwf_free(s->frozen_Y);
     fftwf_free(s->td_car);
     fftwf_free(s->td_mod);
+	fftwf_free(s->td_car_win);
+	fftwf_free(s->td_mod_win);
     fftwf_free(s->td_out);
+
+	free(s->y_mag_smooth);
+	free(s->y_mag_hold);
 
     free(s->window);
     free(s->ola_buffer);
@@ -326,10 +390,14 @@ static void spec_ringmod_destroy(Module* m) {
 Module* create_module(const char* args, float sample_rate) {
     SpecRingMod* s = calloc(1, sizeof(SpecRingMod));
     s->mix = 1.0f;
-    s->car_amp = 0.5f;
-    s->mod_amp = 0.1f;
+    s->car_amp = 1.0f;
+    s->mod_amp = 1.0f;
     s->bandlimit_low = 20.0f;
-    s->bandlimit_high = 4000.0f; 
+    s->bandlimit_high = sample_rate * 0.45f;
+	s->op = SPEC_OP_RING;
+	s->td_car_win = fftwf_alloc_real(SPEC_RINGMOD_FFT_SIZE);
+	s->td_mod_win = fftwf_alloc_real(SPEC_RINGMOD_FFT_SIZE);
+
     s->sample_rate = sample_rate;
 
     pthread_mutex_init(&s->lock, NULL);
@@ -342,6 +410,17 @@ Module* create_module(const char* args, float sample_rate) {
     s->td_mod = fftwf_alloc_real(SPEC_RINGMOD_FFT_SIZE);
     s->td_out = fftwf_alloc_real(SPEC_RINGMOD_FFT_SIZE);
     s->ola_buffer = calloc(SPEC_RINGMOD_FFT_SIZE, sizeof(float));
+
+	memset(s->td_car,     0, sizeof(float) * SPEC_RINGMOD_FFT_SIZE);
+	memset(s->td_mod,     0, sizeof(float) * SPEC_RINGMOD_FFT_SIZE);
+	memset(s->td_car_win, 0, sizeof(float) * SPEC_RINGMOD_FFT_SIZE);
+	memset(s->td_mod_win, 0, sizeof(float) * SPEC_RINGMOD_FFT_SIZE);
+	memset(s->td_out,     0, sizeof(float) * SPEC_RINGMOD_FFT_SIZE);
+
+	s->write_pos = 0;
+	s->hop_pos = 0;
+	s->y_mag_smooth = calloc((SPEC_RINGMOD_FFT_SIZE / 2 + 1), sizeof(float));
+	s->y_mag_hold = calloc((SPEC_RINGMOD_FFT_SIZE / 2 + 1), sizeof(float));
 
     s->window = malloc(sizeof(float) * SPEC_RINGMOD_FFT_SIZE);
 	for (int i = 0; i < SPEC_RINGMOD_FFT_SIZE; i++) {
@@ -360,10 +439,10 @@ Module* create_module(const char* args, float sample_rate) {
 
     s->plan_car_fwd =
         fftwf_plan_dft_r2c_1d(SPEC_RINGMOD_FFT_SIZE,
-                              s->td_car, s->X, FFTW_ESTIMATE);
+                              s->td_car_win, s->X, FFTW_ESTIMATE);
     s->plan_mod_fwd =
         fftwf_plan_dft_r2c_1d(SPEC_RINGMOD_FFT_SIZE,
-                              s->td_mod, s->Y, FFTW_ESTIMATE);
+                              s->td_mod_win, s->Y, FFTW_ESTIMATE);
     s->plan_inv =
         fftwf_plan_dft_c2r_1d(SPEC_RINGMOD_FFT_SIZE,
                               s->Z, s->td_out, FFTW_ESTIMATE);

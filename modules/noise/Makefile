@@ -1,4 +1,4 @@
-MODULE_NAME = noise_source
+MODULE_NAME = noise
 MODULE_DIR = ../..
 
 SRC = $(MODULE_NAME).c

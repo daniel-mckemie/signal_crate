@@ -1,5 +1,5 @@
-#ifndef NOISE_SOURCE_H
-#define NOISE_SOURCE_H
+#ifndef NOISE_H
+#define NOISE_H
 
 #include <pthread.h>
 #include "util.h"
@@ -31,6 +31,6 @@ typedef struct {
 	bool entering_command;
 	char command_buffer[64];
 	int command_index;
-} NoiseSource;
+} Noise;
 
 #endif

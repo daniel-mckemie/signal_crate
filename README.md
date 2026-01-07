@@ -172,6 +172,18 @@ Freezes spectrum in-place.
 
 ---
 
+### **Spectral Ring Modulator**
+`spec_ringmod` - Dual Input
+Performs ring modulation in the frequency domain by multiplying 
+the spectra of two signals...RM bin-by-bin versus per sample.
+- `band_low` - lower freq bound of the active spectral region
+- `band_high` - higher freq bound of the active spectral region
+- `car_amp` - carrier input level
+- `mod_amp` - modulator input level (very sensitive!) 
+- `mix` - wet/dry blend 
+
+---
+
 ### **VCA**
 `vca`
 Voltage-controlled amplifier. When used as `vca as out`, can take in two signals and output hard panned stereo.

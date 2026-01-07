@@ -174,13 +174,20 @@ Freezes spectrum in-place.
 
 ### **Spectral Ring Modulator**
 `spec_ringmod` - Dual Input
-Performs ring modulation in the frequency domain by multiplying 
-the spectra of two signals...RM bin-by-bin versus per sample.
+Performs ring modulation in the frequency domain by operating on
+the spectra of two signals...bin-by-bin versus per sample.
 - `band_low` - lower freq bound of the active spectral region
 - `band_high` - higher freq bound of the active spectral region
 - `car_amp` - carrier input level
 - `mod_amp` - modulator input level (very sensitive!) 
-- `mix` - wet/dry blend 
+- `mix` - wet/dry blend
+- `op` – spectral interaction mode (discrete, stepped)
+  - `ring` – classic spectral ring modulation. Carrier magnitudes are multiplied by modulator magnitudes on a bin-by-bin basis while preserving carrier phase.
+  - `amp` – amplitude-only spectral modulation. The modulator acts as a ceiling on carrier magnitudes. Partials are attenuated or gated but never amplified.
+  - `cross` – cross-synthesis. Carrier phase is preserved while magnitudes are replaced by the modulator’s spectral envelope.
+  - `am` – spectral amplitude modulation. Modulator magnitudes scale the carrier and may amplify it, producing brighter and more aggressive results.
+  - `sub` – subtractive spectral modulation. Carrier magnitudes are reduced in proportion to the modulator’s spectral energy.
+  - `min` – minimum-magnitude selection. Each bin takes the smaller magnitude of carrier or modulator while keeping the carrier phase.
 
 ---
 

@@ -348,6 +348,8 @@ static void spec_ringmod_set_osc_param(Module* m, const char* p, float v) {
         s->bandlimit_low = v * s->sample_rate * 0.45f;
     } else if (strcmp(p, "band_high") == 0) {
         s->bandlimit_high = v * s->sample_rate * 0.45f;
+	} else if (strcmp(p, "op") == 0) {
+		if (v > 0.5f) s->op = (SpecRingOp)((s->op + 1) % 6);
     } else {
         fprintf(stderr, "[spec_ringmod] Unknown OSC param: %s\n", p);
     }
@@ -388,13 +390,46 @@ static void spec_ringmod_destroy(Module* m) {
 }
 
 Module* create_module(const char* args, float sample_rate) {
+	float band_low = 20.0f;
+	float band_high = sample_rate * 0.45f;
+	float car_amp = 1.0f;
+	float mod_amp = 1.0f;
+	float mix = 1.0f;
+	SpecRingOp op = SPEC_OP_RING;
+
+	if (args && strstr(args, "band_low=")) {
+        sscanf(strstr(args, "band_low="), "band_low=%f", &band_low);
+    }
+    if (args && strstr(args, "band_high=")) {
+        sscanf(strstr(args, "band_high="), "band_high=%f", &band_high);
+	}
+    if (args && strstr(args, "car_amp=")) {
+        sscanf(strstr(args, "car_amp="), "car_amp=%f", &car_amp);
+	}
+    if (args && strstr(args, "mod_amp=")) {
+        sscanf(strstr(args, "mod_amp="), "mod_amp=%f", &mod_amp);
+	}
+    if (args && strstr(args, "mix=")) {
+        sscanf(strstr(args, "mix="), "mix=%f", &mod_amp);
+	}
+	if (args && strstr(args, "op=")) {
+        char op_str[32] = {0};
+        sscanf(strstr(args, "op="), "op=%31[^,]]", op_str);
+        if (strcmp(op_str, "ring") == 0) op = SPEC_OP_RING;
+        else if (strcmp(op_str, "amp") == 0) op = SPEC_OP_AMP_ONLY;
+        else if (strcmp(op_str, "cross") == 0) op = SPEC_OP_CROSS_SYNTH;
+        else if (strcmp(op_str, "am") == 0) op = SPEC_OP_SPECTRAL_AM;
+        else if (strcmp(op_str, "sub") == 0) op = SPEC_OP_SUBTRACT;
+        else if (strcmp(op_str, "min") == 0) op = SPEC_OP_MIN_MAG;
+        else fprintf(stderr, "[SpecRingMod] Unknown type: '%s'\n", op_str);
+    }
     SpecRingMod* s = calloc(1, sizeof(SpecRingMod));
-    s->mix = 1.0f;
-    s->car_amp = 1.0f;
-    s->mod_amp = 1.0f;
-    s->bandlimit_low = 20.0f;
-    s->bandlimit_high = sample_rate * 0.45f;
-	s->op = SPEC_OP_RING;
+    s->mix = mix;
+    s->car_amp = car_amp;
+    s->mod_amp = mod_amp;
+    s->bandlimit_low = band_low;
+    s->bandlimit_high = band_high;
+	s->op = op;
 	s->td_car_win = fftwf_alloc_real(SPEC_RINGMOD_FFT_SIZE);
 	s->td_mod_win = fftwf_alloc_real(SPEC_RINGMOD_FFT_SIZE);
 

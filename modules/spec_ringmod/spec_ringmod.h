@@ -61,8 +61,6 @@ typedef struct {
     fftwf_complex* FX;
     fftwf_complex* FY;
 
-    fftwf_complex* frozen_Y;
-
     fftwf_plan plan_car_fwd;
     fftwf_plan plan_mod_fwd;
     fftwf_plan plan_inv;

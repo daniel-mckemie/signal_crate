@@ -145,7 +145,7 @@ static void spec_ringmod_process(Module* m, float* in, unsigned long frames) {
 			switch (s->op) {
 
 				case SPEC_OP_RING:
-					scale = y_mag;
+					scale = 1.0f;
 					break;
 
 				case SPEC_OP_AMP_ONLY:
@@ -175,8 +175,9 @@ static void spec_ringmod_process(Module* m, float* in, unsigned long frames) {
 			clampf(&scale, 0.0f, 8.0f);
 
 			if (s->op == SPEC_OP_RING) {
-				s->Z[k][0] = (xr / x_mag) * scale;
-				s->Z[k][1] = (xi / x_mag) * scale;
+				float mag = x_mag * fminf(y_mag, 1.0f);
+				s->Z[k][0] = (xr / x_mag) * mag;
+				s->Z[k][1] = (xi / x_mag) * mag;
 			} else {
 				s->Z[k][0] = xr * scale;
 				s->Z[k][1] = xi * scale;
@@ -371,7 +372,6 @@ static void spec_ringmod_destroy(Module* m) {
     fftwf_free(s->Z);
     fftwf_free(s->FX);
     fftwf_free(s->FY);
-    fftwf_free(s->frozen_Y);
     fftwf_free(s->td_car);
     fftwf_free(s->td_mod);
 	fftwf_free(s->td_car_win);
@@ -435,7 +435,6 @@ Module* create_module(const char* args, float sample_rate) {
     s->Z = fftwf_alloc_complex(SPEC_RINGMOD_FFT_SIZE);
     s->FX = fftwf_alloc_complex(SPEC_RINGMOD_FFT_SIZE);
     s->FY = fftwf_alloc_complex(SPEC_RINGMOD_FFT_SIZE);
-    s->frozen_Y = fftwf_alloc_complex(SPEC_RINGMOD_FFT_SIZE);
 
     s->plan_car_fwd =
         fftwf_plan_dft_r2c_1d(SPEC_RINGMOD_FFT_SIZE,

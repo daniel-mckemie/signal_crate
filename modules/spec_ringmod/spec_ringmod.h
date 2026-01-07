@@ -7,7 +7,7 @@
 #include "module.h"
 #include "util.h"
 
-#define SPEC_RINGMOD_FFT_SIZE 8192
+#define SPEC_RINGMOD_FFT_SIZE 4096
 #define SPEC_RINGMOD_HOP_SIZE (SPEC_RINGMOD_FFT_SIZE / 4)
 
 #define SPEC_OP_COUNT 6

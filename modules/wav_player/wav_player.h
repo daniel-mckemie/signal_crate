@@ -12,9 +12,9 @@ typedef struct {
 	float* data;
 	unsigned long num_frames;
 
-	float play_pos;
-	float external_play_pos;
-	float scrub_target;
+	double play_pos;
+	double external_play_pos;
+	double scrub_target;
 	float playback_speed;
 	float amp;
 
@@ -24,7 +24,7 @@ typedef struct {
 	pthread_mutex_t lock;
 
 	// Display
-	float display_pos;
+	double display_pos;
 	float display_speed;
 	float display_amp;
 	bool playing;

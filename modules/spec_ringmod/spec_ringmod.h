@@ -58,15 +58,9 @@ typedef struct {
     fftwf_complex* Y;
     fftwf_complex* Z;
 
-    fftwf_complex* FX;
-    fftwf_complex* FY;
-
     fftwf_plan plan_car_fwd;
     fftwf_plan plan_mod_fwd;
     fftwf_plan plan_inv;
-    fftwf_plan plan_conv_x;
-    fftwf_plan plan_conv_y;
-	fftwf_plan plan_conv_inv;
 
     float* window;
     float* ola_buffer;

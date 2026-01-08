@@ -179,7 +179,7 @@ the spectra of two signals...bin-by-bin versus per sample.
 - `band_low` - lower freq bound of the active spectral region
 - `band_high` - higher freq bound of the active spectral region
 - `car_amp` - carrier input level
-- `mod_amp` - modulator input level (very sensitive!) 
+- `mod_amp` - modulator input level
 - `mix` - wet/dry blend
 - `op` – spectral interaction mode (discrete, stepped)
   - `ring` – classic spectral ring modulation. Carrier magnitudes are multiplied by modulator magnitudes on a bin-by-bin basis while preserving carrier phase.

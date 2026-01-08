@@ -16,13 +16,13 @@ static void player_process(Module* m, float* in, unsigned long frames) {
 
     pthread_mutex_lock(&s->lock);
     unsigned long max_frames = s->num_frames;
-    float pos         = s->playing ? s->play_pos : s->external_play_pos;
-    float scrub_target= s->scrub_target;
-    float base_speed  = s->playback_speed;
-    float base_amp    = s->amp;
-    bool  playing     = s->playing;
-    float file_rate   = s->file_rate;
-    float sr          = s->sample_rate;
+    double pos         = s->playing ? s->play_pos : s->external_play_pos;
+    double scrub_target = s->scrub_target;
+    float base_speed   = s->playback_speed;
+    float base_amp     = s->amp;
+    bool  playing      = s->playing;
+    float file_rate    = s->file_rate;
+    float sr           = s->sample_rate;
     pthread_mutex_unlock(&s->lock);
 
     float speed_s = process_smoother(&s->smooth_speed, base_speed);
@@ -30,15 +30,15 @@ static void player_process(Module* m, float* in, unsigned long frames) {
 
     float disp_speed = speed_s;
     float disp_amp   = amp_s;
-    float disp_pos   = pos;
+    double disp_pos   = pos;
 
     if (max_frames < 2) {
         for (unsigned long i = 0; i < frames; i++) out[i] = 0.0f;
         return;
     }
 
-    clampf(&scrub_target, 0.0f, (float)(max_frames - 1));
-    clampf(&pos,          0.0f, (float)(max_frames - 1));
+    clampd(&scrub_target, 0.0f, (double)(max_frames - 1));
+    clampd(&pos,          0.0f, (double)(max_frames - 1));
 
     for (unsigned long i = 0; i < frames; i++) {
         float speed = speed_s;
@@ -62,7 +62,7 @@ static void player_process(Module* m, float* in, unsigned long frames) {
 
         clampf(&speed, 0.1f, 4.0f);
         clampf(&amp,   0.0f, 1.0f);
-        clampf(&scrub_target, 0.0f, (float)(max_frames - 1));
+        clampd(&scrub_target, 0.0f, (double)(max_frames - 1));
 
         disp_speed = speed;
         disp_amp   = amp;
@@ -72,11 +72,11 @@ static void player_process(Module* m, float* in, unsigned long frames) {
         }
 
         if (pos < 0.0f) pos = 0.0f;
-        if (pos > (float)(max_frames - 2)) pos = (float)(max_frames - 2);
+        if (pos > (double)(max_frames - 2)) pos = (double)(max_frames - 2);
 
-        int i1 = (int)pos;
-        int i2 = i1 + 1;
-        float frac = pos - (float)i1;
+        sf_count_t i1 = (sf_count_t)pos;
+        sf_count_t i2 = i1 + 1;
+        float frac = (float)(pos - (double)i1);
 
         float s1 = s->data[i1];
         float s2 = s->data[i2];
@@ -86,7 +86,7 @@ static void player_process(Module* m, float* in, unsigned long frames) {
 
         if (playing) {
             pos += speed * (file_rate / sr);
-            if (pos >= (float)(max_frames - 1)) pos = 0.0f;
+            if (pos >= (double)(max_frames - 1)) pos = 0.0f;
         }
 
         disp_pos = pos;
@@ -107,8 +107,8 @@ static void player_process(Module* m, float* in, unsigned long frames) {
 
 
 static void clamp_params(Player* state) {
-    clampf(&state->scrub_target, 0.0f, (float)(state->num_frames - 1));
-    clampf(&state->play_pos, 0.0f, (float)(state->num_frames - 1));
+    clampd(&state->scrub_target, 0.0f, (double)(state->num_frames - 1));
+    clampd(&state->play_pos, 0.0f, (double)(state->num_frames - 1));
     clampf(&state->playback_speed, 0.1f, 4.0f);
     clampf(&state->amp, 0.0f, 1.0f);
 }
@@ -117,7 +117,7 @@ static void player_draw_ui(Module* m, int y, int x) {
 	Player* state = (Player*)m->state;
 
 	pthread_mutex_lock(&state->lock);
-	float pos = state->display_pos;
+	double pos = state->display_pos;
 	float speed = state->display_speed;
 	float amp = state->display_amp;
 	float dur_sec = (float)state->num_frames / state->file_rate;
@@ -155,8 +155,8 @@ static void player_handle_input(Module* m, int key) {
 
     if (!state->entering_command) {
         switch (key) {
-			case '-': state->play_pos -= state->sample_rate * 0.1f; handled = 1; break;
-            case '=': state->play_pos += state->sample_rate * 0.1f; handled = 1; break;
+			case '-': state->play_pos -= state->file_rate * 0.1f; handled = 1; break;
+            case '=': state->play_pos += state->file_rate * 0.1f; handled = 1; break;
             case '_': state->playback_speed -= 0.01f; handled = 1; break;
             case '+': state->playback_speed += 0.01f; handled = 1; break;
             case '[': state->amp -= 0.01f; handled = 1; break;
@@ -177,7 +177,7 @@ static void player_handle_input(Module* m, int key) {
             float val;
             if (sscanf(state->command_buffer, "%c%f", &type, &val) == 2) {
                 if (type == '1') {
-                    float new_pos = val * state->sample_rate;
+                    double new_pos = (double)val * (double)state->file_rate;
                     if (new_pos < 0) new_pos = 0;
                     if (new_pos > state->num_frames - 1) new_pos = state->num_frames - 1;
                     state->play_pos = new_pos;

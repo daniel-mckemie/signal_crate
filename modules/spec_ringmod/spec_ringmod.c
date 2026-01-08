@@ -365,15 +365,10 @@ static void spec_ringmod_destroy(Module* m) {
     fftwf_destroy_plan(s->plan_car_fwd);
     fftwf_destroy_plan(s->plan_mod_fwd);
     fftwf_destroy_plan(s->plan_inv);
-    fftwf_destroy_plan(s->plan_conv_x);
-    fftwf_destroy_plan(s->plan_conv_y);
-	fftwf_destroy_plan(s->plan_conv_inv);
 
     fftwf_free(s->X);
     fftwf_free(s->Y);
     fftwf_free(s->Z);
-    fftwf_free(s->FX);
-    fftwf_free(s->FY);
     fftwf_free(s->td_car);
     fftwf_free(s->td_mod);
 	fftwf_free(s->td_car_win);
@@ -468,8 +463,6 @@ Module* create_module(const char* args, float sample_rate) {
     s->X = fftwf_alloc_complex(SPEC_RINGMOD_FFT_SIZE);
     s->Y = fftwf_alloc_complex(SPEC_RINGMOD_FFT_SIZE);
     s->Z = fftwf_alloc_complex(SPEC_RINGMOD_FFT_SIZE);
-    s->FX = fftwf_alloc_complex(SPEC_RINGMOD_FFT_SIZE);
-    s->FY = fftwf_alloc_complex(SPEC_RINGMOD_FFT_SIZE);
 
     s->plan_car_fwd =
         fftwf_plan_dft_r2c_1d(SPEC_RINGMOD_FFT_SIZE,
@@ -480,16 +473,6 @@ Module* create_module(const char* args, float sample_rate) {
     s->plan_inv =
         fftwf_plan_dft_c2r_1d(SPEC_RINGMOD_FFT_SIZE,
                               s->Z, s->td_out, FFTW_ESTIMATE);
-    s->plan_conv_x =
-        fftwf_plan_dft_1d(SPEC_RINGMOD_FFT_SIZE,
-                          s->X, s->FX, FFTW_FORWARD, FFTW_ESTIMATE);
-    s->plan_conv_y =
-        fftwf_plan_dft_1d(SPEC_RINGMOD_FFT_SIZE,
-                          s->Y, s->FY, FFTW_FORWARD, FFTW_ESTIMATE);
-	s->plan_conv_inv =
-		fftwf_plan_dft_1d(SPEC_RINGMOD_FFT_SIZE,
-						  s->Z, s->Z, FFTW_BACKWARD, FFTW_ESTIMATE);
-
 
     Module* m = calloc(1, sizeof(Module));
     m->name = "spec_ringmod";

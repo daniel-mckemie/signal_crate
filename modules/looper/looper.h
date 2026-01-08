@@ -5,6 +5,8 @@
 #include "module.h"
 #include "util.h"
 
+#define LOOP_FADE_SAMPLES 128
+
 typedef enum {
 	IDLE,
 	RECORDING,
@@ -17,9 +19,10 @@ typedef struct {
 	float sample_rate;
 	float* buffer;
     unsigned long buffer_len;	
+	unsigned long max_buffer_len;
 
-	float read_pos;
-	unsigned long write_pos;
+	double read_pos;
+	double write_pos;
 	unsigned long loop_start;
 	unsigned long loop_end;
 	float playback_speed;

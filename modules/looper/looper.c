@@ -16,8 +16,8 @@ static void looper_process(Module* m, float* in, unsigned long frames) {
 	pthread_mutex_lock(&s->lock);
 	float* buffer      = s->buffer;
 	unsigned long buffer_len = s->buffer_len;
-	float read_pos     = s->read_pos;
-	unsigned long write_pos  = s->write_pos;
+	double read_pos     = s->read_pos;
+	double write_pos  = s->write_pos;
 	unsigned long loop_start = s->loop_start;
 	unsigned long loop_end   = s->loop_end;
 	float base_speed = s->playback_speed;
@@ -60,46 +60,111 @@ static void looper_process(Module* m, float* in, unsigned long frames) {
 		float in_s = input ? input[i] : 0.0f;
 		float output = 0.0f;
 
+		unsigned long le = loop_end;
+		if (le <= loop_start) le = loop_start + 1;
+		if (le > buffer_len)  le = buffer_len;
+
+		if ((current_state == PLAYING || current_state == OVERDUBBING) && le <= loop_start + 1) {
+			out[i] = 0.0f;
+			continue;
+		}
+
 		switch (current_state) {
-			case RECORDING:
-				buffer[write_pos % buffer_len] = in_s;
+			case RECORDING: {
+				unsigned long w = (unsigned long)write_pos;
+				if (w >= buffer_len) {
+					output = in_s;
+					break;
+				}
+				buffer[w] = in_s;
 				output = in_s; // monitor input
-				write_pos++;
-				if (write_pos >= loop_end) write_pos = loop_start;
+				write_pos += 1.0;
+				if ((unsigned long)write_pos > loop_end) loop_end = (unsigned long)write_pos;
+				if (loop_end > buffer_len) loop_end = buffer_len;
 				break;
+			}
 
 			case PLAYING: {
-				int i1 = (int)read_pos % buffer_len;
-				int i2 = (i1 + 1) % buffer_len;
-				float frac = read_pos - (float)i1;
-				output = (1.0f - frac) * buffer[i1] + frac * buffer[i2];
-				// Fade in at loop start to avoid click
-				if (read_pos < loop_start + 32) {
-					float fade = (read_pos - loop_start) / 32.0f;
-					if (fade < 0.0f) fade = 0.0f;
-					if (fade > 1.0f) fade = 1.0f;
-					output *= fade;
+				unsigned long i1 = (unsigned long)read_pos;
+				if (i1 >= le) i1 = loop_start;
+
+				unsigned long i2 = i1 + 1;
+				if (i2 >= le) i2 = loop_start;
+
+				double frac = read_pos - (double)i1;
+				double play = (1.0 - frac) * (double)buffer[i1]
+							+        frac  * (double)buffer[i2];
+
+				/* crossfade at both loop edges to prevent click */
+				const double xf = LOOP_FADE_SAMPLES; 
+				double env = 1.0;
+
+				/* fade-in at start */
+				if (read_pos < (double)loop_start + xf) {
+					double in = (read_pos - (double)loop_start) / xf;
+					if (in < env) env = in;
 				}
-				read_pos += playback_speed;
-				if (read_pos >= loop_end) read_pos = loop_start;
+
+				/* fade-out at end */
+				if (read_pos > (double)le - xf) {
+					double out = ((double)le - read_pos) / xf;
+					if (out < env) env = out;
+				}
+
+				if (env < 0.0) env = 0.0;
+				if (env > 1.0) env = 1.0;
+
+				output = (float)(play * env);
+
+				read_pos += (double)playback_speed;
+				if (read_pos >= (double)le) read_pos = (double)loop_start;
 				break;
 			}
 
 			case OVERDUBBING: {
-				int widx = write_pos % buffer_len;
+				unsigned long widx = (unsigned long)read_pos;
+				if (widx >= le) widx = loop_start;
+				if (widx >= buffer_len) widx %= buffer_len;
+
 				buffer[widx] += in_s; // overdub
-				write_pos++;
-				int i1 = (int)read_pos % buffer_len;
-				int i2 = (i1 + 1) % buffer_len;
-				float frac = read_pos - (float)i1;
-				output = (1.0f - frac) * buffer[i1] + frac * buffer[i2];
-				read_pos += playback_speed;
-				if (read_pos >= loop_end) read_pos = loop_start;
+
+				unsigned long i1 = (unsigned long)read_pos;
+				if (i1 >= le) i1 = loop_start;
+
+				unsigned long i2 = i1 + 1;
+				if (i2 >= le) i2 = loop_start;
+
+				double frac = read_pos - (double)i1;
+				double play = (1.0 - frac) * (double)buffer[i1]
+							+        frac  * (double)buffer[i2];
+
+				const double xf = LOOP_FADE_SAMPLES;
+				double env = 1.0;
+
+				if (read_pos < (double)loop_start + xf) {
+					double in = (read_pos - (double)loop_start) / xf;
+					if (in < env) env = in;
+				}
+				if (read_pos > (double)le - xf) {
+					double out = ((double)le - read_pos) / xf;
+					if (out < env) env = out;
+				}
+
+				if (env < 0.0) env = 0.0;
+				if (env > 1.0) env = 1.0;
+
+				output = (float)(play * env + (double)in_s);
+
+				read_pos += (double)playback_speed;
+				if (read_pos >= (double)le) read_pos = (double)loop_start;
+
 				break;
 			}
 
-			case STOPPED:
 			case IDLE:
+				output = in_s;
+				break;
+			case STOPPED: 
 			default:
 				output = 0.0f;
 				break;
@@ -113,23 +178,29 @@ static void looper_process(Module* m, float* in, unsigned long frames) {
     pthread_mutex_lock(&s->lock);
     s->read_pos = disp_read_pos;
     s->write_pos = write_pos;
+	s->loop_end = loop_end;
 	s->display_playback_speed = disp_playback_speed;
 	s->display_amp = disp_amp;
     pthread_mutex_unlock(&s->lock);
 }
 
 static void clamp_params(Looper *state) {
-    unsigned long max_samples = state->buffer_len;
-    if (state->loop_start > max_samples - 1)
-        state->loop_start = max_samples - 1;
-    if (state->loop_end > max_samples)
-        state->loop_end = max_samples;
-    if (state->loop_end < state->loop_start)
+    unsigned long cap = state->buffer_len;
+
+    if (state->looper_state != RECORDING) {
+        cap = (unsigned long)state->write_pos;
+        if (cap < 2) cap = 2;
+        if (cap > state->buffer_len) cap = state->buffer_len;
+    }
+    if (state->loop_start > cap - 1)
+        state->loop_start = cap - 1;
+    if (state->loop_end > cap)
+        state->loop_end = cap;
+    if (state->loop_end <= state->loop_start)
         state->loop_end = state->loop_start + 1;
     clampf(&state->playback_speed, 0.1f, 4.0f);
-    clampf(&state->amp, 0.0, 1.0f);
+    clampf(&state->amp, 0.0f, 1.0f);
 }
-
 
 static void looper_draw_ui(Module* m, int y, int x) {
     Looper* state = (Looper*)m->state;
@@ -236,10 +307,45 @@ static void looper_handle_input(Module* m, int ch) {
                 state->command_buffer[0] = '\0';
                 handled = 1;
                 break;
-            case 'r': state->looper_state = RECORDING; handled=1; break;
-            case 'p': state->looper_state = PLAYING; handled=1; break;
-            case 'o': state->looper_state = OVERDUBBING; handled=1; break;
-            case 's': state->looper_state = STOPPED; handled=1; break;
+				case 'r':
+					if (state->looper_state != RECORDING) {
+						state->write_pos = (double)state->loop_start;
+						state->loop_end  = state->loop_start + 1;
+						state->read_pos  = (double)state->loop_start;
+						state->looper_state = RECORDING;
+					}
+					handled = 1;
+					break;
+
+				case 'p':
+					if (state->looper_state != PLAYING) {
+						state->read_pos = (double)state->loop_start;
+						state->looper_state = PLAYING;
+					}
+					handled = 1;
+					break;
+
+				case 'o':
+					if (state->looper_state != OVERDUBBING) {
+						state->looper_state = OVERDUBBING;
+					}
+					handled = 1;
+					break;
+
+				case 's':
+					if (state->looper_state != STOPPED) {
+						if (state->looper_state == RECORDING) {
+							unsigned long le = state->write_pos;
+							if (le <= state->loop_start) le = state->loop_start + 1;
+							if (le > state->buffer_len)  le = state->buffer_len;
+							state->loop_end = le;
+							state->read_pos = (double)state->loop_start;
+						}
+						state->looper_state = STOPPED;
+					}
+					handled = 1;
+					break;
+
         }
     }
 
@@ -264,13 +370,25 @@ static void looper_set_osc_param(Module* m, const char* param, float value) {
     } else if (strcmp(param, "end") == 0) {
         state->loop_end = (unsigned long)(value * state->sample_rate);
     } else if (strcmp(param, "record") == 0 && value > 0.5f) {
-        state->looper_state = RECORDING;
+		if (state->looper_state != RECORDING)
+			state->looper_state = RECORDING;
     } else if (strcmp(param, "play") == 0 && value > 0.5f) {
-        state->looper_state = PLAYING;
+		if (state->looper_state != PLAYING)
+			state->looper_state = PLAYING;
     } else if (strcmp(param, "overdub") == 0 && value > 0.5f) {
-        state->looper_state = OVERDUBBING;
-    } else if (strcmp(param, "stop") == 0 && value > 0.5f) {
-        state->looper_state = STOPPED;
+		if (state->looper_state != OVERDUBBING)
+			state->looper_state = OVERDUBBING;
+	} else if (strcmp(param, "stop") == 0 && value > 0.5f) {
+		if (state->looper_state != STOPPED) {
+			if (state->looper_state == RECORDING) {
+				unsigned long le = state->write_pos;
+				if (le <= state->loop_start) le = state->loop_start + 1;
+				if (le > state->buffer_len)  le = state->buffer_len;
+				state->loop_end = le;
+				state->read_pos = (double)state->loop_start;
+			}
+		}
+			state->looper_state = STOPPED;
     } else {
         fprintf(stderr, "[looper] Unknown OSC param: %s\n", param);
     }
@@ -302,13 +420,16 @@ Module* create_module(const char* args, float sample_rate) {
 
     Looper* state = calloc(1, sizeof(Looper));
     state->sample_rate = sample_rate;
-	state->buffer_len = (unsigned long)(sample_rate * loop_length); // 10 second buffer
-	state->buffer = calloc(state->buffer_len, sizeof(float));														  
+	state->max_buffer_len = (unsigned long)(sample_rate * 300.0f);
+	state->buffer_len = state->max_buffer_len;
+	state->buffer = calloc(state->max_buffer_len, sizeof(float));														  
     state->loop_start = 0;
-    state->loop_end = (unsigned long)(sample_rate * loop_length); 
+    state->loop_end = 1;
     state->playback_speed = playback_speed;
 	state->amp = amp;
+	state->read_pos = 0.0f;
 	state->write_pos = 0;
+	state->looper_state = IDLE;
     pthread_mutex_init(&state->lock, NULL);
 	init_sine_table();
     init_smoother(&state->smooth_speed, 0.75f);

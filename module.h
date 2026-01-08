@@ -33,6 +33,7 @@ typedef struct Module {
 } Module;
 
 void clampf(float* val, float min, float max);
+void clampd(double* val, double min, double max);
 void clampi(int* val, int min, int max);
 void destroy_base_module(struct Module* m);
 

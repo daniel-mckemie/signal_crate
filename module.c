@@ -28,8 +28,12 @@ void clampf(float* val, float min, float max) {
 	if (*val > max) *val = max;
 }
 
-void clampi(int* val, int min, int max)
-{
+void clampd(double* val, double min, double max) {
+	if (*val < min) *val = min;
+	if (*val > max) *val = max;
+}
+
+void clampi(int* val, int min, int max) {
     if (*val < min) *val = min;
     if (*val > max) *val = max;
 }

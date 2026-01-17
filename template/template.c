@@ -36,7 +36,7 @@ static void template_process(Module *m, float* in, unsigned long frames) {
 	// Control input thread
 	// Outer loop sets params and does DSP
 	// Inner loop reads CV ins and bubbles them up
-	for (int i=0; i<frames; i++) {
+	for (unsigned long i=0; i<frames; i++) {
 		// Declare DSP params, as displays/last read of block
 		float param1 = param1_s;
 		float param2 = param2_s;

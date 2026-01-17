@@ -6,6 +6,8 @@
 #include "module.h"
 #include "util.h"
 
+#define SCRUB_FADE_SAMPLES 64
+
 typedef struct {
 	float sample_rate;
 	float file_rate;
@@ -15,8 +17,12 @@ typedef struct {
 	double play_pos;
 	double external_play_pos;
 	double scrub_target;
+	double last_scrub_target;
+	double last_pos;
+	float fade;
 	float playback_speed;
 	float amp;
+	bool loop;
 
 	CParamSmooth smooth_speed;
 	CParamSmooth smooth_amp;

@@ -10,15 +10,13 @@
 
 static void c_lfo_process_control(Module* m, unsigned long frames) {
     CLFO* s = (CLFO*)m->state;
+    LFOWaveform wf;
 	float* out = m->control_output;
 
-    float base_freq, base_amp, base_depth;
-    LFOWaveform wf;
-
     pthread_mutex_lock(&s->lock);
-    base_freq  = s->frequency;
-    base_amp   = s->amplitude;
-    base_depth = s->depth;
+    float base_freq  = s->frequency;
+    float base_amp   = s->amplitude;
+    float base_depth = s->depth;
     wf         = s->waveform;
     pthread_mutex_unlock(&s->lock);
 

@@ -18,9 +18,14 @@ static void player_process(Module* m, float* in, unsigned long frames) {
     unsigned long max_frames = s->num_frames;
     double pos         = s->playing ? s->play_pos : s->external_play_pos;
     double scrub_target = s->scrub_target;
+	double last_pos    = s->last_pos;
+	double last_scrub_target = s->last_scrub_target;
+	float fade         = s->fade;
     float base_speed   = s->playback_speed;
     float base_amp     = s->amp;
     bool  playing      = s->playing;
+	bool  loop		   = s->loop;
+	float* data        = s->data;
     float file_rate    = s->file_rate;
     float sr           = s->sample_rate;
     pthread_mutex_unlock(&s->lock);
@@ -67,42 +72,71 @@ static void player_process(Module* m, float* in, unsigned long frames) {
         disp_speed = speed;
         disp_amp   = amp;
 
-        if (!playing) {
-            pos = scrub_target;
-        }
+		if (!playing) {
+			/* fade to zero BEFORE moving head */
+			if (fade > 0.0f) {
+				fade -= 1.0f / SCRUB_FADE_SAMPLES;
+				if (fade < 0.0f) fade = 0.0f;
+			} else {
+				/* safe to move head once silent */
+				pos = scrub_target;
+			}
+		}
+
+		if (playing) {
+			fade = 1.0f;
+		}
+
 
         if (pos < 0.0f) pos = 0.0f;
-        if (pos > (double)(max_frames - 2)) pos = (double)(max_frames - 2);
+		if (pos > (double)(max_frames - 1)) pos = (double)(max_frames - 1);
 
-        sf_count_t i1 = (sf_count_t)pos;
-        sf_count_t i2 = i1 + 1;
-        float frac = (float)(pos - (double)i1);
+		sf_count_t i1 = (sf_count_t)pos;
+		if (i1 < 0) i1 = 0;
+		if (i1 > (sf_count_t)(max_frames - 2)) i1 = (sf_count_t)(max_frames - 2);
+		sf_count_t i2 = i1 + 1;
+		float frac = (float)(pos - (double)i1);
 
-        float s1 = s->data[i1];
-        float s2 = s->data[i2];
+
+        float s1 = data[i1];
+        float s2 = data[i2];
 
         float val = (1.0f - frac) * s1 + frac * s2;
-        out[i] = val * amp;
 
-        if (playing) {
-            pos += speed * (file_rate / sr);
-            if (pos >= (double)(max_frames - 1)) pos = 0.0f;
-        }
+		out[i] = val * amp * fade;
+		last_pos = pos;
 
-        disp_pos = pos;
+		if (playing) {
+			pos += speed * (file_rate / sr);
+
+			if (loop) {
+				if (pos >= (double)(max_frames - 1)) {
+					pos = 0.0;
+					scrub_target = 0.0f;
+				}
+			} else {
+				if (pos >= (double)(max_frames - 1)) {
+					pos = (double)(max_frames - 1);
+					playing = false;
+					scrub_target = pos;   /* keep stopped head at end */
+				}
+			}
+		}
+        disp_pos = playing ? pos : scrub_target;
     }
 
-    pthread_mutex_lock(&s->lock);
-    if (playing) {
-        s->play_pos = pos;
-        s->external_play_pos = pos;   // keep UI coherent while playing
-    } else {
-        s->external_play_pos = pos;   // show scrub position when stopped
-    }
-    s->display_pos   = disp_pos;
-    s->display_speed = disp_speed;
-    s->display_amp   = disp_amp;
-    pthread_mutex_unlock(&s->lock);
+	pthread_mutex_lock(&s->lock);
+	s->playing = playing;
+	if (playing) s->play_pos = pos;
+	s->external_play_pos = pos;
+	s->scrub_target  = scrub_target;
+	s->last_scrub_target = last_scrub_target;
+	s->last_pos      = last_pos;
+	s->fade          = fade;
+	s->display_pos   = disp_pos;
+	s->display_speed = disp_speed;
+	s->display_amp   = disp_amp;
+	pthread_mutex_unlock(&s->lock);
 }
 
 
@@ -117,12 +151,13 @@ static void player_draw_ui(Module* m, int y, int x) {
 	Player* state = (Player*)m->state;
 
 	pthread_mutex_lock(&state->lock);
-	double pos = state->display_pos;
+	double pos = state->playing ? state->display_pos : state->scrub_target;
 	float speed = state->display_speed;
 	float amp = state->display_amp;
 	float dur_sec = (float)state->num_frames / state->file_rate;
 	float pos_sec = pos / state->file_rate;
 	bool is_playing = state->playing;
+	bool loop = state->loop;
 	char cmd[64];
 	strncpy(cmd, state->command_buffer, sizeof(cmd));
 	cmd[sizeof(cmd) - 1] = '\0';
@@ -133,17 +168,20 @@ static void player_draw_ui(Module* m, int y, int x) {
 	CLR();
 
 	LABEL(2, "");
-	ORANGE(); printw(" %.2f s / %.2f s (%s) | ", pos_sec, dur_sec, is_playing ? "P" : "S"); CLR();
+	ORANGE(); printw(" %.1fs/%.1fs (%s)|", pos_sec, dur_sec, is_playing ? "p" : "s"); CLR();
 
-	LABEL(2, "speed:");
+	LABEL(2, "spd:");
 	ORANGE(); printw(" %.2fx | ", speed); CLR();
 
 	LABEL(2, "amp:");
-	ORANGE(); printw(" %.2f", amp); CLR();
+	ORANGE(); printw(" %.2f ", amp); CLR();
+
+	LABEL(2, "loop:");
+	ORANGE(); printw(" %s", loop ? "on" : "off"); CLR();
 
 	YELLOW();
-	mvprintw(y+1, x, "Keys: -/= scrub | _/+ (speed) | [/] (amp) | p=play, s=stop"); 
-	mvprintw(y+2, x, "Cmd: :1=pos :2=speed :3=amp"); 
+	mvprintw(y+1, x, "keys: -/= scrub | _/+ (speed) | [/] (amp) | p=play, s=stop, l=loop"); 
+	mvprintw(y+2, x, "cmd: :1=pos :2=speed :3=amp"); 
 	BLACK();
 }
 
@@ -155,14 +193,28 @@ static void player_handle_input(Module* m, int key) {
 
     if (!state->entering_command) {
         switch (key) {
-			case '-': state->play_pos -= state->file_rate * 0.1f; handled = 1; break;
-            case '=': state->play_pos += state->file_rate * 0.1f; handled = 1; break;
+			case '-': 
+				state->play_pos -= state->file_rate * 0.1f; 
+				state->scrub_target = state->play_pos;
+				handled = 1; 
+				break;
+            case '=': 
+				state->play_pos += state->file_rate * 0.1f; 
+				state->scrub_target = state->play_pos;
+				handled = 1; 
+				break;
             case '_': state->playback_speed -= 0.01f; handled = 1; break;
             case '+': state->playback_speed += 0.01f; handled = 1; break;
             case '[': state->amp -= 0.01f; handled = 1; break;
             case ']': state->amp += 0.01f; handled = 1; break;
             case 'p': state->playing = true;  handled = 1; break;
-            case 's': state->playing = false; handled = 1; break;
+            case 's':
+				state->scrub_target = state->play_pos;
+				state->external_play_pos = state->play_pos;
+				state->playing = false; 
+				handled = 1; 
+				break;
+            case 'l': state->loop = !state->loop; handled = 1; break;
             case ':':
                 state->entering_command = true;
                 memset(state->command_buffer, 0, sizeof(state->command_buffer));
@@ -182,6 +234,8 @@ static void player_handle_input(Module* m, int key) {
                     if (new_pos > state->num_frames - 1) new_pos = state->num_frames - 1;
                     state->play_pos = new_pos;
                     state->external_play_pos = new_pos;
+					state->scrub_target = new_pos;
+					state->display_pos = new_pos;
                 } else if (type == '2') {
                     state->playback_speed = val;
                 } else if (type == '3') {
@@ -220,6 +274,11 @@ static void player_set_osc_param(Module* m, const char* param, float value) {
 	if (strcmp(param, "amp") == 0) {
 		state->amp = value;
 	}
+	if (strcmp(param, "loop") == 0) {
+		if (value >=0.5) {
+			state->loop = !state->loop;
+		}
+	}
 	clamp_params(state);
 	pthread_mutex_unlock(&state->lock);
 }
@@ -233,10 +292,10 @@ static void player_destroy(Module* m) {
 Module* create_module(const char* args, float sample_rate) {
 	char filepath[512] = "sample.wav";  // default
 
-	// Parse args for file=
+	// parse args for file=
 	if (args && strstr(args, "file=")) {
 		const char* file_arg = strstr(args, "file=") + 5;
-		// Copy until we hit a comma, space, or end of string
+		// copy until we hit a comma, space, or end of string
 		size_t i = 0;
 		while (*file_arg && *file_arg != ',' && *file_arg != ' ' && i < sizeof(filepath) - 1) {
 			filepath[i++] = *file_arg++;
@@ -247,7 +306,7 @@ Module* create_module(const char* args, float sample_rate) {
 	SF_INFO info = {0};
 	SNDFILE* f = sf_open(filepath, SFM_READ, &info);
 	if (!f) {
-		fprintf(stderr, "[Player] Failed to open WAV file '%s' or file is not mono.\n", filepath);
+		fprintf(stderr, "[Player] failed to open wav file '%s' or file is not mono.\n", filepath);
 		if (f) sf_close(f);
 		return NULL;
 	}
@@ -269,6 +328,7 @@ Module* create_module(const char* args, float sample_rate) {
 	
 	float playback_speed = 1.0f;
 	float amp = 1.0f;
+	int loop_default = 0;
 
 	if (args && strstr(args, "speed=")) {
         sscanf(strstr(args, "speed="), "speed=%f", &playback_speed);
@@ -276,6 +336,14 @@ Module* create_module(const char* args, float sample_rate) {
 	if (args && strstr(args, "amp=")) {
         sscanf(strstr(args, "amp="), "amp=%f", &amp);
     }
+	if (args && strstr(args, "loop=")) {
+		char v[8] = {0};
+		sscanf(strstr(args, "loop="), "loop=%7[^, ]", v);
+		if (!strcmp(v,"1") || !strcmp(v,"on") || !strcmp(v,"yes") || !strcmp(v,"true"))
+			loop_default = 1;
+		else
+			loop_default = 0;
+	}
 
 	Player* state = calloc(1, sizeof(Player));
 	state->sample_rate = sample_rate;
@@ -285,9 +353,13 @@ Module* create_module(const char* args, float sample_rate) {
 	state->scrub_target = 0.0f;
 	state->external_play_pos = 0.0f;
 	state->play_pos = 0.0f;
+	state->last_pos = 0.0;
+	state->last_scrub_target = 0.0;
+	state->fade = 1.0f;
 	state->playback_speed = playback_speed;
 	state->amp = amp;
 	state->playing = true;
+	state->loop = loop_default; // false
 	pthread_mutex_init(&state->lock, NULL);
 	init_smoother(&state->smooth_speed, 0.75f);
 	init_smoother(&state->smooth_amp, 0.75f);

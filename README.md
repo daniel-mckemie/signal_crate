@@ -351,6 +351,14 @@ Low-frequency waveform modulator running on the control thread
 
 ---
 
+### **Logic**
+`c_logic`
+Boolean logic: takes two control inputs and outputs based on > 0.5 threshold
+- Entering command mode and typing logic can toggle, like :AND, :OR, :XOR etc.
+- `logic` types = AND | OR | XOR | NAND | NOR | XNOR | NOT
+
+---
+
 ### **Random**
 `c_random`
 Random control signal generator

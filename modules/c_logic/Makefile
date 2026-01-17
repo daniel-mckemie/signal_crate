@@ -1,4 +1,4 @@
-MODULE_NAME = template
+MODULE_NAME = c_logic
 MODULE_DIR = ../..
 
 SRC = $(MODULE_NAME).c

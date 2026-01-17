@@ -387,8 +387,8 @@ static void spec_ringmod_destroy(Module* m) {
 Module* create_module(const char* args, float sample_rate) {
 	float band_low = 20.0f;
 	float band_high = sample_rate * 0.45f;
-	float car_amp = 1.0f;
-	float mod_amp = 1.0f;
+	float car_amp = 0.5f;
+	float mod_amp = 0.5f;
 	float mix = 1.0f;
 	SpecRingOp op = SPEC_OP_RING;
 

@@ -47,9 +47,20 @@ static void normalize_file(const char* filepath)
     float gain = 1.0f / peak;
     sf_seek(in, 0, SEEK_SET);
 
-    char outpath[1024];
-    snprintf(outpath, sizeof(outpath),
-             NORM_DIR "/normalized.wav");
+	const char* fname = strrchr(filepath, '/');
+	fname = fname ? fname + 1 : filepath;  // strip path if present
+
+	char stem[512];
+	strncpy(stem, fname, sizeof(stem));
+	stem[sizeof(stem) - 1] = '\0';
+
+	char* dot = strrchr(stem, '.');
+	if (dot) *dot = '\0';
+
+	char outpath[1024];
+	snprintf(outpath, sizeof(outpath),
+			 NORM_DIR "/%s_norm.wav", stem);
+
 
     SNDFILE* out = sf_open(outpath, SFM_WRITE, &info);
     if (!out) {

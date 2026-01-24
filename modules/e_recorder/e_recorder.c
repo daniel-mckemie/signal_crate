@@ -12,12 +12,15 @@
 
 #define INITIAL_SECONDS 1.0
 #define E_FILES_DIR "e_output_files"
-#define RECORD_DIR "recordings"
+#define RECORD_DIR "e_output_files/recordings"
+#define REC_FADE_SAMPLES 256
 
 static void ensure_record_dir(void) {
-	mkdir(E_FILES_DIR, 0755);
+    mkdir(E_FILES_DIR, 0755);
     mkdir(RECORD_DIR, 0755);
 }
+
+static void submit_job_locked(ERecorder* s);
 
 static void grow_buffers(ERecorder* s, uint64_t needed) {
     if (needed <= s->buffer_capacity) return;
@@ -28,7 +31,7 @@ static void grow_buffers(ERecorder* s, uint64_t needed) {
 
     for (int ch = 0; ch < s->num_inputs; ch++) {
         float* p = realloc(s->buffers[ch], newcap * sizeof(float));
-        if (!p) return; // keep old buffers; fail soft
+        if (!p) return;
         s->buffers[ch] = p;
     }
 
@@ -161,27 +164,62 @@ static void multirec_process(Module* m, float* in, unsigned long frames) {
 
         grow_buffers(s, needed);
 
+        unsigned long written = 0;
+        int stop_now = 0;
+
         for (unsigned long i = 0; i < frames; i++) {
+            float g = 1.0f;
+
+            if (s->fading_in) {
+                g = (float)s->fade_count / (float)REC_FADE_SAMPLES;
+                s->fade_count++;
+                if (s->fade_count >= REC_FADE_SAMPLES) {
+                    s->fading_in = 0;
+                    g = 1.0f;
+                }
+            } else if (s->fading_out) {
+                g = 1.0f - ((float)s->fade_count / (float)REC_FADE_SAMPLES);
+                s->fade_count++;
+                if (s->fade_count >= REC_FADE_SAMPLES) {
+                    s->fading_out = 0;
+                    stop_now = 1;
+                    break;
+                }
+            }
+
             float sum = 0.0f;
 
             for (int ch = 0; ch < m->num_inputs; ch++) {
                 float v = m->inputs[ch] ? m->inputs[ch][i] : 0.0f;
-                if (s->buffers && s->buffers[ch]) s->buffers[ch][sc + i] = v;
+                if (s->buffers && s->buffers[ch]) s->buffers[ch][sc + written] = v * g;
                 sum += v;
             }
 
-            float mix = sum * mix_gain;
+            float mix = sum * mix_gain * g;
             out[i] = mix;
-            if (s->mix_buffer) s->mix_buffer[sc + i] = mix;
+            if (s->mix_buffer) s->mix_buffer[sc + written] = mix;
+
+            written++;
         }
 
-        s->sample_counter += frames;
+        for (unsigned long k = written; k < frames; k++) out[k] = 0.0f;
+
+        s->sample_counter += written;
 
         for (int ch = 0; ch < s->num_inputs; ch++) {
             s->buffer_sizes[ch] = s->sample_counter;
         }
         s->mix_size = s->sample_counter;
         s->display_seconds = (double)s->sample_counter / s->sample_rate;
+
+        if (stop_now) {
+            s->state = EREC_IDLE;
+            submit_job_locked(s);
+            s->sample_counter = 0;
+            s->display_seconds = 0.0;
+            for (int ch = 0; ch < s->num_inputs; ch++) s->buffer_sizes[ch] = 0;
+            s->mix_size = 0;
+        }
     } else {
         for (unsigned long i = 0; i < frames; i++) {
             float sum = 0.0f;
@@ -293,40 +331,50 @@ static void multirec_handle_input(Module* m, int key) {
         s->display_seconds = 0.0;
         for (int ch = 0; ch < s->num_inputs; ch++) s->buffer_sizes[ch] = 0;
         s->mix_size = 0;
+
+        s->fade_count = 0;
+        s->fading_in = 1;
+        s->fading_out = 0;
     } else {
-        s->state = EREC_IDLE;
-
-        if (s->sample_counter > 0) submit_job_locked(s);
-
-        s->sample_counter = 0;
-        s->display_seconds = 0.0;
-        for (int ch = 0; ch < s->num_inputs; ch++) s->buffer_sizes[ch] = 0;
-        s->mix_size = 0;
+        if (!s->fading_out) {
+            s->fade_count = 0;
+            s->fading_out = 1;
+            s->fading_in = 0;
+        }
     }
 
     pthread_mutex_unlock(&s->lock);
 }
-static void erecorder_set_osc_param(Module* m, const char* param, float value) {
-	ERecorder* s = (ERecorder*)m->state;
-	pthread_mutex_lock(&s->lock);
-	if (strcmp(param, "rec") == 0) {
-		if (value >= 0.5f && s->state == EREC_IDLE) {
-			s->state = EREC_RECORDING;
-			s->sample_counter = 0;
-			s->display_seconds = 0.0;
-			for (int ch = 0; ch < s->num_inputs; ch++) s->buffer_sizes[ch] = 0;
-			s->mix_size = 0;
-		} else if (value < 0.5f && s->state == EREC_RECORDING) {
-			s->state = EREC_IDLE;
-			if (s->sample_counter > 0) submit_job_locked(s);
-			s->sample_counter = 0;
-			s->display_seconds = 0.0;
-			for (int ch = 0; ch < s->num_inputs; ch++) s->buffer_sizes[ch] = 0;
-			s->mix_size = 0;
-		}
-	}
 
-	pthread_mutex_unlock(&s->lock);
+static void erecorder_set_osc_param(Module* m, const char* param, float value) {
+    ERecorder* s = (ERecorder*)m->state;
+    pthread_mutex_lock(&s->lock);
+
+    if (strcmp(param, "rec") == 0) {
+        if (value >= 0.5f) {
+            if (s->state == EREC_IDLE) {
+                ensure_buffers(s, m->num_inputs);
+
+                s->state = EREC_RECORDING;
+                s->sample_counter = 0;
+                s->display_seconds = 0.0;
+                for (int ch = 0; ch < s->num_inputs; ch++) s->buffer_sizes[ch] = 0;
+                s->mix_size = 0;
+
+                s->fade_count = 0;
+                s->fading_in = 1;
+                s->fading_out = 0;
+            }
+        } else {
+            if (s->state == EREC_RECORDING && !s->fading_out) {
+                s->fade_count = 0;
+                s->fading_out = 1;
+                s->fading_in = 0;
+            }
+        }
+    }
+
+    pthread_mutex_unlock(&s->lock);
 }
 
 static void multirec_destroy(Module* m) {
@@ -355,7 +403,6 @@ static void multirec_destroy(Module* m) {
         free(s->buffers);
     }
     free(s->buffer_sizes);
-
     free(s->mix_buffer);
 
     pthread_mutex_destroy(&s->lock);
@@ -384,6 +431,10 @@ Module* create_module(const char* args, float sample_rate) {
     s->mix_buffer = NULL;
     s->mix_size = 0;
 
+    s->fade_count = 0;
+    s->fading_in = 0;
+    s->fading_out = 0;
+
     pthread_mutex_init(&s->lock, NULL);
 
     pthread_mutex_init(&s->writer_lock, NULL);
@@ -402,7 +453,7 @@ Module* create_module(const char* args, float sample_rate) {
     m->process = multirec_process;
     m->draw_ui = multirec_draw_ui;
     m->handle_input = multirec_handle_input;
-	m->set_param = erecorder_set_osc_param;
+    m->set_param = erecorder_set_osc_param;
     m->destroy = multirec_destroy;
     m->output_buffer = calloc(MAX_BLOCK_SIZE, sizeof(float));
 

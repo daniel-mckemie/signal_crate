@@ -412,16 +412,21 @@ c_output(l1) as out3` // output lfo from Signal Crate to channel 3 of interface
 
 ## Environment Modules (e_)
 
-These modules provide environment-level operations such as audio capture,
-file-based processing, and offline transformations. They operate alongside
-the Signal Crate audio engine rather than within the continuous DSP graph.
+Environment modules operate on the audio system’s environment rather than on the 
+continuous DSP signal. They perform tasks such as audio capture, file-based processing, 
+and offline or batch transformations, producing persistent artifacts on disk.
 
-Some environment modules can be wired into patches (e.g. `e_recorder`),
-while others execute as one-shot or declarative operations at instantiation.
+These modules run alongside the Signal Crate audio engine instead of inside the real-time 
+DSP graph. They may allocate or manage resources such as files, buffers, directories, or 
+background threads, and their effects persist beyond the lifetime of a single audio block 
+or patch execution.
 
-All output files are written to `e_output_files/`, with module-specific
-subdirectories created automatically.
+Some environment modules can be wired into patches like standard modules (for example, `e_recorder`), 
+while others execute as one-shot or declarative operations at instantiation time. This distinction 
+allows Signal Crate to support production and file-oriented workflows without adopting a timeline- 
+or editor-based model.
 
+All output files are written to `e_output_files/`, with module-specific subdirectories created automatically.
 
 ### **Recorder**
 `e_recorder`

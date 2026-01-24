@@ -27,6 +27,10 @@ typedef struct {
 	float* mix_buffer;
 	uint64_t mix_capacity;
 	uint64_t mix_size;
+	
+	int fading_in;
+	int fading_out;
+	uint32_t fade_count;
 
     /* UI */
     double display_seconds;

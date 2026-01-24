@@ -10,9 +10,10 @@
 
 #define BLOCK_FRAMES 4096
 #define E_FILES_DIR "e_output_files"
-#define SPLIT_DIR "polywav_splits"
+#define SPLIT_DIR "e_output_files/polywav_splits"
 
 static void ensure_split_dir(void) {
+	mkdir(E_FILES_DIR, 0755);
     mkdir(SPLIT_DIR, 0755);
 }
 
@@ -118,7 +119,7 @@ Module* create_module(const char* args, float sample_rate)
     EPolywavSplit* s = calloc(1, sizeof(EPolywavSplit));
 
     Module* m = calloc(1, sizeof(Module));
-    m->name = "e_polywav_splitter";
+    m->name = "e_polywav_split";
     m->state = s;
     m->process = splitter_process;
     m->destroy = splitter_destroy;

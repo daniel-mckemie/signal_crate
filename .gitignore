@@ -14,7 +14,6 @@ SignalCrate
 *.wav
 *.png
 *.txt
-other_files/
-recordings/
+e_output_files/
+pieces/
 .DS_Store
-cv_changes.c

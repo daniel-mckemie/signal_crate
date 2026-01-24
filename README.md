@@ -412,11 +412,13 @@ c_output(l1) as out3` // output lfo from Signal Crate to channel 3 of interface
 
 ## Editor Modules
 
-These modules exist as audio capture, editor, and production devices. They most extensively
-exist as standalone tools, both real-time and declarative. Some can be patched into Signal
-Crate instances, such as the Recorder, but most operate with the same engine as separate
-and individual instances. These devices are designed to replace the reliance on any external
-DAWs or audio tools and are built as needed.
+These modules are for audio capture, editing, and production work. They mostly exist as
+standalone tools, both real-time and declarative. Some can be wired into Signal Crate 
+patches like normal modules, such as the Recorder, but most operate as separate individual 
+instances on top of the same audio engine. These devices are designed to minimize the 
+reliance on any external DAWs and audio tools and to offer an alternative for working with 
+audio outside of the traditional graphics based visual environments. Much like analog tape.
+
 
 ### **Recorder**
 `e_recorder`
@@ -425,8 +427,33 @@ of all inputs. First create a /recordings folder in your home Signal Crate direc
 will be placed there. For each start/stop of the recorder, a new batch of files will be written
 and saved, not requiring a new instance of Signal Crate to be launched each time.
 
+- `rec` - starts and stops record function, single command
+
+```bash
+vco as v1
+vco as v2
+vco as v3
+e_recorder(v1, v2, v3) as rec
+vca(rec) as out
+```
 
 ---
+
+### **Normalize**
+`e_normalize`
+
+---
+
+### **Polywav Split**
+`e_polywav_split`
+Splits a polyphonic wave file. Input takes a polywav file as an argument at launch and outputs 
+multiple mono files into a folder called `polywav_splits` in the Signal Crate directory. To
+use, launch Signal Crate and as a single line, call the module and pass in the file name and directory
+relative to your Signal Crate folder.
+`e_polywav_splitter([file=/path/to/filename.wav])`
+
+---
+
 ## Script Box
 The Script Box module allows for functions to be declared and targeted throughout the system. The Script Box is armed
 and goes into a separate editor, and here functions can be declared line by line. In the main Signal Crate UI view, the
@@ -555,7 +582,9 @@ the required range as a lograthmic control.
 For OSC compatibility. Firewall must allow incoming connections to terminal.
 Depending on your settings, this may silently block incoming UDP connections.
 Add terminal/iterm to firewall allowance, and if needed run these commands:
-- sudo /usr/libexec/ApplicationFirewall/socketfilterfw --remove path/to/SignalCrate
-- sudo /usr/libexec/ApplicationFirewall/socketfilterfw --add path/to/SignalCrate
-- sudo /usr/libexec/ApplicationFirewall/socketfilterfw --unblockapp path/to/SignalCrate
+
+- `sudo /usr/libexec/ApplicationFirewall/socketfilterfw --add /Applications/iTerm.app`
+- `sudo /usr/libexec/ApplicationFirewall/socketfilterfw --unblockapp /Applications/iTerm.app`
+- `sudo /usr/libexec/ApplicationFirewall/socketfilterfw --add path/to/signal_crate/SignalCrate`
+- `sudo /usr/libexec/ApplicationFirewall/socketfilterfw --unblockapp path/to/signal_crate/SignalCrate`
 

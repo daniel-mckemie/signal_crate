@@ -21,13 +21,18 @@ static void grow_buffers(ERecorder* s, uint64_t needed) {
     if (needed <= s->buffer_capacity) return;
 
     uint64_t newcap = s->buffer_capacity;
+    if (newcap == 0) newcap = 1;
     while (newcap < needed) newcap *= 2;
 
     for (int ch = 0; ch < s->num_inputs; ch++) {
-        s->buffers[ch] = realloc(s->buffers[ch], newcap * sizeof(float));
+        float* p = realloc(s->buffers[ch], newcap * sizeof(float));
+        if (!p) return; // keep old buffers; fail soft
+        s->buffers[ch] = p;
     }
 
-    s->mix_buffer = realloc(s->mix_buffer, newcap * sizeof(float));
+    float* mixp = realloc(s->mix_buffer, newcap * sizeof(float));
+    if (!mixp) return;
+    s->mix_buffer = mixp;
 
     s->buffer_capacity = newcap;
     s->mix_capacity = newcap;
@@ -142,43 +147,39 @@ static void multirec_process(Module* m, float* in, unsigned long frames) {
     ERecorder* s = (ERecorder*)m->state;
     float* out = m->output_buffer;
 
-    pthread_mutex_lock(&s->lock);
-    ensure_buffers(s, m->num_inputs);
-    ERecState state = s->state;
-    uint64_t sc = s->sample_counter;
-    pthread_mutex_unlock(&s->lock);
-
     float mix_gain = (m->num_inputs > 1) ? (1.0f / (float)m->num_inputs) : 1.0f;
 
-    if (state == EREC_RECORDING) {
+    pthread_mutex_lock(&s->lock);
+
+    ensure_buffers(s, m->num_inputs);
+
+    if (s->state == EREC_RECORDING) {
+        uint64_t sc = s->sample_counter;
         uint64_t needed = sc + frames;
 
-        pthread_mutex_lock(&s->lock);
         grow_buffers(s, needed);
-        pthread_mutex_unlock(&s->lock);
 
         for (unsigned long i = 0; i < frames; i++) {
             float sum = 0.0f;
 
             for (int ch = 0; ch < m->num_inputs; ch++) {
                 float v = m->inputs[ch] ? m->inputs[ch][i] : 0.0f;
-                s->buffers[ch][sc + i] = v;
+                if (s->buffers && s->buffers[ch]) s->buffers[ch][sc + i] = v;
                 sum += v;
             }
 
             float mix = sum * mix_gain;
             out[i] = mix;
-            s->mix_buffer[sc + i] = mix;
+            if (s->mix_buffer) s->mix_buffer[sc + i] = mix;
         }
 
-        pthread_mutex_lock(&s->lock);
         s->sample_counter += frames;
+
         for (int ch = 0; ch < s->num_inputs; ch++) {
             s->buffer_sizes[ch] = s->sample_counter;
         }
         s->mix_size = s->sample_counter;
         s->display_seconds = (double)s->sample_counter / s->sample_rate;
-        pthread_mutex_unlock(&s->lock);
     } else {
         for (unsigned long i = 0; i < frames; i++) {
             float sum = 0.0f;
@@ -188,6 +189,8 @@ static void multirec_process(Module* m, float* in, unsigned long frames) {
             out[i] = sum * mix_gain;
         }
     }
+
+    pthread_mutex_unlock(&s->lock);
 }
 
 static void multirec_draw_ui(Module* m, int y, int x) {
@@ -301,6 +304,28 @@ static void multirec_handle_input(Module* m, int key) {
 
     pthread_mutex_unlock(&s->lock);
 }
+static void erecorder_set_osc_param(Module* m, const char* param, float value) {
+	ERecorder* s = (ERecorder*)m->state;
+	pthread_mutex_lock(&s->lock);
+	if (strcmp(param, "rec") == 0) {
+		if (value >= 0.5f && s->state == EREC_IDLE) {
+			s->state = EREC_RECORDING;
+			s->sample_counter = 0;
+			s->display_seconds = 0.0;
+			for (int ch = 0; ch < s->num_inputs; ch++) s->buffer_sizes[ch] = 0;
+			s->mix_size = 0;
+		} else if (value < 0.5f && s->state == EREC_RECORDING) {
+			s->state = EREC_IDLE;
+			if (s->sample_counter > 0) submit_job_locked(s);
+			s->sample_counter = 0;
+			s->display_seconds = 0.0;
+			for (int ch = 0; ch < s->num_inputs; ch++) s->buffer_sizes[ch] = 0;
+			s->mix_size = 0;
+		}
+	}
+
+	pthread_mutex_unlock(&s->lock);
+}
 
 static void multirec_destroy(Module* m) {
     ERecorder* s = (ERecorder*)m->state;
@@ -375,6 +400,7 @@ Module* create_module(const char* args, float sample_rate) {
     m->process = multirec_process;
     m->draw_ui = multirec_draw_ui;
     m->handle_input = multirec_handle_input;
+	m->set_param = erecorder_set_osc_param;
     m->destroy = multirec_destroy;
     m->output_buffer = calloc(MAX_BLOCK_SIZE, sizeof(float));
 

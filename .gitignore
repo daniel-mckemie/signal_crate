@@ -15,5 +15,6 @@ SignalCrate
 *.png
 *.txt
 other_files/
+recordings/
 .DS_Store
 cv_changes.c

@@ -13,8 +13,8 @@ typedef enum {
 } LFOWaveform;
 
 typedef struct {
-    float frequency;
-	float freq_norm;
+    float rate;
+	float rate_norm;
     float amplitude;
     float phase;
     float tri_state;
@@ -23,13 +23,13 @@ typedef struct {
     float sample_rate;
     LFOWaveform waveform;
 
-    CParamSmooth smooth_freq;
+    CParamSmooth smooth_rate;
     CParamSmooth smooth_amp;
 	CParamSmooth smooth_depth;
 
     pthread_mutex_t lock;
 
-	float display_freq;
+	float display_rate;
 	float display_amp;
 	float display_depth;
 	LFOWaveform display_wave;

@@ -343,7 +343,7 @@ Attack-Release slope generator. No sustain, only trig to fire
 ### **LFO**
 `c_lfo`
 Low-frequency waveform modulator running on the control thread
-- `freq` - frequency/rate [0.001 - 100.0]
+- `rate` - rate/frequency speed[0.001 - 100.0]
 - `amp` - strength of signal output
 - `wave` - waveform (sine, sawtooth, square, triangle)
 - `depth` - range of output 
@@ -410,6 +410,23 @@ c_output(l1) as out3` // output lfo from Signal Crate to channel 3 of interface
 
 ---
 
+## Editor Modules
+
+These modules exist as audio capture, editor, and production devices. They most extensively
+exist as standalone tools, both real-time and declarative. Some can be patched into Signal
+Crate instances, such as the Recorder, but most operate with the same engine as separate
+and individual instances. These devices are designed to replace the reliance on any external
+DAWs or audio tools and are built as needed.
+
+### **Recorder**
+`e_recorder`
+Multitrack recorder. Takes in multiple inputs and records separate mono files and one mono mix
+of all inputs. First create a /recordings folder in your home Signal Crate directory, and they
+will be placed there. For each start/stop of the recorder, a new batch of files will be written
+and saved, not requiring a new instance of Signal Crate to be launched each time.
+
+
+---
 ## Script Box
 The Script Box module allows for functions to be declared and targeted throughout the system. The Script Box is armed
 and goes into a separate editor, and here functions can be declared line by line. In the main Signal Crate UI view, the

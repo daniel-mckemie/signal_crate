@@ -14,22 +14,22 @@ static void c_lfo_process_control(Module* m, unsigned long frames) {
 	float* out = m->control_output;
 
     pthread_mutex_lock(&s->lock);
-    float base_freq  = s->frequency;
+    float base_rate  = s->rate;
     float base_amp   = s->amplitude;
     float base_depth = s->depth;
     wf         = s->waveform;
     pthread_mutex_unlock(&s->lock);
 
-    float freq_s  = process_smoother(&s->smooth_freq,  base_freq);
+    float rate_s  = process_smoother(&s->smooth_rate,  base_rate);
     float amp_s   = process_smoother(&s->smooth_amp,   base_amp);
     float depth_s = process_smoother(&s->smooth_depth, base_depth);
 
-	float disp_freq  = freq_s;
+	float disp_rate  = rate_s;
 	float disp_amp   = amp_s;
 	float disp_depth = depth_s;
 
 	for (unsigned long i=0; i<frames; i++) {
-		float freq = freq_s;
+		float rate = rate_s;
 		float amp  = amp_s;
 		float depth = depth_s;
 
@@ -40,8 +40,8 @@ static void c_lfo_process_control(Module* m, unsigned long frames) {
 			float control = m->control_inputs[j][i];
 			control = fminf(fmaxf(control, -1.0f), 1.0f);
 
-			if (strcmp(param, "freq") == 0) {
-				freq += control * freq_s;
+			if (strcmp(param, "rate") == 0) {
+				rate += control * rate_s;
 			} else if (strcmp(param, "amp") == 0) {
 				amp += control;
 			} else if (strcmp(param, "depth") == 0) {
@@ -49,7 +49,7 @@ static void c_lfo_process_control(Module* m, unsigned long frames) {
 			}
 		}
 
-		clampf(&freq, 0.001f, 100.0f);
+		clampf(&rate, 0.001f, 100.0f);
 		clampf(&amp, 0.0f, 1.0f);
 		clampf(&depth, 0.0f, 1.0f);
 
@@ -71,13 +71,13 @@ static void c_lfo_process_control(Module* m, unsigned long frames) {
 				break;
 			case LFO_TRIANGLE: {
 				float sq = (t < 0.5f) ? 1.0f : -1.0f;
-				s->tri_state += 2.0f * freq / sr * sq;
+				s->tri_state += 2.0f * rate / sr * sq;
 				value = tanhf(s->tri_state);
 				break;
 			}
 		}
 
-		disp_freq  = freq;
+		disp_rate = rate;
 		disp_amp   = amp;
 		disp_depth = depth;
 
@@ -88,11 +88,11 @@ static void c_lfo_process_control(Module* m, unsigned long frames) {
 		}
 		out[i] = value;
 
-		s->phase += TWO_PI * freq / sr;
+		s->phase += TWO_PI * rate / sr;
 		if (s->phase >= TWO_PI) s->phase -= TWO_PI;
 	}
 	pthread_mutex_lock(&s->lock);
-	s->display_freq  = disp_freq;
+	s->display_rate = disp_rate;
 	s->display_amp   = disp_amp;
 	s->display_depth = disp_depth;
 	s->display_wave = wf;
@@ -100,7 +100,7 @@ static void c_lfo_process_control(Module* m, unsigned long frames) {
 }
 
 static void clamp_params(CLFO* s) {
-    clampf(&s->frequency, 0.001f, 100.0f);
+    clampf(&s->rate, 0.001f, 100.0f);
     clampf(&s->amplitude, 0.0f, 1.0f);
     clampf(&s->depth,     0.0f, 1.0f);
 }
@@ -110,11 +110,11 @@ static void c_lfo_draw_ui(Module* m, int y, int x) {
     CLFO* state = (CLFO*)m->state;
     const char* names[] = {"Sine", "Saw", "Square", "Triangle"};
 
-    float freq, amp, depth;
+    float rate, amp, depth;
     LFOWaveform wf;
 
     pthread_mutex_lock(&state->lock);
-    freq = state->display_freq;
+    rate = state->display_rate;
     amp = state->display_amp;
 	depth = state->display_depth;
     wf = state->display_wave;
@@ -124,8 +124,8 @@ static void c_lfo_draw_ui(Module* m, int y, int x) {
     mvprintw(y,   x, "[LFO:%s] ", m->name);
 	CLR();
 
-	LABEL(2, "freq:");
-	ORANGE(); printw(" %.2f Hz|", freq); CLR();
+	LABEL(2, "rate:");
+	ORANGE(); printw(" %.2f Hz|", rate); CLR();
 
 	LABEL(2, "amp:");
 	ORANGE(); printw(" %.2f|", amp); CLR();
@@ -140,8 +140,8 @@ static void c_lfo_draw_ui(Module* m, int y, int x) {
 	ORANGE(); printw(" %s", state->polarity ? "bi" : "uni"); CLR();
 
 	YELLOW();
-    mvprintw(y+1, x, "Keys: -/= (freq), _/+ (amp), d/D (depth), w (wave), p (polarity)");
-    mvprintw(y+2, x, "Command mode: :1 [freq], :2 [amp], :d [depth]");
+    mvprintw(y+1, x, "Keys: -/= (rate), _/+ (amp), d/D (depth), w (wave), p (polarity)");
+    mvprintw(y+2, x, "Command mode: :1 [rate], :2 [amp], :d [depth]");
 	BLACK();
 }
 
@@ -153,8 +153,8 @@ static void c_lfo_handle_input(Module* m, int key) {
 
     if (!s->entering_command) {
         switch (key) {
-            case '=': s->frequency += 0.01f; handled = 1; break;
-            case '-': s->frequency -= 0.01f; handled = 1; break;
+            case '=': s->rate += 0.01f; handled = 1; break;
+            case '-': s->rate -= 0.01f; handled = 1; break;
             case '+': s->amplitude += 0.01f; handled = 1; break;
             case '_': s->amplitude -= 0.01f; handled = 1; break;
 			case 'D': s->depth += 0.01f; handled = 1; break;
@@ -174,7 +174,7 @@ static void c_lfo_handle_input(Module* m, int key) {
             char type;
             float val;
             if (sscanf(s->command_buffer, "%c %f", &type, &val) == 2) {
-                if (type == '1') s->frequency = val;
+                if (type == '1') s->rate = val;
                 else if (type == '2') s->amplitude = val;
                 else if (type == '3') s->waveform = ((int)val) % 4;
                 else if (type == 'd') s->depth = val; 
@@ -202,9 +202,9 @@ static void c_lfo_set_osc_param(Module* m, const char* param, float value) {
     CLFO* s = (CLFO*)m->state;
     pthread_mutex_lock(&s->lock);
 
-    if (strcmp(param, "freq") == 0) {
+    if (strcmp(param, "rate") == 0) {
         float norm = fminf(fmaxf(value, 0.0f), 1.0f);
-        s->frequency = 0.1f * powf(100.0f / 0.1f, norm);  // exponential map
+        s->rate = 0.1f * powf(100.0f / 0.1f, norm);  // exponential map
     } else if (strcmp(param, "amp") == 0) {
         s->amplitude = fminf(fmaxf(value, 0.0f), 1.0f);
     } else if (strcmp(param, "depth") == 0) {
@@ -225,11 +225,11 @@ static void c_lfo_destroy(Module* m) {
 }
 
 Module* create_module(const char* args, float sample_rate) {
-	float frequency = 1.0f;
+	float rate = 1.0f;
 	float amplitude = 1.0f;
 	float depth = 0.5f;
-    if (args && strstr(args, "freq=")) {
-        sscanf(strstr(args, "freq="), "freq=%f", &frequency);
+    if (args && strstr(args, "rate=")) {
+        sscanf(strstr(args, "rate="), "rate=%f", &rate);
 	}
 	if (args && strstr(args, "amp=")) {
         sscanf(strstr(args, "amp="), "amp=%f", &amplitude);
@@ -239,7 +239,7 @@ Module* create_module(const char* args, float sample_rate) {
     }
 	
     CLFO* s = calloc(1, sizeof(CLFO));
-    s->frequency = frequency;
+    s->rate = rate;
     s->amplitude = amplitude;
     s->waveform = LFO_SINE;
     s->phase = 0.0f;
@@ -249,7 +249,7 @@ Module* create_module(const char* args, float sample_rate) {
     s->sample_rate = sample_rate;
 
     pthread_mutex_init(&s->lock, NULL);
-    init_smoother(&s->smooth_freq, 0.75f);
+    init_smoother(&s->smooth_rate, 0.75f);
     init_smoother(&s->smooth_amp, 0.75f);
     init_smoother(&s->smooth_depth, 0.75f);
     init_sine_table();

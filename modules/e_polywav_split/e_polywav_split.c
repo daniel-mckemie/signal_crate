@@ -9,6 +9,7 @@
 #include "util.h"
 
 #define BLOCK_FRAMES 4096
+#define E_FILES_DIR "e_output_files"
 #define SPLIT_DIR "polywav_splits"
 
 static void ensure_split_dir(void) {

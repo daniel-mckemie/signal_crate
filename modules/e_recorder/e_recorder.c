@@ -11,9 +11,11 @@
 #include "util.h"
 
 #define INITIAL_SECONDS 1.0
+#define E_FILES_DIR "e_output_files"
 #define RECORD_DIR "recordings"
 
 static void ensure_record_dir(void) {
+	mkdir(E_FILES_DIR, 0755);
     mkdir(RECORD_DIR, 0755);
 }
 

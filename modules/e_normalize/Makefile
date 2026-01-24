@@ -1,4 +1,4 @@
-MODULE_NAME = e_polywav_split
+MODULE_NAME = e_normalize
 MODULE_DIR = ../..
 
 SRC = $(MODULE_NAME).c
@@ -14,3 +14,4 @@ $(MODULE_NAME).dylib: $(SRC) $(UTIL)
 
 clean:
 	rm -f *.dylib
+

@@ -448,8 +448,17 @@ vca(rec) as out
 ---
 
 ### **Normalize**
+`e_mono_mix`
+Mixes stereo wav file to single mixed mono channel. 
+`e_mono_mix([file=/path/to/filename.wav])`
+
+---
+
+---
+
+### **Normalize**
 `e_normalize`
-Normalizes wav file. Input path and will out
+Normalizes wav file.
 `e_normalize([file=/path/to/filename.wav])`
 
 ---

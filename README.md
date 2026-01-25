@@ -421,19 +421,18 @@ DSP graph. They may allocate or manage resources such as files, buffers, directo
 background threads, and their effects persist beyond the lifetime of a single audio block 
 or patch execution.
 
-Some environment modules can be wired into patches like standard modules (for example, `e_recorder`), 
-while others execute as one-shot or declarative operations at instantiation time. This distinction 
-allows Signal Crate to support production and file-oriented workflows without adopting a timeline- 
-or editor-based model.
+Some environment modules can be wired into patches like standard modules where noted (for example, 
+`e_recorder`), while others execute as one-shot or declarative operations at instantiation time. 
+This distinction allows Signal Crate to support production and file-oriented workflows without adopting 
+a timeline- or editor-based model.
 
 All output files are written to `e_output_files/`, with module-specific subdirectories created automatically.
 
 ### **Recorder**
-`e_recorder`
+`e_recorder` - takes inputs
 Multitrack recorder. Takes in multiple inputs and records separate mono files and one mono mix
 of all inputs.  For each start/stop of the recorder, a new batch of files will be written
 and saved, not requiring a new instance of Signal Crate to be launched each time.
-
 
 - `rec` - starts and stops record function, single command
 
@@ -447,12 +446,10 @@ vca(rec) as out
 
 ---
 
-### **Normalize**
+### **Mono Mix**
 `e_mono_mix`
 Mixes stereo wav file to single mixed mono channel. 
 `e_mono_mix([file=/path/to/filename.wav])`
-
----
 
 ---
 
@@ -470,6 +467,22 @@ multiple mono files into a folder called `polywav_splits` in the Signal Crate di
 use, launch Signal Crate and as a single line, call the module and pass in the file name and directory
 relative to your Signal Crate folder.
 `e_polywav_split([file=/path/to/filename.wav])`
+
+---
+
+### **Splicer**
+`e_splicer`
+Audio splicer. Loads a mono file and allows for making two cuts. Splice operations with three different options,
+with all actions saving a new file:
+- `save inside` - saves audio within the splice points
+- `save outside` - cuts audio within the splice points and joins the two outer regions together as continuous sound 
+- `save outside with silence` - audio within the splice points rendered silent, outer regions and original file length retained
+
+- `speed` - adjust playback speed
+- `reset` - clear cut points
+
+To monitor the audio, `out` alias is required. No inputs.
+`e_splicer([file=/path/to/filename.wav])` as out
 
 ---
 

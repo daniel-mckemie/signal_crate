@@ -190,23 +190,61 @@ static void save_outside(ESplicer* s) {
 }
 
 static void save_outside_with_silence(ESplicer* s) {
-    if (!s->cut_a_set || !s->cut_b_set) { set_status(s, "need 2 cuts"); return; }
+    if (!s->cut_a_set || !s->cut_b_set) {
+        set_status(s, "need 2 cuts");
+        return;
+    }
 
     uint64_t start, end;
     normalize_cuts(s, &start, &end);
-    if (end <= start) { set_status(s, "zero"); return; }
+    if (end <= start) {
+        set_status(s, "zero");
+        return;
+    }
     if (end > s->frames) end = s->frames;
 
     uint64_t out_frames = s->frames;
 
-    double* out = (double*)malloc((size_t)out_frames * (size_t)s->channels * sizeof(double));
-    if (!out) { set_status(s, "oom"); return; }
+    double* out = (double*)malloc((size_t)out_frames *
+                                  (size_t)s->channels *
+                                  sizeof(double));
+    if (!out) {
+        set_status(s, "oom");
+        return;
+    }
 
-    /* start with a full copy, then zero the inside */
-    memcpy(out, s->data, (size_t)out_frames * (size_t)s->channels * sizeof(double));
-    memset(out + (size_t)start * (size_t)s->channels,
+    /* copy full file */
+    memcpy(out,
+           s->data,
+           (size_t)out_frames * (size_t)s->channels * sizeof(double));
+
+    /* fade length: 10 ms */
+    uint64_t fade = (uint64_t)(s->file_sr * 0.010);
+    if (fade < 8) fade = 8;
+    if (fade > start) fade = start;
+    if (fade > (s->frames - end)) fade = s->frames - end;
+
+    /* fade out BEFORE cut */
+    for (uint64_t i = 0; i < fade; i++) {
+        double g = 1.0 - ((double)i / (double)fade);
+        double* dst = out + (size_t)(start - fade + i) * s->channels;
+        for (int ch = 0; ch < s->channels; ch++)
+            dst[ch] *= g;
+    }
+
+    /* silence region */
+    memset(out + (size_t)start * s->channels,
            0,
-           (size_t)(end - start) * (size_t)s->channels * sizeof(double));
+           (size_t)(end - start) * s->channels * sizeof(double));
+
+    /* fade in AFTER cut */
+    for (uint64_t i = 0; i < fade; i++) {
+        double g = (double)i / (double)fade;
+        const double* src = s->data + (size_t)(end + i) * s->channels;
+        double* dst = out + (size_t)(end + i) * s->channels;
+        for (int ch = 0; ch < s->channels; ch++)
+            dst[ch] = src[ch] * g;
+    }
 
     char outpath[1024];
     snprintf(outpath, sizeof(outpath),
@@ -215,11 +253,15 @@ static void save_outside_with_silence(ESplicer* s) {
              (unsigned long long)start,
              (unsigned long long)end);
 
-    int ok = write_wav_interleaved_double(outpath, out, out_frames, s->channels, s->file_sr);
+    int ok = write_wav_interleaved_double(outpath,
+                                         out,
+                                         out_frames,
+                                         s->channels,
+                                         s->file_sr);
+
     free(out);
     set_status(s, ok ? "saved outside+silence" : "save failed");
 }
-
 
 static void splicer_process(Module* m, float* in, unsigned long frames) {
     (void)in;
@@ -380,15 +422,12 @@ static void splicer_handle_input(Module* m, int key) {
 				if (!s->cut_a_set) {
 					s->cut_a = s->playhead;
 					s->cut_a_set = true;
-					set_status(s, "cut A");
 				} else if (!s->cut_b_set) {
 					s->cut_b = s->playhead;
 					s->cut_b_set = true;
-					set_status(s, "cut B");
 				} else {
 					s->cut_a = s->cut_b;
 					s->cut_b = s->playhead;
-					set_status(s, "cut B");
 				}
 				handled = 1;
 				break;
@@ -414,7 +453,6 @@ static void splicer_handle_input(Module* m, int key) {
 			case 'R':
 				s->cut_a_set = false;
 				s->cut_b_set = false;
-				set_status(s, "reset");
 				handled = 1;
 				break;
 
@@ -425,47 +463,55 @@ static void splicer_handle_input(Module* m, int key) {
                 handled = 1;
                 break;
         }
-    } else {
-        if (key == '\n' || key == '\r' || key == KEY_ENTER) {
-            char c = 0;
-            double v = 0.0;
+	} else {
+		if (key == 27) {  // ESC
+			s->entering_command = false;
+			s->command_index = 0;
+			s->command_buffer[0] = '\0';
+			handled = 1;
+		}
+		else if (key == '\n' || key == '\r' || key == KEY_ENTER) {
+			char c = 0;
+			double v = 0.0;
 
 			if (sscanf(s->command_buffer, " %c %lf", &c, &v) == 2) {
 				if (c == '1') {
 					if (v < 0.0) v = 0.0;
 					s->playhead = (uint64_t)(v * (double)s->file_sr);
 					s->speed_accum = 0.0f;
-					set_status(s, "goto sec");
 				}
 				else if (c == '2') {
 					if (v < 0.0) v = 0.0;
 					s->playhead = (uint64_t)v;
 					s->speed_accum = 0.0f;
-					set_status(s, "goto sample");
 				}
 				else if (c == '3') {
 					s->playback_speed = (float)v;
 					s->speed_accum = 0.0f;
 					clamp_params(s);
-					set_status(s, "speed set");
 				}
 				else {
 					set_status(s, "bad cmd");
 				}
 			}
 
-
-            s->entering_command = false;
-            s->command_index = 0;
-            s->command_buffer[0] = '\0';
-            handled = 1;
-
-        } else if (key >= 32 && key < 127 && s->command_index < (int)sizeof(s->command_buffer) - 1) {
-            s->command_buffer[s->command_index++] = (char)key;
-            s->command_buffer[s->command_index] = '\0';
-            handled = 1;
-        }
-    }
+			s->entering_command = false;
+			s->command_index = 0;
+			s->command_buffer[0] = '\0';
+			handled = 1;
+		}
+		else if ((key == KEY_BACKSPACE || key == 127) && s->command_index > 0) {
+			s->command_index--;
+			s->command_buffer[s->command_index] = '\0';
+			handled = 1;
+		}
+		else if (key >= 32 && key < 127 &&
+				 s->command_index < (int)sizeof(s->command_buffer) - 1) {
+			s->command_buffer[s->command_index++] = (char)key;
+			s->command_buffer[s->command_index] = '\0';
+			handled = 1;
+		}
+	}
 
     if (handled) clamp_params(s);
     pthread_mutex_unlock(&s->lock);
@@ -494,12 +540,16 @@ Module* create_module(const char* args, float sample_rate) {
         return NULL;
     }
 
-    SF_INFO info = (SF_INFO){0};
-    SNDFILE* in = sf_open(filepath, SFM_READ, &info);
-    if (!in) {
-        fprintf(stderr, "[e_splicer] failed to open '%s'\n", filepath);
-        return NULL;
-    }
+	SF_INFO info = (SF_INFO){0};
+	SNDFILE* in = sf_open(filepath, SFM_READ, &info);
+	if (!in) {
+		fprintf(stderr,
+				"[e_splicer] failed to open wav file '%s' or file is not mono.\n",
+				filepath);
+		if (in) sf_close(in);
+		exit(1);
+	}
+
 
     if (info.frames <= 0 || info.channels <= 0 || info.samplerate <= 0) {
         fprintf(stderr, "[e_splicer] bad file\n");

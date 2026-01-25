@@ -15,6 +15,8 @@ typedef struct {
     int channels;
     int file_sr;
     int format;
+	int valid;
+	char error[128];
 
     uint64_t playhead;
     bool playing;

@@ -9,6 +9,7 @@
 #include "module.h"
 #include "engine.h"
 #include "osc.h"
+#include "midi.h"
 
 #define COLUMN_WIDTH 72
 #define TRUNC_WIDTH 48
@@ -91,7 +92,15 @@ void ui_loop() {
 
 		// Show CPU and OSC port
 		const char* osc_port = get_current_osc_port();
-		mvprintw(0, COLS - 30, "[CPU] %.1f%%  [OSC:%s]", cpu, osc_port);
+		int mchan = midi_last_channel();
+		int mcc   = midi_last_cc();
+
+		if (mchan > 0 && mcc >= 0)
+			mvprintw(0, COLS - 48, "[CPU] %.1f%%  [OSC:%s]  [MIDI ch:%d cc:%d]",
+					 cpu, osc_port, mchan, mcc);
+		else
+			mvprintw(0, COLS - 30, "[CPU] %.1f%%  [OSC:%s]", cpu, osc_port);
+
 
 		int rows, cols;
 		getmaxyx(stdscr, rows, cols);

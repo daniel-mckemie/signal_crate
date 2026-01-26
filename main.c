@@ -10,6 +10,7 @@
 #include "ui.h"
 #include "util.h"
 #include "osc.h"
+#include "midi.h"
 
 #define REQUESTED_FRAMES_PER_BUFFER 64
 
@@ -125,6 +126,9 @@ int main(int argc, char** argv) {
     initialize_engine(patch);
     free(patch);
 
+	midi_start(NULL);
+	midi_print_devices();
+
     // Safety: ensure we have at least one module producing audio
     bool has_audio = false;
     for (int i = 0; i < get_module_count(); i++) {
@@ -208,6 +212,7 @@ int main(int argc, char** argv) {
     // --- Cleanup ---
     Pa_StopStream(stream);
     Pa_CloseStream(stream);
+	midi_stop();
     Pa_Terminate();
 
     shutdown_engine();

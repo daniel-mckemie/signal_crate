@@ -162,7 +162,7 @@ static void vco_draw_ui(Module *m, int y, int x) {
 
 	/* Secondary UI (yellow) */
 	YELLOW();
-	mvprintw(y+1, x, "Real-time: -/= (freq), _/+ (fine), [/] (amp), w (wave), r (range)");
+	mvprintw(y+1, x, "Keys: -/= (freq), _/+ (fine), [/] (amp), w (wave), r (range)");
 	mvprintw(y+2, x, "Command mode: :1 [freq], :2 [amp]");
 	BLACK();
 }

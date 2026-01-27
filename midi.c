@@ -13,7 +13,10 @@ static pthread_t g_thread;
 static int g_running = 0;
 
 static pthread_mutex_t g_lock = PTHREAD_MUTEX_INITIALIZER;
-static int g_cc[128]; // latest raw values 0..127
+
+static int g_cc[128]; // CC 0-127
+static int g_cc_msb[32]; // CC 0-31 
+static int g_cc_lsb[32]; // CC 32-63 -> index 0-31
 
 static int last_midi_channel = -1;
 static int last_midi_cc      = -1;
@@ -83,6 +86,13 @@ static void handle_event(PmEvent ev) {
 
     pthread_mutex_lock(&g_lock);
     g_cc[data1] = data2;
+
+	if (data1 < 32) {
+		g_cc_msb[data1] = data2;
+	} else if (data1 < 64) {
+		g_cc_lsb[data1 - 32] = data2;
+	}
+
 	last_midi_channel = channel;
 	last_midi_cc = data1;
     pthread_mutex_unlock(&g_lock);
@@ -116,7 +126,9 @@ static void* midi_thread_main(void* _) {
 int midi_start(const char* device_substr) {
     if (g_running) return 0;
 
-    memset(g_cc, 0, sizeof(g_cc));
+	memset(g_cc_msb, 0, sizeof(g_cc_msb));
+	memset(g_cc_lsb, 0, sizeof(g_cc_lsb));
+
 
     PmError err = Pm_Initialize();
     if (err != pmNoError) {
@@ -195,4 +207,17 @@ int midi_cc_raw(int cc) {
 float midi_cc_norm(int cc) {
     return (float)midi_cc_raw(cc) / 127.0f;
 }
+
+int midi_cc14_raw(int cc) {
+    if (cc < 0 || cc > 31) return 0;
+    pthread_mutex_lock(&g_lock);
+    int v = (g_cc_msb[cc] << 7) | g_cc_lsb[cc];
+    pthread_mutex_unlock(&g_lock);
+    return v;  // 0–16383
+}
+
+float midi_cc14_norm(int cc) {
+    return midi_cc14_raw(cc) / 16383.0f;
+}
+
 

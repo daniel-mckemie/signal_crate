@@ -19,7 +19,11 @@ static void c_midi_to_cv_process(Module* m, float* in, unsigned long frames) {
 	int last_chan = midi_last_channel();
 
 	if (s->chan == 0 || s->chan == last_chan) {
-		v = midi_cc_norm(s->cc);
+		if (s->cc < 32) {
+			v = midi_cc14_norm(s->cc);   // uses CC + CC+32
+		} else {
+			v = midi_cc_norm(s->cc);     // legacy 7-bit
+		}
 	}
 
     for (unsigned long i = 0; i < frames; i++) {

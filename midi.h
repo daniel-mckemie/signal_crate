@@ -7,7 +7,6 @@
 // Returns 0 on success, nonzero on failure.
 int midi_start(const char* device_substr);
 
-// Stop PortMIDI + background thread.
 void midi_stop(void);
 
 // Latest CC value (channel 1), raw 0..127. Returns 0 if never seen or invalid cc.
@@ -15,6 +14,10 @@ int midi_cc_raw(int cc);
 
 // Latest CC value normalized to 0..1.
 float midi_cc_norm(int cc);
+
+// 14-bit MIDI
+int   midi_cc14_raw(int cc);
+float midi_cc14_norm(int cc);
 
 // Optional: print devices to stderr (for now).
 void midi_print_devices(void);

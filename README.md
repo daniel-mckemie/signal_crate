@@ -15,7 +15,7 @@ but however you like to do it!
 To install Signal Crate:
 1. Clone this repo
 2. Install Homebrew
-3. brew install portaudio liblo fftw libsndfile
+3. brew install portaudio portmidi liblo fftw libsndfile
 5. In the `signal_crate` directory, type `make it`
 6. Run `./SignalCrate`
 
@@ -35,6 +35,13 @@ but the input scale is built and again, if that feature is desired, use an inter
 - See below on instructions on scripts and aliases for OSC usage. OSC inputs are all scaled to accept 0-1
 float, so any work on building an interface requires no additional scaling assignments beyond that, unless
 you want to.
+- MIDI control is supported via the `c_midi_to_cv` module, with full support for standard 7-bit CC and 
+high-resolution 14-bit CC per the MIDI specification. 
+- 14-bit control is available only for CC 0–31, where the assigned CC is treated as the MSB and the 
+corresponding LSB is CC + 32. When both messages are present, Signal Crate reconstructs the full 
+14-bit value internally.
+- Single CC messages (including CC 32–127) are always interpreted as 7-bit.
+
 
 ## Audio Modules
 
@@ -356,6 +363,56 @@ Low-frequency waveform modulator running on the control thread
 Boolean logic: takes two control inputs and outputs based on > 0.5 threshold
 - Entering command mode and typing logic can toggle, like :AND, :OR, :XOR etc.
 - `logic` types = AND | OR | XOR | NAND | NOR | XNOR | NOT
+
+---
+
+### **MIDI to CV**
+`c_midi_to_cv`
+Powered with portMIDI library, recognizes the first connect device to your system.
+Assignable channel and CC number as arguments and alias used for routing, similar
+to `c_input`. Separate modules are used for separate routings. Default Channel is
+0 for omnichannel, in that any CC input is passed regardless of device assignment.
+- `chan` - assigned channel to module from device (default = omni)
+- `cc` -  assigned CC to module from device
+
+#### 7-bit vs 14-bit behavior
+
+- Any single CC message (CC 0–127) is read as **7-bit** by default.
+- **14-bit CC is supported only for CC 0–31**.
+  - When `cc < 32`, the module reads:
+    - MSB = `cc`
+    - LSB = `cc + 32`
+  - If both are present, a full **14-bit controller value** is reconstructed.
+- CC **32–63** are treated as **LSB only** and have no meaning on their own.
+- CC **64–127** are always **7-bit** and cannot be 14-bit.
+
+This matches standard MIDI controller behavior. External devices or patches
+(e.g. NRPN or paired CCs) determine whether MSB+LSB data is sent; the module
+automatically preserves 14-bit resolution when valid pairs are received.
+
+### Examples
+
+**7-bit CC (single controller)**
+
+Sends standard 7-bit CC (0–127) over CC74
+```bash
+c_midi_to_cv([ch=1, cc=74]) as c74
+moog_filter(cutoff=c74) as out
+```
+
+**High-resolution control using CC9 (MSB) + CC41 (LSB)**
+
+Sends 14-bit (0-16383) over CC9 with CC41 as LSB internally
+```bash
+c_midi_to_cv([ch=1, cc=9]) as c9
+vco(freq=c9) as out
+```
+
+**NRPN from the controller maps to paired CC messages (commonly CC6 + CC38)**
+```bash
+c_midi_to_cv([ch=1, cc=6]) as freq
+vco(freq=freq) as out
+```
 
 ---
 

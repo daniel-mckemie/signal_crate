@@ -6,7 +6,7 @@
 #include "util.h"
 
 #define BARK_PROC_BANDS  24
-#define BARK_PROC_STAGES 3   /* 6th-order = 3 biquads */
+#define BARK_PROC_STAGES 2   /* 6th-order = 3 biquads */
 
 typedef struct {
     float sample_rate;
@@ -25,6 +25,7 @@ typedef struct {
 
     /* per-band base gain */
     float band_gain[BARK_PROC_BANDS];
+	float band_norm[BARK_PROC_BANDS];
 
     /* display */
     float display_mix;

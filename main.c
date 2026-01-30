@@ -183,14 +183,20 @@ int main(int argc, char** argv) {
         Pa_Terminate();
         return 1;
     }
-	
-	extern int g_num_output_channels;
-	g_num_output_channels = outputParams.channelCount;
-	fprintf(stderr, "[main] using %d output channels\n", g_num_output_channels);
+	fprintf(stderr,
+		"[audio] input  : \"%s\"\n"
+		"[audio] output : \"%s\"\n",
+		inputInfo  ? inputInfo->name  : "none",
+		outputInfo ? outputInfo->name : "none"
+	);
 
 	extern int g_num_input_channels;
 	g_num_input_channels = inputParams.channelCount;
 	fprintf(stderr, "[main] using %d input channels\n", g_num_input_channels);
+	
+	extern int g_num_output_channels;
+	g_num_output_channels = outputParams.channelCount;
+	fprintf(stderr, "[main] using %d output channels\n", g_num_output_channels);
 
     err = Pa_StartStream(stream);
     if (err != paNoError) {

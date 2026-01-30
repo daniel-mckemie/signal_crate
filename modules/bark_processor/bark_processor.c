@@ -64,16 +64,18 @@ static void rebuild_filters(BarkProcessor* s) {
         if (fc > ny) fc = ny;
 
         s->fc[i] = fc;
-        s->Q[i]  = 6.0f;
+        s->Q[i]  = 1.2f;
+		s->band_norm[i] = 1.0f / sqrtf(s->Q[i]);
 
         for (int st=0; st<BARK_PROC_STAGES; st++) {
             float omega = TWO_PI * fc / s->sample_rate;
             float sn = sinf(omega), cs = cosf(omega);
-            float alpha = sn / (2.0f * s->Q[i]);
+			float alpha = sn / (2.0f * s->Q[i]);
 
-            float b0 =  alpha;
-            float b1 =  0.0f;
-            float b2 = -alpha;
+			float b0 =  sn * 0.5f;
+			float b1 =  0.0f;
+			float b2 = -sn * 0.5f;
+
             float a0 =  1.0f + alpha;
             float a1 = -2.0f * cs;
             float a2 =  1.0f - alpha;
@@ -88,7 +90,6 @@ static void rebuild_filters(BarkProcessor* s) {
 }
 
 static void clamp_params(BarkProcessor* s) {
-    clampf(&s->mix,   0.0f, 1.0f);
     clampf(&s->center,0.0f, 1.0f);
     clampf(&s->width, 0.02f, 1.0f);
     clampf(&s->tilt, -1.0f, 1.0f);
@@ -128,8 +129,7 @@ static int parse_band_gain_param(const char* param) {
     return -1;
 }
 
-static void bark_processor_process(Module* m, float* in, unsigned long frames)
-{
+static void bark_processor_process(Module* m, float* in, unsigned long frames) {
     BarkProcessor* s = (BarkProcessor*)m->state;
 
     float* mod_in = (m->num_inputs > 0) ? m->inputs[0] : NULL;
@@ -137,13 +137,15 @@ static void bark_processor_process(Module* m, float* in, unsigned long frames)
     float* out    = m->output_buffer;
 
     if (!mod_in || !car_in) {
+		if (!mod_in) {
+			printf("[ring_mod] WARNING: missing 2nd audio input\n");
+		}
         memset(out, 0, frames * sizeof(float));
         return;
     }
 
     float base_band[BARK_PROC_BANDS];
     pthread_mutex_lock(&s->lock);
-    float base_mix    = s->mix;
     float base_center = s->center;
     float base_width  = s->width;
     float base_tilt   = s->tilt;
@@ -154,7 +156,6 @@ static void bark_processor_process(Module* m, float* in, unsigned long frames)
     for (int b=0;b<BARK_PROC_BANDS;b++) base_band[b] = s->band_gain[b];
     pthread_mutex_unlock(&s->lock);
 
-    float mix_s    = process_smoother(&s->smooth_mix, base_mix);
     float center_s = process_smoother(&s->smooth_center, base_center);
     float width_s  = process_smoother(&s->smooth_width, base_width);
     float tilt_s   = process_smoother(&s->smooth_tilt, base_tilt);
@@ -162,7 +163,6 @@ static void bark_processor_process(Module* m, float* in, unsigned long frames)
     float atk_s    = process_smoother(&s->smooth_attack, base_atk_ms);
     float rel_s    = process_smoother(&s->smooth_release, base_rel_ms);
 
-    float disp_mix = mix_s;
     float disp_center = center_s;
     float disp_width = width_s;
     float disp_tilt = tilt_s;
@@ -172,7 +172,6 @@ static void bark_processor_process(Module* m, float* in, unsigned long frames)
     int   disp_eo = base_eo;
 
     for (unsigned int i=0;i<frames;i++) {
-        float mix    = mix_s;
         float center = center_s;
         float width  = width_s;
         float tilt   = tilt_s;
@@ -190,8 +189,7 @@ static void bark_processor_process(Module* m, float* in, unsigned long frames)
             float control = m->control_inputs[j][i];
             control = fminf(fmaxf(control, -1.0f), 1.0f);
 
-            if (strcmp(param,"mix")==0) mix += control;
-            else if (strcmp(param,"center")==0) center += control;
+            if (strcmp(param,"center")==0) center += control;
             else if (strcmp(param,"width")==0) width += control;
             else if (strcmp(param,"tilt")==0) tilt += control;
             else if (strcmp(param,"drive")==0) drive += control;
@@ -204,7 +202,6 @@ static void bark_processor_process(Module* m, float* in, unsigned long frames)
             }
         }
 
-        clampf(&mix, 0.0f, 1.0f);
         clampf(&center, 0.0f, 1.0f);
         clampf(&width, 0.02f, 1.0f);
         clampf(&tilt, -1.0f, 1.0f);
@@ -214,7 +211,6 @@ static void bark_processor_process(Module* m, float* in, unsigned long frames)
         if (eo < 0) eo = 0;
         if (eo > 2) eo = 2;
 
-        disp_mix = mix;
         disp_center = center;
         disp_width = width;
         disp_tilt = tilt;
@@ -228,34 +224,34 @@ static void bark_processor_process(Module* m, float* in, unsigned long frames)
         if (!isfinite(xm)) xm = 0.0f;
         if (!isfinite(xc)) xc = 0.0f;
 
-        const float CAR_GAIN = 3.0f;
+        const float CAR_GAIN = 1.0f;
         xc *= CAR_GAIN;
 
         float atk_c = coeff_from_ms(atk_ms, s->sample_rate);
         float rel_c = coeff_from_ms(rel_ms, s->sample_rate);
 
-        float sum = 0.0f;
+        float sum  = 0.0f;
 
         for (int b=0;b<BARK_PROC_BANDS;b++) {
             if (eo==1 && (b&1)) continue;
             if (eo==2 && !(b&1)) continue;
 
-            float ym = xm;
+			float ym = (fabsf(xm) < 1e-4f) ? 0.0f : xm;
             float yc = xc;
 
             for (int st=0; st<BARK_PROC_STAGES; st++) {
                 ym = biquad_tick_state(s, b, st, ym, &s->z1_mod[b][st], &s->z2_mod[b][st]);
                 yc = biquad_tick_state(s, b, st, yc, &s->z1_car[b][st], &s->z2_car[b][st]);
             }
+			yc *= s->band_norm[b];
 
-            float rect = ym * ym;
+            float rect = fabsf(ym);
+			if (rect < 1e-4f) rect = 0.0f;
             float e = s->env[b];
             float c = (rect > e) ? atk_c : rel_c;
             e += c * (rect - e);
+			if (e < 1e-8f) e = 0.0f;
             s->env[b] = e;
-
-            if (e < 1e-5f) continue;
-            e *= 6.0f;
 
             float g = g_target[b];
             clampf(&g, 0.0f, 2.0f);
@@ -264,15 +260,18 @@ static void bark_processor_process(Module* m, float* in, unsigned long frames)
             float w = center_window(b, center, width);
             float t = tilt_gain(b, tilt);
 
-            sum += yc * e * (g_s * w * t);
+			float wt = (g_s * w * t);
+			float band = yc * e * wt;
+			band = band / (1.0f + fabsf(band));
+			sum += band;
         }
 
-        float y = soft_sat(sum * 2.5f, drive);
+		sum *= 0.55f; // Attenuation of final output before sat
+        float y = soft_sat(sum, drive);
         out[i] = fminf(fmaxf(y, -1.0f), 1.0f);
     }
 
     pthread_mutex_lock(&s->lock);
-    s->display_mix = disp_mix;
     s->display_center = disp_center;
     s->display_width = disp_width;
     s->display_tilt = disp_tilt;
@@ -287,12 +286,11 @@ static void bark_processor_process(Module* m, float* in, unsigned long frames)
 static void bark_processor_draw_ui(Module* m, int y, int x) {
     BarkProcessor* s = (BarkProcessor*)m->state;
 
-    float mix,center,width,tilt,drive,atk,rel;
+    float center,width,tilt,drive,atk,rel;
     int eo; int sb; float sg;
     char cmd[64] = "";
 
     pthread_mutex_lock(&s->lock);
-    mix = s->display_mix;
     center = s->display_center;
     width = s->display_width;
     tilt = s->display_tilt;
@@ -309,7 +307,6 @@ static void bark_processor_draw_ui(Module* m, int y, int x) {
     mvprintw(y, x, "[BarkVocoder:%s] ", m->name);
     CLR();
 
-    LABEL(2,"mix:"); ORANGE(); printw("%.2f", mix); CLR();
     LABEL(2,"ctr:"); ORANGE(); printw("%.2f", center); CLR();
     LABEL(2,"wid:"); ORANGE(); printw("%.2f", width); CLR();
     LABEL(2,"tilt:"); ORANGE(); printw("%.2f", tilt); CLR();
@@ -321,8 +318,8 @@ static void bark_processor_draw_ui(Module* m, int y, int x) {
     LABEL(2,"g:"); ORANGE(); printw("%.2f", sg); CLR();
 
     YELLOW();
-    mvprintw(y+1, x, "-/= mix  _/+ ctr [/] wid  {/} tilt  ;/' drv  a/A atk  r/R rel  e eo  b/B band  </> gain");
-    mvprintw(y+2, x, ":1[mix] :2[ctr] :3[wid] :4[tilt] :5[drv] :6[eo] :7[band] :8[gain] :9[atk_ms] :0[rel_ms]");
+    mvprintw(y+1, x, "-/= ctr _/+ wid  [/] tilt  {/} drv  a/A atk  r/R rel  e eo  b/B band  ;/' gain");
+    mvprintw(y+2, x, ":1[ctr] :2[wid] :3[tilt] :4[drv] :5[eo] :6[band] :7[gain] :8[atk_ms] :9[rel_ms]");
     BLACK();
 }
 
@@ -333,28 +330,26 @@ static void bark_processor_handle_input(Module* m, int key) {
     pthread_mutex_lock(&s->lock);
     if (!s->entering_command) {
         switch (key) {
-            case '=': s->mix += 0.01f; handled=1; break;
-            case '-': s->mix -= 0.01f; handled=1; break;
-            case '+': s->center += 0.01f; handled=1; break;
-            case '_': s->center -= 0.01f; handled=1; break;
-            case ']': s->width += 0.01f; handled=1; break;
-            case '[': s->width -= 0.01f; handled=1; break;
-            case '}': s->tilt += 0.01f; handled=1; break;
-            case '{': s->tilt -= 0.01f; handled=1; break;
-            case '\'': s->drive += 0.01f; handled=1; break;
-            case ';': s->drive -= 0.01f; handled=1; break;
+            case '=': s->center += 0.01f; handled=1; break;
+            case '-': s->center -= 0.01f; handled=1; break;
+            case '+': s->width += 0.01f; handled=1; break;
+            case '_': s->width -= 0.01f; handled=1; break;
+            case ']': s->tilt += 0.01f; handled=1; break;
+            case '[': s->tilt -= 0.01f; handled=1; break;
+            case '}': s->drive += 0.01f; handled=1; break;
+            case '{': s->drive -= 0.01f; handled=1; break;
 
-            case 'a': s->attack_ms -= 1.0f; handled=1; break;
             case 'A': s->attack_ms += 1.0f; handled=1; break;
-            case 'r': s->release_ms -= 5.0f; handled=1; break;
+            case 'a': s->attack_ms -= 1.0f; handled=1; break;
             case 'R': s->release_ms += 5.0f; handled=1; break;
+            case 'r': s->release_ms -= 5.0f; handled=1; break;
 
             case 'e': s->even_odd = (s->even_odd + 1) % 3; handled=1; break;
 
             case 'B': s->sel_band += 1; handled=1; break;
             case 'b': s->sel_band -= 1; handled=1; break;
-            case '>': s->band_gain[s->sel_band] += 0.01f; handled=1; break;
-            case '<': s->band_gain[s->sel_band] -= 0.01f; handled=1; break;
+            case '\'': s->band_gain[s->sel_band] += 0.01f; handled=1; break;
+            case ';': s->band_gain[s->sel_band] -= 0.01f; handled=1; break;
 
             case ':':
                 s->entering_command = true;
@@ -369,16 +364,15 @@ static void bark_processor_handle_input(Module* m, int key) {
             char type;
             float val;
             if (sscanf(s->command_buffer, "%c %f", &type, &val) == 2) {
-                if      (type=='1') s->mix = val;
-                else if (type=='2') s->center = val;
-                else if (type=='3') s->width = val;
-                else if (type=='4') s->tilt = val;
-                else if (type=='5') s->drive = val;
-                else if (type=='6') s->even_odd = (int)val;
-                else if (type=='7') s->sel_band = (int)val;
-                else if (type=='8') s->band_gain[s->sel_band] = val;
-                else if (type=='9') s->attack_ms = val;
-                else if (type=='0') s->release_ms = val;
+                if (type=='1') s->center = val;
+                else if (type=='2') s->width = val;
+                else if (type=='3') s->tilt = val;
+                else if (type=='4') s->drive = val;
+                else if (type=='5') s->even_odd = (int)val;
+                else if (type=='6') s->sel_band = (int)val;
+                else if (type=='7') s->band_gain[s->sel_band] = val;
+                else if (type=='8') s->attack_ms = val;
+                else if (type=='9') s->release_ms = val;
             }
             handled=1;
         } else if (key == 27) {
@@ -402,8 +396,7 @@ static void bark_processor_set_osc_param(Module* m, const char* param, float val
     BarkProcessor* s = (BarkProcessor*)m->state;
     pthread_mutex_lock(&s->lock);
 
-    if      (strcmp(param,"mix")==0) s->mix = value;
-    else if (strcmp(param,"center")==0) s->center = value;
+    if (strcmp(param,"center")==0) s->center = value;
     else if (strcmp(param,"width")==0) s->width = value;
     else if (strcmp(param,"tilt")==0) s->tilt = value;
     else if (strcmp(param,"drive")==0) s->drive = value;
@@ -430,20 +423,18 @@ Module* create_module(const char* args, float sample_rate) {
     s->sample_rate = sample_rate;
 
     /* vocoder defaults */
-    s->mix = 1.0f;
     s->center = 0.5f;
     s->width = 0.5f;
     s->tilt = 0.0f;
     s->drive = 0.1f;
-    s->attack_ms = 2.0f;
-    s->release_ms = 60.0f;
+    s->attack_ms = 0.4f;
+    s->release_ms = 8.0f;
 
     s->even_odd = 0;
     s->sel_band = 0;
 
     for (int i=0;i<BARK_PROC_BANDS;i++) s->band_gain[i] = 1.0f;
 
-    if (args && strstr(args,"mix="))     sscanf(strstr(args,"mix="),     "mix=%f", &s->mix);
     if (args && strstr(args,"center="))  sscanf(strstr(args,"center="),  "center=%f", &s->center);
     if (args && strstr(args,"width="))   sscanf(strstr(args,"width="),   "width=%f", &s->width);
     if (args && strstr(args,"tilt="))    sscanf(strstr(args,"tilt="),    "tilt=%f", &s->tilt);
@@ -454,7 +445,6 @@ Module* create_module(const char* args, float sample_rate) {
 
     pthread_mutex_init(&s->lock, NULL);
 
-    init_smoother(&s->smooth_mix,     0.50f);
     init_smoother(&s->smooth_center,  0.75f);
     init_smoother(&s->smooth_width,   0.75f);
     init_smoother(&s->smooth_tilt,    0.50f);
@@ -466,7 +456,6 @@ Module* create_module(const char* args, float sample_rate) {
     clamp_params(s);
     rebuild_filters(s);
 
-    s->display_mix = s->mix;
     s->display_center = s->center;
     s->display_width = s->width;
     s->display_tilt = s->tilt;

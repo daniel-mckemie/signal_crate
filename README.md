@@ -70,6 +70,18 @@ Dual input with control over amp of each signal.
 
 ---
 
+### **Bark Bank**
+`bark_bank`
+Under Construction - documentation coming soon
+
+---
+
+### **Bark Processor**
+`bark_processor`
+Under Construction - documentation coming soon
+
+---
+
 ### **Bit Crusher**
 `bit_crush`
 Bit crusher quantized between 2-16 bits with rate to control how often the signal is sampled
@@ -107,13 +119,20 @@ Single input, sine wave as internal modulator.
 ### **Looper**
 `looper`
 10-second (default) looper
-- `speed` = passable as constructor
+- `speed` - passable as constructor
 - `start` - start time of the tape
-- `end` = passable as constructor (length)
+- `end` - passable as constructor (length)
 - `record`
 - `play`  
 - `overdub`  
 - `stop`  
+
+---
+
+### **Mixer**
+`mixer`
+Summing mixer. Takes in any number of inputs, sums and outputs them as mono signal.
+- `gain` - output amplitude
 
 ---
 

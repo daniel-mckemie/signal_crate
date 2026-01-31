@@ -5,37 +5,38 @@
 #include <stdbool.h>
 #include "util.h"
 
-#define BARK_PROC_BANDS  24
-#define BARK_PROC_STAGES 2   /* 6th-order = 3 biquads */
+#define BARK_PROC_BANDS   24
+#define BARK_PROC_STAGES  3
 
 typedef struct {
     float sample_rate;
 
     /* global params */
-    float mix;        /* wet = vocoded, dry = carrier */
-    float center;
-    float width;
-    float tilt;
-    float drive;
-    int   even_odd;   /* 0=all 1=even 2=odd */
+    float center;     /* 0..1 */
+    float width;      /* 0.02..1 */
+    float tilt;       /* -1..1 */
+    float drive;      /* 0..1 */
 
-    /* vocoder envelope */
-    float attack_ms;
-    float release_ms;
+    /* Verbos-style input gains for the two banks */
+    float out_gain_odd;   /* input A -> odd bands */
+    float out_gain_even;  /* input B -> even bands */
 
-    /* per-band base gain */
+    /* cross-mod switches */
+    int odd_to_even;   /* odd envelopes modulate even audio */
+    int even_to_odd;   /* even envelopes modulate odd audio */
+
+    /* per-band gain */
     float band_gain[BARK_PROC_BANDS];
-	float band_norm[BARK_PROC_BANDS];
 
     /* display */
-    float display_mix;
     float display_center;
     float display_width;
     float display_tilt;
     float display_drive;
-    float display_attack_ms;
-    float display_release_ms;
-    int   display_even_odd;
+    float display_out_gain_odd;
+    float display_out_gain_even;
+    int   display_odd_to_even;
+    int   display_even_to_odd;
 
     int   sel_band;
     float display_sel_gain;
@@ -50,24 +51,24 @@ typedef struct {
     float a1[BARK_PROC_BANDS][BARK_PROC_STAGES];
     float a2[BARK_PROC_BANDS][BARK_PROC_STAGES];
 
-    /* separate filter state:
-       modulator vs carrier */
-    float z1_mod[BARK_PROC_BANDS][BARK_PROC_STAGES];
-    float z2_mod[BARK_PROC_BANDS][BARK_PROC_STAGES];
-    float z1_car[BARK_PROC_BANDS][BARK_PROC_STAGES];
-    float z2_car[BARK_PROC_BANDS][BARK_PROC_STAGES];
+    /* filter state per band */
+    float z1[BARK_PROC_BANDS][BARK_PROC_STAGES];
+    float z2[BARK_PROC_BANDS][BARK_PROC_STAGES];
 
-    /* per-band envelopes (from modulator) */
+    /* envelope per band (post-filter magnitude follower) */
     float env[BARK_PROC_BANDS];
 
+    /* bark windowing */
+    float bark_pos[BARK_PROC_BANDS];
+    float bark_min, bark_max;
+
     /* smoothers */
-    CParamSmooth smooth_mix;
     CParamSmooth smooth_center;
     CParamSmooth smooth_width;
     CParamSmooth smooth_tilt;
     CParamSmooth smooth_drive;
-    CParamSmooth smooth_attack;
-    CParamSmooth smooth_release;
+    CParamSmooth smooth_out_gain_odd;
+    CParamSmooth smooth_out_gain_even;
     CParamSmooth smooth_band[BARK_PROC_BANDS];
 
     /* UI command mode */

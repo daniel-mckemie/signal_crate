@@ -70,15 +70,20 @@ Dual input with control over amp of each signal.
 
 ---
 
-### **Bark Bank**
-`bark_bank`
-Under Construction - documentation coming soon
-
----
-
 ### **Bark Processor**
 `bark_processor`
-Under Construction - documentation coming soon
+Dual-input, Bark-scale filterbank processor inspiried by Verbos-style spectral dynamics. Incoming signals are split into odd and even Bark bands, analyzed with fixed-Q bandpass filters, and shaped by per-band envelope followers. A movable Bark-space window, spectral tilt, per-band gains, and cross-bank envelope modulation allow dynamic spectral carving, vocoder-like interactions, and animated timbral coupling. The summed output is optionally driven into soft saturation for nonlinear coloration.
+
+- `ctr` - spectral center; move the active emphais window low to high
+- `wid` - spectral width; how many neighboring bands around the center are emphasized (narrow to wide)
+- `tilt` - spectral tilt; positive values boost higher bands and attenuate lower ones while negative values do the opposite
+- `drv` - output drive; increases nonlinear coloration harmonic density after band summation
+- `ogo` - odd-band output gain
+- `oge` - even-band output gain
+- `o2e` - odd-to-even envelope mod enable; odd-band envelopes modulated paired even bands, creating cross-bank amp coupling
+- `e2o` - even-to-odd envelope mod enable; even-band envelopes modulate paired odd bands, creating reciprocal cross-bank coupling
+- `b` - selected Bark band index; chooses which indvidual band is targeted for per-band gain adjustment
+- `g` - per-band gain for selected band; scales amplitude before windowing, tilt, and bank gain are applied
 
 ---
 

@@ -72,7 +72,7 @@ Dual input with control over amp of each signal.
 
 ### **Bark Processor**
 `bark_processor`
-Dual-input, Bark-scale filterbank processor inspiried by Verbos-style spectral dynamics. Incoming signals are split into odd and even Bark bands, analyzed with fixed-Q bandpass filters, and shaped by per-band envelope followers. A movable Bark-space window, spectral tilt, per-band gains, and cross-bank envelope modulation allow dynamic spectral carving, vocoder-like interactions, and animated timbral coupling. The summed output is optionally driven into soft saturation for nonlinear coloration.
+Dual-input, Bark-scale filter bank processor inspired by Verbos-style spectral dynamics .
 
 - `ctr` - spectral center; move the active emphais window low to high
 - `wid` - spectral width; how many neighboring bands around the center are emphasized (narrow to wide)
@@ -244,6 +244,23 @@ Waveform oscillator.
 - `amp` - amplitude 
 - `wave` - waveform (sine, triangle, sawtooth, square)
 - `range` = toggles freq range (low=20-2000Hz, mid=20-8000Hz, full=20-20000Hz, super=20-nyquist)
+
+---
+
+### Vocoder
+`vocoder`
+24-band Bark-scale vocoder; takes two inputs (car/mod)
+`mix` - dry/wet blend (0 = carrier only)
+`drive` - soft saturation on vocoded signal
+`trim` - output gain after band Summing
+`tilt` - spectral tilt (-1.0 - 1.0)
+`center` - Bark-domain window center
+`width` - Bark window width
+`atk_ms` - envelope attack
+`rel_ms` - enevelope release
+`curve` - envelope response shaping
+`bandN` - per-band gain (band0 - band 23)
+
 ---
 
 ### **Wavefolder**

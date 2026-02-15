@@ -109,7 +109,7 @@ static void rebuild_filters(Vocoder *s) {
 static void clamp_params(Vocoder *s) {
   clampf(&s->mix, 0.0f, 1.0f);
   clampf(&s->drive, 0.0f, 1.0f);
-  clampf(&s->out_trim, 0.0f, 2.0f);
+  clampf(&s->out_trim, 0.0f, 1.0f);
 
   clampf(&s->tilt, -1.0f, 1.0f);
   clampf(&s->center, 0.0f, 1.0f);
@@ -125,7 +125,7 @@ static void clamp_params(Vocoder *s) {
     s->sel_band = VOCODER_BANDS - 1;
 
   for (int i = 0; i < VOCODER_BANDS; i++)
-    clampf(&s->band_gain[i], 0.0f, 2.0f);
+    clampf(&s->band_gain[i], 0.0f, 1.0f);
 }
 
 static int parse_band_gain_param(const char *param) {
@@ -262,7 +262,7 @@ static void vocoder_process(Module *m, float *in, unsigned long frames) {
 
     clampf(&mix, 0.0f, 1.0f);
     clampf(&drive, 0.0f, 1.0f);
-    clampf(&out_trim, 0.0f, 2.0f);
+    clampf(&out_trim, 0.0f, 1.0f);
 
     clampf(&tilt, -1.0f, 1.0f);
     clampf(&center, 0.0f, 1.0f);
@@ -321,7 +321,7 @@ static void vocoder_process(Module *m, float *in, unsigned long frames) {
       float env_shaped = powf(env01, env_curve);
 
       float g = g_target[b];
-      clampf(&g, 0.0f, 2.0f);
+      clampf(&g, 0.0f, 1.0f);
       float g_s = process_smoother(&s->smooth_band[b], g);
 
       float w = center_window_bark(s, b, center, width);

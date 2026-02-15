@@ -5,9 +5,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "vocoder.h"
 #include "module.h"
 #include "util.h"
+#include "vocoder.h"
 
 static float bark_centers[VOCODER_BANDS] = {
     80,    120,   180,   260,   360,   510,   720,   1000,
@@ -24,8 +24,8 @@ static inline float tilt_gain(int i, float tilt) {
   return powf(2.0f, tilt * (t - 0.5f) * 4.0f);
 }
 
-static inline float center_window_bark(const Vocoder *s, int b,
-                                       float center01, float width01) {
+static inline float center_window_bark(const Vocoder *s, int b, float center01,
+                                       float width01) {
   float c = s->bark_min + center01 * (s->bark_max - s->bark_min);
   float span = (s->bark_max - s->bark_min);
   float sigma = fmaxf(width01, 0.02f) * span;
@@ -34,27 +34,31 @@ static inline float center_window_bark(const Vocoder *s, int b,
 }
 
 static inline float soft_sat(float x, float drive) {
-  if (drive <= 0.0f) return x;
-  if (drive > 1.0f) drive = 1.0f;
+  if (drive <= 0.0f)
+    return x;
+  if (drive > 1.0f)
+    drive = 1.0f;
   float k = 1.0f + 9.0f * drive;
   float y = tanhf(k * x);
   float n = tanhf(k);
-  if (n > 1e-6f) y /= n;
+  if (n > 1e-6f)
+    y /= n;
   return y;
 }
 
-static inline float biquad_tick_state(const Vocoder *s, int b, int st,
-                                      float x, float *z1, float *z2) {
+static inline float biquad_tick_state(const Vocoder *s, int b, int st, float x,
+                                      float *z1, float *z2) {
   float y = s->b0[b][st] * x + *z1;
   *z1 = s->b1[b][st] * x + *z2 - s->a1[b][st] * y;
   *z2 = s->b2[b][st] * x - s->a2[b][st] * y;
   return y;
 }
 
-static inline float env_follow_ar(float env, float x, float sr,
-                                 float atk_ms, float rel_ms) {
+static inline float env_follow_ar(float env, float x, float sr, float atk_ms,
+                                  float rel_ms) {
   float rect = fabsf(x);
-  if (!isfinite(rect)) rect = 0.0f;
+  if (!isfinite(rect))
+    rect = 0.0f;
 
   float atk_s = fmaxf(atk_ms, 0.1f) * 0.001f;
   float rel_s = fmaxf(rel_ms, 1.0f) * 0.001f;
@@ -62,7 +66,8 @@ static inline float env_follow_ar(float env, float x, float sr,
   float a = expf(-1.0f / (atk_s * sr));
   float r = expf(-1.0f / (rel_s * sr));
 
-  if (rect > env) return a * env + (1.0f - a) * rect;
+  if (rect > env)
+    return a * env + (1.0f - a) * rect;
   return r * env + (1.0f - r) * rect;
 }
 
@@ -71,7 +76,8 @@ static void rebuild_filters(Vocoder *s) {
 
   for (int i = 0; i < VOCODER_BANDS; i++) {
     float fc = bark_centers[i];
-    if (fc > ny) fc = ny;
+    if (fc > ny)
+      fc = ny;
     s->fc[i] = fc;
 
     /* less peaky */
@@ -101,10 +107,7 @@ static void rebuild_filters(Vocoder *s) {
 }
 
 static void clamp_params(Vocoder *s) {
-  clampf(&s->mod_gain, 0.0f, 2.0f);
-  clampf(&s->car_gain, 0.0f, 2.0f);
-  clampf(&s->wet, 0.0f, 1.0f);
-  clampf(&s->dry, 0.0f, 1.0f);
+  clampf(&s->mix, 0.0f, 1.0f);
   clampf(&s->drive, 0.0f, 1.0f);
   clampf(&s->out_trim, 0.0f, 2.0f);
 
@@ -116,25 +119,31 @@ static void clamp_params(Vocoder *s) {
   clampf(&s->rel_ms, 1.0f, 1000.0f);
   clampf(&s->env_curve, 0.25f, 4.0f);
 
-  if (s->sel_band < 0) s->sel_band = 0;
-  if (s->sel_band > VOCODER_BANDS - 1) s->sel_band = VOCODER_BANDS - 1;
+  if (s->sel_band < 0)
+    s->sel_band = 0;
+  if (s->sel_band > VOCODER_BANDS - 1)
+    s->sel_band = VOCODER_BANDS - 1;
 
-  for (int i = 0; i < VOCODER_BANDS; i++) clampf(&s->band_gain[i], 0.0f, 2.0f);
+  for (int i = 0; i < VOCODER_BANDS; i++)
+    clampf(&s->band_gain[i], 0.0f, 2.0f);
 }
 
 static int parse_band_gain_param(const char *param) {
-  if (!param) return -1;
+  if (!param)
+    return -1;
 
   if (param[0] == 'b') {
     int idx = atoi(param + 1);
-    if (idx >= 0 && idx < VOCODER_BANDS) return idx;
+    if (idx >= 0 && idx < VOCODER_BANDS)
+      return idx;
   }
 
   if (strncmp(param, "band", 4) == 0) {
     const char *p = param + 4;
     int n = atoi(p); /* 1..24 */
     if (n >= 1 && n <= VOCODER_BANDS) {
-      if (strstr(param, "gain")) return n - 1;
+      if (strstr(param, "gain"))
+        return n - 1;
     }
   }
 
@@ -145,27 +154,26 @@ static void vocoder_process(Module *m, float *in, unsigned long frames) {
   (void)in;
   Vocoder *s = (Vocoder *)m->state;
 
-  float *mod = (m->num_inputs > 0) ? m->inputs[0] : NULL;  /* modulator */
-  float *car = (m->num_inputs > 1) ? m->inputs[1] : NULL;  /* carrier */
+  float *mod = (m->num_inputs > 0) ? m->inputs[0] : NULL; /* modulator */
+  float *car = (m->num_inputs > 1) ? m->inputs[1] : NULL; /* carrier */
   float *out = m->output_buffer;
 
   if (!mod && !car) {
     memset(out, 0, frames * sizeof(float));
     return;
   }
-  if (!mod) mod = car;
-  if (!car) car = mod;
+  if (!mod)
+    mod = car;
+  if (!car)
+    car = mod;
 
   float base_band[VOCODER_BANDS];
-  float base_mod_gain, base_car_gain, base_wet, base_dry, base_drive, base_out_trim;
+  float base_mix, base_drive, base_out_trim;
   float base_tilt, base_center, base_width;
   float base_atk, base_rel, base_curve;
 
   pthread_mutex_lock(&s->lock);
-  base_mod_gain = s->mod_gain;
-  base_car_gain = s->car_gain;
-  base_wet = s->wet;
-  base_dry = s->dry;
+  base_mix = s->mix;
   base_drive = s->drive;
   base_out_trim = s->out_trim;
 
@@ -177,36 +185,30 @@ static void vocoder_process(Module *m, float *in, unsigned long frames) {
   base_rel = s->rel_ms;
   base_curve = s->env_curve;
 
-  for (int b = 0; b < VOCODER_BANDS; b++) base_band[b] = s->band_gain[b];
+  for (int b = 0; b < VOCODER_BANDS; b++)
+    base_band[b] = s->band_gain[b];
   pthread_mutex_unlock(&s->lock);
 
-  float mod_gain_s = process_smoother(&s->smooth_mod_gain, base_mod_gain);
-  float car_gain_s = process_smoother(&s->smooth_car_gain, base_car_gain);
-  float wet_s      = process_smoother(&s->smooth_wet, base_wet);
-  float dry_s      = process_smoother(&s->smooth_dry, base_dry);
-  float drive_s    = process_smoother(&s->smooth_drive, base_drive);
-  float trim_s     = process_smoother(&s->smooth_out_trim, base_out_trim);
+  float mix_s = process_smoother(&s->smooth_mix, base_mix);
+  float drive_s = process_smoother(&s->smooth_drive, base_drive);
+  float trim_s = process_smoother(&s->smooth_out_trim, base_out_trim);
 
-  float tilt_s     = process_smoother(&s->smooth_tilt, base_tilt);
-  float center_s   = process_smoother(&s->smooth_center, base_center);
-  float width_s    = process_smoother(&s->smooth_width, base_width);
+  float tilt_s = process_smoother(&s->smooth_tilt, base_tilt);
+  float center_s = process_smoother(&s->smooth_center, base_center);
+  float width_s = process_smoother(&s->smooth_width, base_width);
 
-  float atk_s      = process_smoother(&s->smooth_atk_ms, base_atk);
-  float rel_s      = process_smoother(&s->smooth_rel_ms, base_rel);
-  float curve_s    = process_smoother(&s->smooth_env_curve, base_curve);
+  float atk_s = process_smoother(&s->smooth_atk_ms, base_atk);
+  float rel_s = process_smoother(&s->smooth_rel_ms, base_rel);
+  float curve_s = process_smoother(&s->smooth_env_curve, base_curve);
 
-  float disp_mod_gain = mod_gain_s, disp_car_gain = car_gain_s;
-  float disp_wet = wet_s, disp_dry = dry_s, disp_drive = drive_s, disp_trim = trim_s;
+  float disp_mix = mix_s, disp_drive = drive_s, disp_trim = trim_s;
   float disp_tilt = tilt_s, disp_center = center_s, disp_width = width_s;
   float disp_atk = atk_s, disp_rel = rel_s, disp_curve = curve_s;
 
   const float band_norm = 1.0f / sqrtf((float)VOCODER_BANDS);
 
   for (unsigned int i = 0; i < frames; i++) {
-    float mod_gain = mod_gain_s;
-    float car_gain = car_gain_s;
-    float wet = wet_s;
-    float dry = dry_s;
+    float mix = mix_s;
     float drive = drive_s;
     float out_trim = trim_s;
 
@@ -219,40 +221,46 @@ static void vocoder_process(Module *m, float *in, unsigned long frames) {
     float env_curve = curve_s;
 
     float g_target[VOCODER_BANDS];
-    for (int b = 0; b < VOCODER_BANDS; b++) g_target[b] = base_band[b];
+    for (int b = 0; b < VOCODER_BANDS; b++)
+      g_target[b] = base_band[b];
 
     /* CV control inputs */
     for (int j = 0; j < m->num_control_inputs; j++) {
-      if (!m->control_inputs[j] || !m->control_input_params[j]) continue;
+      if (!m->control_inputs[j] || !m->control_input_params[j])
+        continue;
       const char *param = m->control_input_params[j];
       float control = m->control_inputs[j][i];
       control = fminf(fmaxf(control, -1.0f), 1.0f);
 
-      if (strcmp(param, "mod_gain") == 0) mod_gain += control;
-      else if (strcmp(param, "car_gain") == 0) car_gain += control;
-      else if (strcmp(param, "wet") == 0) wet += control;
-      else if (strcmp(param, "dry") == 0) dry += control;
-      else if (strcmp(param, "drive") == 0) drive += control;
-      else if (strcmp(param, "trim") == 0 || strcmp(param, "out_trim") == 0) out_trim += control;
+      if (strcmp(param, "mix") == 0)
+        mix += control;
+      else if (strcmp(param, "drive") == 0)
+        drive += control;
+      else if (strcmp(param, "trim") == 0 || strcmp(param, "out_trim") == 0)
+        out_trim += control;
 
-      else if (strcmp(param, "tilt") == 0) tilt += control;
-      else if (strcmp(param, "center") == 0) center += control;
-      else if (strcmp(param, "width") == 0) width += control;
+      else if (strcmp(param, "tilt") == 0)
+        tilt += control;
+      else if (strcmp(param, "center") == 0)
+        center += control;
+      else if (strcmp(param, "width") == 0)
+        width += control;
 
-      else if (strcmp(param, "atk") == 0 || strcmp(param, "atk_ms") == 0) atk_ms += 50.0f * control;
-      else if (strcmp(param, "rel") == 0 || strcmp(param, "rel_ms") == 0) rel_ms += 200.0f * control;
-      else if (strcmp(param, "curve") == 0 || strcmp(param, "env_curve") == 0) env_curve += control;
+      else if (strcmp(param, "atk") == 0 || strcmp(param, "atk_ms") == 0)
+        atk_ms += 50.0f * control;
+      else if (strcmp(param, "rel") == 0 || strcmp(param, "rel_ms") == 0)
+        rel_ms += 200.0f * control;
+      else if (strcmp(param, "curve") == 0 || strcmp(param, "env_curve") == 0)
+        env_curve += control;
 
       else {
         int idx = parse_band_gain_param(param);
-        if (idx >= 0) g_target[idx] += control;
+        if (idx >= 0)
+          g_target[idx] += control;
       }
     }
 
-    clampf(&mod_gain, 0.0f, 2.0f);
-    clampf(&car_gain, 0.0f, 2.0f);
-    clampf(&wet, 0.0f, 1.0f);
-    clampf(&dry, 0.0f, 1.0f);
+    clampf(&mix, 0.0f, 1.0f);
     clampf(&drive, 0.0f, 1.0f);
     clampf(&out_trim, 0.0f, 2.0f);
 
@@ -264,10 +272,7 @@ static void vocoder_process(Module *m, float *in, unsigned long frames) {
     clampf(&rel_ms, 1.0f, 1000.0f);
     clampf(&env_curve, 0.25f, 4.0f);
 
-    disp_mod_gain = mod_gain;
-    disp_car_gain = car_gain;
-    disp_wet = wet;
-    disp_dry = dry;
+    disp_mix = mix;
     disp_drive = drive;
     disp_trim = out_trim;
 
@@ -279,10 +284,12 @@ static void vocoder_process(Module *m, float *in, unsigned long frames) {
     disp_rel = rel_ms;
     disp_curve = env_curve;
 
-    float mx = mod[i] * mod_gain;
-    float cx = car[i] * car_gain;
-    if (!isfinite(mx)) mx = 0.0f;
-    if (!isfinite(cx)) cx = 0.0f;
+    float mx = mod[i];
+    float cx = car[i];
+    if (!isfinite(mx))
+      mx = 0.0f;
+    if (!isfinite(cx))
+      cx = 0.0f;
 
     float sum = 0.0f;
 
@@ -297,7 +304,8 @@ static void vocoder_process(Module *m, float *in, unsigned long frames) {
       /* env */
       float e = s->env[b];
       e = env_follow_ar(e, ym, s->sample_rate, atk_ms, rel_ms);
-      if (e < 1e-8f) e = 0.0f;
+      if (e < 1e-8f)
+        e = 0.0f;
       s->env[b] = e;
 
       /* carrier bandpass */
@@ -308,7 +316,8 @@ static void vocoder_process(Module *m, float *in, unsigned long frames) {
 
       /* apply envelope */
       float env01 = e / (e + 0.5f);
-      if (env01 < 0.0f) env01 = 0.0f;
+      if (env01 < 0.0f)
+        env01 = 0.0f;
       float env_shaped = powf(env01, env_curve);
 
       float g = g_target[b];
@@ -325,15 +334,12 @@ static void vocoder_process(Module *m, float *in, unsigned long frames) {
     float wet_pre = sum * band_norm * out_trim;
     float wet_out = soft_sat(wet_pre, drive);
 
-    float y = wet * wet_out + dry * cx;
+    float y = mix * wet_out + (1.0f - mix) * cx;
     out[i] = fminf(fmaxf(y, -1.0f), 1.0f);
   }
 
   pthread_mutex_lock(&s->lock);
-  s->display_mod_gain = disp_mod_gain;
-  s->display_car_gain = disp_car_gain;
-  s->display_wet = disp_wet;
-  s->display_dry = disp_dry;
+  s->display_mix = disp_mix;
   s->display_drive = disp_drive;
   s->display_out_trim = disp_trim;
 
@@ -352,15 +358,12 @@ static void vocoder_process(Module *m, float *in, unsigned long frames) {
 static void vocoder_draw_ui(Module *m, int y, int x) {
   Vocoder *s = (Vocoder *)m->state;
 
-  float mg, cg, wet, dry, drive, trim, tilt, center, width, atk, rel, curve;
+  float mix, drive, trim, tilt, center, width, atk, rel, curve;
   int sb;
   float sg;
 
   pthread_mutex_lock(&s->lock);
-  mg = s->display_mod_gain;
-  cg = s->display_car_gain;
-  wet = s->display_wet;
-  dry = s->display_dry;
+  mix = s->display_mix;
   drive = s->display_drive;
   trim = s->display_out_trim;
 
@@ -377,34 +380,64 @@ static void vocoder_draw_ui(Module *m, int y, int x) {
   pthread_mutex_unlock(&s->lock);
 
   BLUE();
-  mvprintw(y, x, "[Vocoder:%s] ", m->name);
+  mvprintw(y, x, "[Voc:%s]", m->name);
   CLR();
 
-  LABEL(2, "mg:"); ORANGE(); printw("%.2f", mg); CLR();
-  LABEL(2, "cg:"); ORANGE(); printw("%.2f", cg); CLR();
-  LABEL(2, "wet:"); ORANGE(); printw("%.2f", wet); CLR();
-  LABEL(2, "dry:"); ORANGE(); printw("%.2f", dry); CLR();
-  LABEL(2, "d:"); ORANGE(); printw("%.2f", drive); CLR();
-  LABEL(2, "tr:"); ORANGE(); printw("%.2f", trim); CLR();
+  LABEL(2, "m:");
+  ORANGE();
+  printw("%.2f", mix);
+  CLR();
+  LABEL(2, "d:");
+  ORANGE();
+  printw("%.2f", drive);
+  CLR();
+  LABEL(2, "tr:");
+  ORANGE();
+  printw("%.2f", trim);
+  CLR();
 
-  LABEL(2, "t:"); ORANGE(); printw("%.2f", tilt); CLR();
-  LABEL(2, "c:"); ORANGE(); printw("%.2f", center); CLR();
-  LABEL(2, "w:"); ORANGE(); printw("%.2f", width); CLR();
+  LABEL(2, "t:");
+  ORANGE();
+  printw("%.2f", tilt);
+  CLR();
+  LABEL(2, "c:");
+  ORANGE();
+  printw("%.2f", center);
+  CLR();
+  LABEL(2, "w:");
+  ORANGE();
+  printw("%.2f", width);
+  CLR();
 
-  LABEL(2, "a:"); ORANGE(); printw("%.1f", atk); CLR();
-  LABEL(2, "r:"); ORANGE(); printw("%.1f", rel); CLR();
-  LABEL(2, "cv:"); ORANGE(); printw("%.2f", curve); CLR();
+  LABEL(2, "a:");
+  ORANGE();
+  printw("%.1f", atk);
+  CLR();
+  LABEL(2, "r:");
+  ORANGE();
+  printw("%.1f", rel);
+  CLR();
+  LABEL(2, "cr:");
+  ORANGE();
+  printw("%.1f", curve);
+  CLR();
 
-  LABEL(2, "b:"); ORANGE(); printw("%02d", sb); CLR();
-  LABEL(2, "g:"); ORANGE(); printw("%.2f", sg); CLR();
+  LABEL(2, "b:");
+  ORANGE();
+  printw("%02d", sb);
+  CLR();
+  LABEL(2, "g:");
+  ORANGE();
+  printw("%.1f", sg);
+  CLR();
 
   YELLOW();
   mvprintw(y + 1, x,
-           "-/= mg _/+ cg [/] wet {/} dry ,/. drive </> trim 8/9 tilt 5/6 c 1/2 w"
-           " a/z atk s/x rel c/v curve b/B band ;/' gain");
+           "[/] mix {/} d ;/' tr ,/. t </> c w/W w"
+           " a/A a r/R r c/C crv b/B b g/G g");
   mvprintw(y + 2, x,
-           ":1[mg] :2[cg] :3[wet] :4[dry] :5[drive] :t[trim] :6[tilt] :7[c] :8[w]"
-           " :9[atk] :0[rel] :q[curve] :b[band] :g[gain]");
+           ":1[mix] :2[d] :3[tr] :4[t] :5[c] :6[w]"
+           " :7[a] :8[r] :9[crv] :b[b] :g[g]");
   BLACK();
 }
 
@@ -415,47 +448,104 @@ static void vocoder_handle_input(Module *m, int key) {
   pthread_mutex_lock(&s->lock);
   if (!s->entering_command) {
     switch (key) {
-    case '=': s->mod_gain += 0.01f; handled = 1; break;
-    case '-': s->mod_gain -= 0.01f; handled = 1; break;
+    case ']':
+      s->mix += 0.01f;
+      handled = 1;
+      break;
+    case '[':
+      s->mix -= 0.01f;
+      handled = 1;
+      break;
 
-    case '+': s->car_gain += 0.01f; handled = 1; break;
-    case '_': s->car_gain -= 0.01f; handled = 1; break;
+    case '}':
+      s->drive += 0.01f;
+      handled = 1;
+      break;
+    case '{':
+      s->drive -= 0.01f;
+      handled = 1;
+      break;
 
-    case ']': s->wet += 0.01f; handled = 1; break;
-    case '[': s->wet -= 0.01f; handled = 1; break;
+    case '\'':
+      s->out_trim += 0.01f;
+      handled = 1;
+      break;
+    case ';':
+      s->out_trim -= 0.01f;
+      handled = 1;
+      break;
 
-    case '}': s->dry += 0.01f; handled = 1; break;
-    case '{': s->dry -= 0.01f; handled = 1; break;
+    case '.':
+      s->tilt += 0.01f;
+      handled = 1;
+      break;
+    case ',':
+      s->tilt -= 0.01f;
+      handled = 1;
+      break;
 
-    case '.': s->drive += 0.01f; handled = 1; break;
-    case ',': s->drive -= 0.01f; handled = 1; break;
+    case '>':
+      s->center += 0.01f;
+      handled = 1;
+      break;
+    case '<':
+      s->center -= 0.01f;
+      handled = 1;
+      break;
 
-    case '>': s->out_trim += 0.01f; handled = 1; break;
-    case '<': s->out_trim -= 0.01f; handled = 1; break;
+    case 'W':
+      s->width += 0.01f;
+      handled = 1;
+      break;
+    case 'w':
+      s->width -= 0.01f;
+      handled = 1;
+      break;
 
-    case '9': s->tilt += 0.01f; handled = 1; break;
-    case '8': s->tilt -= 0.01f; handled = 1; break;
+    case 'A':
+      s->atk_ms += 1.0f;
+      handled = 1;
+      break;
+    case 'a':
+      s->atk_ms -= 1.0f;
+      handled = 1;
+      break;
 
-    case '6': s->center += 0.01f; handled = 1; break;
-    case '5': s->center -= 0.01f; handled = 1; break;
+    case 'R':
+      s->rel_ms += 1.0f;
+      handled = 1;
+      break;
+    case 'r':
+      s->rel_ms -= 1.0f;
+      handled = 1;
+      break;
 
-    case '2': s->width += 0.01f; handled = 1; break;
-    case '1': s->width -= 0.01f; handled = 1; break;
+    case 'C':
+      s->env_curve += 0.1f;
+      handled = 1;
+      break;
+    case 'c':
+      s->env_curve -= 0.1f;
+      handled = 1;
+      break;
 
-    case 'a': s->atk_ms += 1.0f; handled = 1; break;
-    case 'z': s->atk_ms -= 1.0f; handled = 1; break;
+    case 'B':
+      s->sel_band += 1;
+      handled = 1;
+      break;
+    case 'b':
+      s->sel_band -= 1;
+      handled = 1;
+      break;
 
-    case 's': s->rel_ms += 5.0f; handled = 1; break;
-    case 'x': s->rel_ms -= 5.0f; handled = 1; break;
-
-    case 'c': s->env_curve += 0.05f; handled = 1; break;
-    case 'v': s->env_curve -= 0.05f; handled = 1; break;
-
-    case 'B': s->sel_band += 1; handled = 1; break;
-    case 'b': s->sel_band -= 1; handled = 1; break;
-
-    case '\'': s->band_gain[s->sel_band] += 0.01f; handled = 1; break;
-    case ';':  s->band_gain[s->sel_band] -= 0.01f; handled = 1; break;
+    case 'G':
+      s->band_gain[s->sel_band] += 0.1f;
+      handled = 1;
+      break;
+    case 'g':
+      s->band_gain[s->sel_band] -= 0.1f;
+      handled = 1;
+      break;
 
     case ':':
       s->entering_command = true;
@@ -471,20 +561,28 @@ static void vocoder_handle_input(Module *m, int key) {
       char type;
       float val;
       if (sscanf(s->command_buffer, "%c %f", &type, &val) >= 1) {
-        if (type == '1') s->mod_gain = val;
-        else if (type == '2') s->car_gain = val;
-        else if (type == '3') s->wet = val;
-        else if (type == '4') s->dry = val;
-        else if (type == '5') s->drive = val;
-        else if (type == 't') s->out_trim = val;
-        else if (type == '6') s->tilt = val;
-        else if (type == '7') s->center = val;
-        else if (type == '8') s->width = val;
-        else if (type == '9') s->atk_ms = val;
-        else if (type == '0') s->rel_ms = val;
-        else if (type == 'q') s->env_curve = val;
-        else if (type == 'b') s->sel_band = (int)val;
-        else if (type == 'g') s->band_gain[s->sel_band] = val;
+        if (type == '1')
+          s->mix = val;
+        else if (type == '2')
+          s->drive = val;
+        else if (type == '3')
+          s->out_trim = val;
+        else if (type == '4')
+          s->tilt = val;
+        else if (type == '5')
+          s->center = val;
+        else if (type == '6')
+          s->width = val;
+        else if (type == '7')
+          s->atk_ms = val;
+        else if (type == '8')
+          s->rel_ms = val;
+        else if (type == '9')
+          s->env_curve = val;
+        else if (type == 'b')
+          s->sel_band = (int)val;
+        else if (type == 'g')
+          s->band_gain[s->sel_band] = val;
       }
       handled = 1;
     } else if (key == 27) {
@@ -502,7 +600,8 @@ static void vocoder_handle_input(Module *m, int key) {
     }
   }
 
-  if (handled) clamp_params(s);
+  if (handled)
+    clamp_params(s);
   pthread_mutex_unlock(&s->lock);
 }
 
@@ -510,24 +609,31 @@ static void vocoder_set_osc_param(Module *m, const char *param, float value) {
   Vocoder *s = (Vocoder *)m->state;
   pthread_mutex_lock(&s->lock);
 
-  if (strcmp(param, "mod_gain") == 0) s->mod_gain = value;
-  else if (strcmp(param, "car_gain") == 0) s->car_gain = value;
-  else if (strcmp(param, "wet") == 0) s->wet = value;
-  else if (strcmp(param, "dry") == 0) s->dry = value;
-  else if (strcmp(param, "drive") == 0) s->drive = value;
-  else if (strcmp(param, "trim") == 0 || strcmp(param, "out_trim") == 0) s->out_trim = value;
+  if (strcmp(param, "mix") == 0)
+    s->mix = value;
+  else if (strcmp(param, "drive") == 0)
+    s->drive = value;
+  else if (strcmp(param, "trim") == 0 || strcmp(param, "out_trim") == 0)
+    s->out_trim = value;
 
-  else if (strcmp(param, "tilt") == 0) s->tilt = value;
-  else if (strcmp(param, "center") == 0) s->center = value;
-  else if (strcmp(param, "width") == 0) s->width = value;
+  else if (strcmp(param, "tilt") == 0)
+    s->tilt = value;
+  else if (strcmp(param, "center") == 0)
+    s->center = value;
+  else if (strcmp(param, "width") == 0)
+    s->width = value;
 
-  else if (strcmp(param, "atk") == 0 || strcmp(param, "atk_ms") == 0) s->atk_ms = value;
-  else if (strcmp(param, "rel") == 0 || strcmp(param, "rel_ms") == 0) s->rel_ms = value;
-  else if (strcmp(param, "curve") == 0 || strcmp(param, "env_curve") == 0) s->env_curve = value;
+  else if (strcmp(param, "atk") == 0 || strcmp(param, "atk_ms") == 0)
+    s->atk_ms = value;
+  else if (strcmp(param, "rel") == 0 || strcmp(param, "rel_ms") == 0)
+    s->rel_ms = value;
+  else if (strcmp(param, "curve") == 0 || strcmp(param, "env_curve") == 0)
+    s->env_curve = value;
 
   else {
     int idx = parse_band_gain_param(param);
-    if (idx >= 0) s->band_gain[idx] = value;
+    if (idx >= 0)
+      s->band_gain[idx] = value;
   }
 
   clamp_params(s);
@@ -536,20 +642,18 @@ static void vocoder_set_osc_param(Module *m, const char *param, float value) {
 
 static void vocoder_destroy(Module *m) {
   Vocoder *s = (Vocoder *)m->state;
-  if (s) pthread_mutex_destroy(&s->lock);
+  if (s)
+    pthread_mutex_destroy(&s->lock);
   destroy_base_module(m);
 }
 
-__attribute__((visibility("default")))
-Module *create_module(const char *args, float sample_rate) {
+__attribute__((visibility("default"))) Module *
+create_module(const char *args, float sample_rate) {
   Vocoder *s = calloc(1, sizeof(Vocoder));
   s->sample_rate = sample_rate;
 
   /* defaults (less peaky) */
-  s->mod_gain = 0.70f;
-  s->car_gain = 0.70f;
-  s->wet = 1.0f;
-  s->dry = 0.0f;
+  s->mix = 0.0f;
   s->drive = 0.02f;
   s->out_trim = 0.85f;
 
@@ -569,53 +673,56 @@ Module *create_module(const char *args, float sample_rate) {
   }
 
   /* args */
-  if (args && strstr(args, "mod_gain="))  sscanf(strstr(args, "mod_gain="),  "mod_gain=%f", &s->mod_gain);
-  if (args && strstr(args, "car_gain="))  sscanf(strstr(args, "car_gain="),  "car_gain=%f", &s->car_gain);
-  if (args && strstr(args, "wet="))       sscanf(strstr(args, "wet="),       "wet=%f", &s->wet);
-  if (args && strstr(args, "dry="))       sscanf(strstr(args, "dry="),       "dry=%f", &s->dry);
-  if (args && strstr(args, "drive="))     sscanf(strstr(args, "drive="),     "drive=%f", &s->drive);
-  if (args && strstr(args, "trim="))      sscanf(strstr(args, "trim="),      "trim=%f", &s->out_trim);
-  if (args && strstr(args, "out_trim="))  sscanf(strstr(args, "out_trim="),  "out_trim=%f", &s->out_trim);
+  if (args && strstr(args, "mix="))
+    sscanf(strstr(args, "mix="), "mix=%f", &s->mix);
+  if (args && strstr(args, "drive="))
+    sscanf(strstr(args, "drive="), "drive=%f", &s->drive);
+  if (args && strstr(args, "trim="))
+    sscanf(strstr(args, "trim="), "trim=%f", &s->out_trim);
+  if (args && strstr(args, "out_trim="))
+    sscanf(strstr(args, "out_trim="), "out_trim=%f", &s->out_trim);
 
-  if (args && strstr(args, "tilt="))      sscanf(strstr(args, "tilt="),      "tilt=%f", &s->tilt);
-  if (args && strstr(args, "center="))    sscanf(strstr(args, "center="),    "center=%f", &s->center);
-  if (args && strstr(args, "width="))     sscanf(strstr(args, "width="),     "width=%f", &s->width);
+  if (args && strstr(args, "tilt="))
+    sscanf(strstr(args, "tilt="), "tilt=%f", &s->tilt);
+  if (args && strstr(args, "center="))
+    sscanf(strstr(args, "center="), "center=%f", &s->center);
+  if (args && strstr(args, "width="))
+    sscanf(strstr(args, "width="), "width=%f", &s->width);
 
-  if (args && strstr(args, "atk_ms="))    sscanf(strstr(args, "atk_ms="),    "atk_ms=%f", &s->atk_ms);
-  if (args && strstr(args, "rel_ms="))    sscanf(strstr(args, "rel_ms="),    "rel_ms=%f", &s->rel_ms);
-  if (args && strstr(args, "curve="))     sscanf(strstr(args, "curve="),     "curve=%f", &s->env_curve);
+  if (args && strstr(args, "atk_ms="))
+    sscanf(strstr(args, "atk_ms="), "atk_ms=%f", &s->atk_ms);
+  if (args && strstr(args, "rel_ms="))
+    sscanf(strstr(args, "rel_ms="), "rel_ms=%f", &s->rel_ms);
+  if (args && strstr(args, "curve="))
+    sscanf(strstr(args, "curve="), "curve=%f", &s->env_curve);
 
   pthread_mutex_init(&s->lock, NULL);
 
-  init_smoother(&s->smooth_mod_gain, 0.50f);
-  init_smoother(&s->smooth_car_gain, 0.50f);
-  init_smoother(&s->smooth_wet,      0.50f);
-  init_smoother(&s->smooth_dry,      0.50f);
-  init_smoother(&s->smooth_drive,    0.50f);
+  init_smoother(&s->smooth_mix, 0.50f);
+  init_smoother(&s->smooth_drive, 0.50f);
   init_smoother(&s->smooth_out_trim, 0.50f);
 
-  init_smoother(&s->smooth_tilt,     0.50f);
-  init_smoother(&s->smooth_center,   0.75f);
-  init_smoother(&s->smooth_width,    0.75f);
+  init_smoother(&s->smooth_tilt, 0.50f);
+  init_smoother(&s->smooth_center, 0.75f);
+  init_smoother(&s->smooth_width, 0.75f);
 
-  init_smoother(&s->smooth_atk_ms,   0.50f);
-  init_smoother(&s->smooth_rel_ms,   0.50f);
-  init_smoother(&s->smooth_env_curve,0.50f);
+  init_smoother(&s->smooth_atk_ms, 0.50f);
+  init_smoother(&s->smooth_rel_ms, 0.50f);
+  init_smoother(&s->smooth_env_curve, 0.50f);
 
-  for (int i = 0; i < VOCODER_BANDS; i++) init_smoother(&s->smooth_band[i], 0.50f);
+  for (int i = 0; i < VOCODER_BANDS; i++)
+    init_smoother(&s->smooth_band[i], 0.50f);
 
   clamp_params(s);
   rebuild_filters(s);
 
-  for (int i = 0; i < VOCODER_BANDS; i++) s->bark_pos[i] = hz_to_bark(bark_centers[i]);
+  for (int i = 0; i < VOCODER_BANDS; i++)
+    s->bark_pos[i] = hz_to_bark(bark_centers[i]);
   s->bark_min = s->bark_pos[0];
   s->bark_max = s->bark_pos[VOCODER_BANDS - 1];
 
   /* init display */
-  s->display_mod_gain = s->mod_gain;
-  s->display_car_gain = s->car_gain;
-  s->display_wet = s->wet;
-  s->display_dry = s->dry;
+  s->display_mix = s->mix;
   s->display_drive = s->drive;
   s->display_out_trim = s->out_trim;
 
@@ -645,4 +752,3 @@ Module *create_module(const char *args, float sample_rate) {
 
   return m;
 }
-

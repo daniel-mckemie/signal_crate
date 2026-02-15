@@ -2,33 +2,32 @@
 #ifndef VOCODER_H
 #define VOCODER_H
 
+#include "util.h"
 #include <pthread.h>
 #include <stdbool.h>
-#include "util.h"
 
-#define VOCODER_BANDS   24
-#define VOCODER_STAGES  3
+#define VOCODER_BANDS 24
+#define VOCODER_STAGES 3
 
 typedef struct {
   float sample_rate;
 
   /* gains + mix */
-  float mod_gain;   /* 0..2 */
-  float car_gain;   /* 0..2 */
-  float wet;        /* 0..1 */
-  float dry;        /* 0..1 */
-  float drive;      /* 0..1 */
-  float out_trim;   /* 0..2 */
+  float mod_gain; /* 0..2 */
+  float car_gain; /* 0..2 */
+  float mix;      /* 0..1 */
+  float drive;    /* 0..1 */
+  float out_trim; /* 0..2 */
 
   /* spectral shaping */
-  float tilt;       /* -1..1 */
-  float center;     /* 0..1 */
-  float width;      /* 0.02..1 */
+  float tilt;   /* -1..1 */
+  float center; /* 0..1 */
+  float width;  /* 0.02..1 */
 
   /* envelope follower */
-  float atk_ms;     /* 0.1..200 */
-  float rel_ms;     /* 1..1000 */
-  float env_curve;  /* 0.25..4.0 */
+  float atk_ms;    /* 0.1..200 */
+  float rel_ms;    /* 1..1000 */
+  float env_curve; /* 0.25..4.0 */
 
   /* per-band gain */
   float band_gain[VOCODER_BANDS];
@@ -36,8 +35,7 @@ typedef struct {
   /* display */
   float display_mod_gain;
   float display_car_gain;
-  float display_wet;
-  float display_dry;
+  float display_mix;
   float display_drive;
   float display_out_trim;
 
@@ -49,7 +47,7 @@ typedef struct {
   float display_rel_ms;
   float display_env_curve;
 
-  int   sel_band;
+  int sel_band;
   float display_sel_gain;
 
   /* filter design */
@@ -78,8 +76,7 @@ typedef struct {
   /* smoothers */
   CParamSmooth smooth_mod_gain;
   CParamSmooth smooth_car_gain;
-  CParamSmooth smooth_wet;
-  CParamSmooth smooth_dry;
+  CParamSmooth smooth_mix;
   CParamSmooth smooth_drive;
   CParamSmooth smooth_out_trim;
 
@@ -96,10 +93,9 @@ typedef struct {
   /* UI command mode */
   bool entering_command;
   char command_buffer[64];
-  int  command_index;
+  int command_index;
 
   pthread_mutex_t lock;
 } Vocoder;
 
 #endif
-

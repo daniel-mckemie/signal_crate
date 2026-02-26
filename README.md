@@ -19,7 +19,7 @@ The build script automatically installs all dependencies and builds Signal Crate
 3. Run `make all`
 4. Execute `./SignalCrate`
 
-Notes on the environment:
+## Notes on the environment:
 - There are dedicated audio, control, and UI threads
 - Modules follow similar design patterns for processing audio, UI, OSC, and control functions, with
 a central engine to wire it together. This allows for new modules to be created as they are needed.

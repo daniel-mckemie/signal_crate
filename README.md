@@ -1,23 +1,23 @@
 # Signal Crate
 Signal Crate is a terminal application written entirely in C for live audio processing
 and performance that is lightweight and easily expandable. Blending the worlds of control voltage,
-scripted event programming with modular synthesizer design. All modules are controllable via the 
+scripted event programming with modular synthesizer design. All modules are controllable via the
 computer keyboard, one another, or using OSC.
 
-This does not yet have a build file, but if you are interested in using or developing
-for the environment, I can certainly make one and help set it up. Currently only runs
-on MacOS with Linux support to follow. I will get to this if/when interest arises!
+## Installation
 
-There is no current build or dmg file, but in the interim to install and run Signal
-Crate, there are just a few C libraries needed to install. Homebrew is likely easiest,
-but however you like to do it!
+**Quick Install (Recommended):**
+```bash
+chmod +x build.sh
+./build.sh
+```
+The build script automatically installs all dependencies and builds Signal Crate for macOS and Linux.
 
-To install Signal Crate:
+**Manual Install:**
 1. Clone this repo
-2. Install Homebrew
-3. brew install portaudio portmidi liblo fftw libsndfile
-5. In the `signal_crate` directory, type `make it`
-6. Run `./SignalCrate`
+2. Install dependencies: `portaudio portmidi liblo fftw libsndfile ncurses`
+3. Run `make all`
+4. Execute `./SignalCrate`
 
 Notes on the environment:
 - There are dedicated audio, control, and UI threads
@@ -41,7 +41,89 @@ high-resolution 14-bit CC per the MIDI specification.
 corresponding LSB is CC + 32. When both messages are present, Signal Crate reconstructs the full 
 14-bit value internally.
 - Single CC messages (including CC 32–127) are always interpreted as 7-bit.
+- `environment` modules run offline to work with audio outside of a live patch. Such as splicing, unpacking polywav files, normalization, and so on. There is a multitrack recorder that runs online.
 
+---
+## Loading a Signal Crate
+Arm Signal Crate in the directory with `./SignalCrate`, or `sig` within the root directory
+
+There are two ways to load an environment, declaratively line by line in the terminal or as a .txt file
+passed in as an argument upon launch. (ie. ./SignalCrate mypatch.txt). The language is the same for either
+method.
+
+For example, this would patch two oscillators into a filter and out. `out` is a keyword to output to your system output
+as determined by your local settings. If you want multichannel audio output, using a `vca` with the `out#` nomenclature
+can control specific channel routing out of Signal Crate. More info in the VCA section above.
+
+This could be saved in a .txt file all the same:
+
+```bash
+vco as vco1
+vco as vco2
+moog_filter(vco1,vco2) as out
+```
+
+This will produce...
+
+```bash
+[VCO:vco1] Freq: 440.0 Hz | Amp: 0.50 | Wave: Sine | Range: Low
+Real-time keys: -/= (freq), _/+ (amp), w (wave), r (range)
+Command mode: :1 [freq], :2 [amp]
+
+[VCO:vco2] Freq: 440.0 Hz | Amp: 0.50 | Wave: Sine | Range: Low
+Real-time keys: -/= (freq), _/+ (amp), w (wave), r (range)
+Command mode: :1 [freq], :2 [amp]
+
+[Moog Filter:out] Cutoff: 440.00 | Res: 0.50 | Type: LP
+Real-time keys: -/= (cutoff), _/+ (resonance)
+Command mode: :1 [cutoff], :2 [resonance] f: [filter type]
+```
+
+Modules can have aliases which are used for routing and CV/OSC assignment. They are assigned with the `as` keyword.
+This is true for either control or audio rate modules.
+
+```bash
+c_lfo as lfo1
+c_lfo as lfo2
+vco(freq=lfo1, amp=lfo2) as out
+```
+Control can be done with the keyboard. Each module has scrolling control and command mode. 
+- `-/=, _/=`, etc...are keys that can scroll the params. Each module has which keys control which param
+- `t` is a UI toggle to see more control info/key bindings for each module
+- `tab` and the `arrow keys` highlight the active module, opening control via the keyboard. Scroll through the UI
+as needed to change params. No need to have the module active if using CV or OSC.
+- Command mode is entered by hitting `:` followed by a character, also indicated in the UI. For example,
+`:1` will change the `freq` of the VCO.
+- `:q` quits the environment
+
+You can also set the params via constructor arguments, which are indicated with `[ ]`, as well as use both a constructor and control assignment:
+
+`vco([freq=212, amp=0.1, wave=saw]) as out` will produce:
+```bash
+[VCO] Freq: 212.0 Hz | Amp: 0.10 | Wave: Saw | Range: Low
+Real-time keys: -/= (freq), _/+ (amp), w (wave), r (range)
+Command mode: :1 [freq], :2 [amp]
+```
+
+You can also combine them. The below will give you a VCO with the starting/center freq at 100, with lfo modulation input. Note that
+the constructor MUST precede the control input. Otherwise the constructor will override control assignment.
+
+```bash
+c_lfo as lfo1
+vco([freq=100], freq=lfo1) as out
+```
+Another example:
+```bash
+c_lfo as a
+c_cv_proc([k=0.5, m=0.4, offset=0.7], in=a) as u
+vco([freq=220], freq=u) as out
+```
+
+The control parameters for the modules listed above are the exact labels to assign control. Again not all of these
+are assignable via CV, mostly for ease of architecture and lack of musical purpose to build it. They are all, however,
+controllable via OSC. `wave` for example, is not assignable via CV but is as a button/toggle via OSC.
+
+---
 
 ## Audio Modules
 
@@ -600,87 +682,8 @@ rand(100,1000,vco1,freq)    // Sends a one-shot random value to vco1's frequency
 rand(0.3,0.6,vco1,amp,~500) // Sends a random value to vco1's amp param every 500ms
 ```
 
-
-## Loading a Signal Crate
-Arm Signal Crate in the directory with ./SignalCrate or relevant bash script
-
-There are two ways to load an environment, declaratively line by line in the terminal or as a .txt file
-passed in as an argument upon launch. (ie. ./SignalCrate mypatch.txt). The language is the same for either
-method.
-
-For example, this would patch two oscillators into a filter and out. `out` is a keyword to output to your system output
-as determined by your local settings. If you want multichannel audio output, using a `vca` with the `out#` nomenclature
-can control specific channel routing out of Signal Crate. More info in the VCA section above.
-
-This could be saved in a .txt file all the same:
-
-```bash
-vco as vco1
-vco as vco2
-moog_filter(vco1,vco2) as out
-```
-
-This will produce...
-
-```bash
-[VCO:vco1] Freq: 440.0 Hz | Amp: 0.50 | Wave: Sine | Range: Low
-Real-time keys: -/= (freq), _/+ (amp), w (wave), r (range)
-Command mode: :1 [freq], :2 [amp]
-
-[VCO:vco2] Freq: 440.0 Hz | Amp: 0.50 | Wave: Sine | Range: Low
-Real-time keys: -/= (freq), _/+ (amp), w (wave), r (range)
-Command mode: :1 [freq], :2 [amp]
-
-[Moog Filter:out] Cutoff: 440.00 | Res: 0.50 | Type: LP
-Real-time keys: -/= (cutoff), _/+ (resonance)
-Command mode: :1 [cutoff], :2 [resonance] f: [filter type]
-```
-
-Modules can have aliases which are used for routing and CV/OSC assignment. They are assigned with the `as` keyword.
-This is true for either control or audio rate modules.
-
-```bash
-c_lfo as lfo1
-c_lfo as lfo2
-vco(freq=lfo1, amp=lfo2) as out
-```
-Control can be done with the keyboard. Each module has scrolling control and command mode. 
-- `-/=, _/=`, etc...are keys that can scroll the params. Each module has which keys control which param
-directly in the UI.
-- `tab` and the `arrow keys` highlight the active module, opening control via the keyboard. Scroll through the UI
-as needed to change params. No need to have the module active if using CV or OSC.
-- Command mode is entered by hitting `:` followed by a character, also indicated in the UI. For example,
-`:1` will change the `freq` of the VCO.
-- `:q` quits the environment
-
-You can also set the params via constructor arguments, which are indicated with `[ ]`, as well as use both a constructor and control assignment:
-
-`vco([freq=212, amp=0.1, wave=saw]) as out` will produce:
-```bash
-[VCO] Freq: 212.0 Hz | Amp: 0.10 | Wave: Saw | Range: Low
-Real-time keys: -/= (freq), _/+ (amp), w (wave), r (range)
-Command mode: :1 [freq], :2 [amp]
-```
-
-You can also combine them. The below will give you a VCO with the starting/center freq at 100, with lfo modulation input. Note that
-the constructor MUST precede the control input. Otherwise the constructor will override control assignment.
-
-```bash
-c_lfo as lfo1
-vco([freq=100], freq=lfo1) as out
-```
-Another example:
-```bash
-c_lfo as a
-c_cv_proc([k=0.5, m=0.4, offset=0.7], in=a) as u
-vco([freq=220], freq=u) as out
-```
-
-The control parameters for the modules listed above are the exact labels to assign control. Again not all of these
-are assignable via CV, mostly for ease of architecture and lack of musical purpose to build it. They are all, however,
-controllable via OSC. `wave` for example, is not assignable via CV but is as a button/toggle via OSC.
-
 ---
+
 ## OSC Instructions
 
 OSC routes are assigned using `alias/param`.  

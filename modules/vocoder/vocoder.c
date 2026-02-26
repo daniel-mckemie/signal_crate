@@ -433,7 +433,7 @@ static void vocoder_draw_ui(Module *m, int y, int x) {
 
   YELLOW();
   mvprintw(y + 1, x,
-           "[/] mix {/} d ;/' tr ,/. t </> c w/W w"
+           "-/= mix _/+ d [/] tr {/} t ;/' c w/W w"
            " a/A a r/R r c/C crv b/B b g/G g");
   mvprintw(y + 2, x,
            ":1[mix] :2[d] :3[tr] :4[t] :5[c] :6[w]"
@@ -448,47 +448,47 @@ static void vocoder_handle_input(Module *m, int key) {
   pthread_mutex_lock(&s->lock);
   if (!s->entering_command) {
     switch (key) {
-    case ']':
+    case '=':
       s->mix += 0.01f;
       handled = 1;
       break;
-    case '[':
+    case '-':
       s->mix -= 0.01f;
       handled = 1;
       break;
 
-    case '}':
+    case '+':
       s->drive += 0.01f;
       handled = 1;
       break;
-    case '{':
+    case '_':
       s->drive -= 0.01f;
       handled = 1;
       break;
 
-    case '\'':
+    case ']':
       s->out_trim += 0.01f;
       handled = 1;
       break;
-    case ';':
+    case '[':
       s->out_trim -= 0.01f;
       handled = 1;
       break;
 
-    case '.':
+    case '}':
       s->tilt += 0.01f;
       handled = 1;
       break;
-    case ',':
+    case '{':
       s->tilt -= 0.01f;
       handled = 1;
       break;
 
-    case '>':
+    case '\'':
       s->center += 0.01f;
       handled = 1;
       break;
-    case '<':
+    case ';':
       s->center -= 0.01f;
       handled = 1;
       break;
@@ -653,7 +653,7 @@ create_module(const char *args, float sample_rate) {
   s->sample_rate = sample_rate;
 
   /* defaults (less peaky) */
-  s->mix = 0.0f;
+  s->mix = 1.0f;
   s->drive = 0.02f;
   s->out_trim = 0.85f;
 
@@ -661,8 +661,8 @@ create_module(const char *args, float sample_rate) {
   s->center = 0.5f;
   s->width = 1.0f;
 
-  s->atk_ms = 5.0f;
-  s->rel_ms = 80.0f;
+  s->atk_ms = 1.0f;
+  s->rel_ms = 20.0f;
   s->env_curve = 1.5f;
 
   s->sel_band = 0;

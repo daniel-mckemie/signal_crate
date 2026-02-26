@@ -27,6 +27,7 @@ typedef struct {
 	unsigned long loop_end;
 	float playback_speed;
 	float amp;
+    bool monitor_on;
 	LooperState looper_state;
 
 	CParamSmooth smooth_speed;

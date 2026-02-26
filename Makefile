@@ -1,7 +1,31 @@
+UNAME := $(shell uname)
+
+ifeq ($(UNAME), Darwin)
+    SHARED_EXT = dylib
+else
+    SHARED_EXT = so
+endif
+
 APP = SignalCrate
 SRCS = main.c engine.c scheduler.c ui.c module_loader.c util.c osc.c midi.c module.c
-CFLAGS = -Wall -O2 -fPIC -I./modules -I. -I/opt/homebrew/include
-LDFLAGS = -L/opt/homebrew/lib -ldl -lportaudio -lportmidi -lpthread -lm -lncurses -llo
+
+# Use pkg-config to get library flags, with fallback to homebrew paths
+PKG_CONFIG_CFLAGS := $(shell pkg-config --cflags portaudio-2.0 portmidi liblo ncurses 2>/dev/null)
+PKG_CONFIG_LIBS := $(shell pkg-config --libs portaudio-2.0 portmidi liblo ncurses 2>/dev/null)
+
+# Fallback to homebrew paths if pkg-config fails
+ifeq ($(PKG_CONFIG_LIBS),)
+    ifeq ($(UNAME), Darwin)
+        PKG_CONFIG_CFLAGS = -I/opt/homebrew/include
+        PKG_CONFIG_LIBS = -L/opt/homebrew/lib -lportaudio -lportmidi -lncurses -llo
+    else
+        PKG_CONFIG_CFLAGS =
+        PKG_CONFIG_LIBS = -lportaudio -lportmidi -lncurses -llo
+    endif
+endif
+
+CFLAGS = -Wall -O2 -fPIC -I./modules -I. $(PKG_CONFIG_CFLAGS)
+LDFLAGS = $(PKG_CONFIG_LIBS) -ldl -lpthread -lm
 
 # === Modules ===
 MODULE_DIRS := $(shell find modules -type f -name Makefile -exec dirname {} \;)
@@ -32,10 +56,10 @@ it: clean all
 # Build individual module with cleanup
 $(filter-out $(SPECIAL_TARGETS),$(MAKECMDGOALS)):
 	@modpath=modules/$@; \
-	dylib="$$modpath/$@.dylib"; \
-	if [ -f "$$dylib" ]; then \
-		echo "Removing $$dylib..."; \
-		rm -f "$$dylib"; \
+	lib="$$modpath/$@.$(SHARED_EXT)"; \
+	if [ -f "$$lib" ]; then \
+		echo "Removing $$lib..."; \
+		rm -f "$$lib"; \
 	fi; \
 	echo "Building module $@..."; \
 	$(MAKE) -C $$modpath

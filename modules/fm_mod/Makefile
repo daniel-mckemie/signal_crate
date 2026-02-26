@@ -1,3 +1,13 @@
+UNAME := $(shell uname)
+
+ifeq ($(UNAME), Darwin)
+    SHARED_EXT = dylib
+    SHARED_FLAG = -dynamiclib
+else
+    SHARED_EXT = so
+    SHARED_FLAG = -shared
+endif
+
 MODULE_NAME = fm_mod
 MODULE_DIR = ../..
 
@@ -5,15 +15,17 @@ SRC = $(MODULE_NAME).c
 UTIL = $(MODULE_DIR)/util.c
 MODULE = $(MODULE_DIR)/module.c
 
-CC = gcc
-CFLAGS = -Wall -O2 -fPIC -I$(MODULE_DIR) -I/opt/homebrew/include
-LDFLAGS = -L/opt/homebrew/lib -dynamiclib -lportaudio -lpthread -lm -lncurses
+# Use pkg-config to get library flags
+PKG_CONFIG_CFLAGS := $(shell pkg-config --cflags portaudio-2.0 portmidi liblo ncurses 2>/dev/null)
+PKG_CONFIG_LIBS := $(shell pkg-config --libs portaudio-2.0 portmidi liblo ncurses 2>/dev/null)
 
-$(MODULE_NAME).dylib: $(SRC) $(UTIL)
-	$(CC) $(CFLAGS) -o $(MODULE_NAME).dylib $(SRC) $(UTIL) $(MODULE) $(LDFLAGS)
+CC = gcc
+CFLAGS = -Wall -O2 -fPIC -I$(MODULE_DIR) $(PKG_CONFIG_CFLAGS)
+LDFLAGS = $(PKG_CONFIG_LIBS) $(SHARED_FLAG) -lpthread -lm
+
+$(MODULE_NAME).$(SHARED_EXT): $(SRC) $(UTIL)
+	$(CC) $(CFLAGS) $(LDFLAGS) -o $(MODULE_NAME).$(SHARED_EXT) \
+	$(SRC) $(UTIL) $(MODULE)
 
 clean:
-	rm -f *.dylib
-
-
-
+	rm -f *.dylib *.so

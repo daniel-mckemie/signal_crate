@@ -1,21 +1,37 @@
-MODULE_NAME = c_midi_to_cv
-MODULE_DIR  = ../..
+UNAME := $(shell uname)
 
-SRC    = $(MODULE_NAME).c
-UTIL   = $(MODULE_DIR)/util.c
+ifeq ($(UNAME), Darwin)
+    SHARED_EXT = dylib
+    SHARED_FLAG = -dynamiclib
+else
+    SHARED_EXT = so
+    SHARED_FLAG = -shared
+endif
+
+MODULE_NAME = c_midi_to_cv
+MODULE_DIR = ../..
+
+SRC = $(MODULE_NAME).c
+UTIL = $(MODULE_DIR)/util.c
 MODULE = $(MODULE_DIR)/module.c
 
-CC = gcc
-CFLAGS  = -Wall -O2 -fPIC -I$(MODULE_DIR) -I/opt/homebrew/include
-LDFLAGS = -dynamiclib \
-          -Wl,-undefined,dynamic_lookup \
-          -lpthread -lm -lncurses
+# Use pkg-config to get library flags
+PKG_CONFIG_CFLAGS := $(shell pkg-config --cflags portaudio-2.0 portmidi liblo ncurses 2>/dev/null)
+PKG_CONFIG_LIBS := $(shell pkg-config --libs portaudio-2.0 portmidi liblo ncurses 2>/dev/null)
 
-$(MODULE_NAME).dylib: $(SRC) $(UTIL) $(MODULE)
-	$(CC) $(CFLAGS) -o $(MODULE_NAME).dylib \
-	$(SRC) $(UTIL) $(MODULE) \
-	$(LDFLAGS)
+CC = gcc
+CFLAGS = -Wall -O2 -fPIC -I$(MODULE_DIR) $(PKG_CONFIG_CFLAGS)
+
+# Special handling for dynamic symbol resolution
+ifeq ($(UNAME), Darwin)
+    LDFLAGS = $(PKG_CONFIG_LIBS) $(SHARED_FLAG) -undefined dynamic_lookup -lpthread -lm
+else
+    LDFLAGS = $(PKG_CONFIG_LIBS) $(SHARED_FLAG) -lpthread -lm
+endif
+
+$(MODULE_NAME).$(SHARED_EXT): $(SRC) $(UTIL)
+	$(CC) $(CFLAGS) $(LDFLAGS) -o $(MODULE_NAME).$(SHARED_EXT) \
+	$(SRC) $(UTIL) $(MODULE)
 
 clean:
-	rm -f *.dylib
-
+	rm -f *.dylib *.so

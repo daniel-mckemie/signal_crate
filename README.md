@@ -11,7 +11,13 @@ computer keyboard, one another, or using OSC.
 chmod +x build.sh
 ./build.sh
 ```
-The build script automatically installs all dependencies and builds Signal Crate for macOS and Linux.
+**Install for Raspberry Pi (In Progress):**
+```bash
+chmod +x install_signalcrate_pi.sh
+./install_signalcrate_pi.sh
+```
+
+The build script automatically installs all dependencies and builds Signal Crate for macOS and Linux. Some Linux distros may need additional tooling and path adjustments. I don't use Linux extensively, so I cannot advise too much! (yet)
 
 **Manual Install:**
 1. Clone this repo

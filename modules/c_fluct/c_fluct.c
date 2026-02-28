@@ -88,7 +88,7 @@ static void clamp_params(CFluct* s) {
 
 static void c_fluct_draw_ui(Module* m, int y, int x) {
     CFluct* s = (CFluct*)m->state;
-    const char* modes[] = {"Noise", "Walk"};
+    const char* modes[] = {"noise", "walk"};
     pthread_mutex_lock(&s->lock);
     float rate = s->display_rate;
     float depth = s->display_depth;
@@ -192,12 +192,17 @@ Module* create_module(const char* args, float sample_rate) {
 	if (args && strstr(args, "depth=")) {
         sscanf(strstr(args, "depth="), "depth=%f", &depth);
     }
-	if (args && strstr(args, "mode=")) {
+    if (args && strstr(args, "mode=")) {
         char mode_str[32] = {0};
-        sscanf(strstr(args, "mode="), "mode=%31s", mode_str);
-        if (strcmp(mode_str, "noise") == 0) mode = FLUCT_NOISE;
-        else if (strcmp(mode_str, "walk") == 0) mode = FLUCT_WALK;
-        else fprintf(stderr, "[c_fluct] Unknown mode type: '%s'\n", mode_str);
+
+        sscanf(strstr(args, "mode="), "mode=%31[^,]]", mode_str);
+
+        if (strcmp(mode_str, "noise") == 0)
+            mode = FLUCT_NOISE;
+        else if (strcmp(mode_str, "walk") == 0)
+            mode = FLUCT_WALK;
+        else
+            fprintf(stderr, "[c_fluct] Unknown mode type: '%s'\n", mode_str);
     }
 
 

@@ -11,13 +11,24 @@ computer keyboard, one another, or using OSC.
 chmod +x build.sh
 ./build.sh
 ```
-**Install for Raspberry Pi (In Progress):**
-```bash
-chmod +x install_signalcrate_pi.sh
-./install_signalcrate_pi.sh
-```
+The build script automatically installs all dependencies and builds Signal Crate for macOS and Linux. I have tested this on an ARM Raspberry Pi to success, you may need to adjust package paths and config based on your setup. I aim to have more support for this moving forward. If you want to have an alias to arm Signal Crate in your directory, add the following to your zsh pr bash profile.
 
-The build script automatically installs all dependencies and builds Signal Crate for macOS and Linux. Some Linux distros may need additional tooling and path adjustments. I don't use Linux extensively, so I cannot advise too much! (yet)
+```bash
+# adjust this to your Signal Crate root
+SIGNAL_CRATE_DIR="$HOME/signal_crate"
+SIGNAL_CRATE_BIN="$SIGNAL_CRATE_DIR/SignalCrate"
+sig() {
+    local arg="$1"
+
+    cd "$SIGNAL_CRATE_DIR" || return 1
+
+    if [ -n "$arg" ]; then
+        "$SIGNAL_CRATE_BIN" "$arg"
+    else
+        "$SIGNAL_CRATE_BIN"
+    fi
+}
+```
 
 **Manual Install:**
 1. Clone this repo

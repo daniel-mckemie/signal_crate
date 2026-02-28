@@ -6,38 +6,37 @@ else
     SHARED_EXT = so
 endif
 
-APP = SignalCrate
+APP  = SignalCrate
+CC   = gcc
+
 SRCS = main.c engine.c scheduler.c ui.c module_loader.c util.c osc.c midi.c module.c
 
-# Use pkg-config to get library flags, with fallback to homebrew paths
-PKG_CONFIG_CFLAGS := $(shell pkg-config --cflags portaudio-2.0 portmidi liblo ncurses 2>/dev/null)
-PKG_CONFIG_LIBS := $(shell pkg-config --libs portaudio-2.0 portmidi liblo ncurses 2>/dev/null)
+PKG_CFLAGS := $(shell pkg-config --cflags portaudio-2.0 sndfile fftw3 liblo ncurses)
+PKG_LIBS   := $(shell pkg-config --libs   portaudio-2.0 sndfile fftw3 liblo ncurses)
 
-# Fallback to homebrew paths if pkg-config fails
-ifeq ($(PKG_CONFIG_LIBS),)
-    ifeq ($(UNAME), Darwin)
-        PKG_CONFIG_CFLAGS = -I/opt/homebrew/include
-        PKG_CONFIG_LIBS = -L/opt/homebrew/lib -lportaudio -lportmidi -lncurses -llo
-    else
-        PKG_CONFIG_CFLAGS =
-        PKG_CONFIG_LIBS = -lportaudio -lportmidi -lncurses -llo
+PORTMIDI_CFLAGS :=
+PORTMIDI_LDFLAGS := -lportmidi
+
+ifeq ($(UNAME), Darwin)
+    PORTMIDI_PREFIX := $(shell brew --prefix portmidi 2>/dev/null)
+    ifneq ($(PORTMIDI_PREFIX),)
+        PORTMIDI_CFLAGS += -I$(PORTMIDI_PREFIX)/include
+        PORTMIDI_LDFLAGS = -L$(PORTMIDI_PREFIX)/lib -lportmidi
     endif
 endif
 
-CFLAGS = -Wall -O2 -fPIC -I./modules -I. $(PKG_CONFIG_CFLAGS)
-LDFLAGS = $(PKG_CONFIG_LIBS) -ldl -lpthread -lm
+CFLAGS  = -Wall -O2 -fPIC -I./modules -I. $(PKG_CFLAGS) $(PORTMIDI_CFLAGS)
+LDFLAGS = $(PKG_LIBS) $(PORTMIDI_LDFLAGS) -ldl -lpthread -lm
 
-# === Modules ===
 MODULE_DIRS := $(shell find modules -type f -name Makefile -exec dirname {} \;)
 SPECIAL_TARGETS := all clean modules it
 
-# === Targets ===
 .PHONY: all modules clean
 
 all: $(APP) modules
 
 $(APP): $(SRCS)
-	gcc $(CFLAGS) -o $(APP) $(SRCS) $(LDFLAGS)
+	$(CC) $(CFLAGS) -o $(APP) $(SRCS) $(LDFLAGS)
 
 modules:
 	@for dir in $(MODULE_DIRS); do \
@@ -47,20 +46,15 @@ modules:
 
 clean:
 	rm -f $(APP)
-	for dir in $(MODULE_DIRS); do \
+	@for dir in $(MODULE_DIRS); do \
 		$(MAKE) -C $$dir clean; \
 	done
 
 it: clean all
 
-# Build individual module with cleanup
 $(filter-out $(SPECIAL_TARGETS),$(MAKECMDGOALS)):
 	@modpath=modules/$@; \
 	lib="$$modpath/$@.$(SHARED_EXT)"; \
-	if [ -f "$$lib" ]; then \
-		echo "Removing $$lib..."; \
-		rm -f "$$lib"; \
-	fi; \
+	rm -f "$$lib"; \
 	echo "Building module $@..."; \
 	$(MAKE) -C $$modpath
-

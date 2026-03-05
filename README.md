@@ -141,6 +141,27 @@ are assignable via CV, mostly for ease of architecture and lack of musical purpo
 controllable via OSC. `wave` for example, is not assignable via CV but is as a button/toggle via OSC.
 
 ---
+## Using Ambisonics
+Signal Crate can convert, unpack, and decode files and streams for 1st order ambisonics. The workflow
+for handling raw Ambisonics A format recordings is:
+1. Load 4-channel (required) polywav file into `e_ambi_a_to_b`
+2. Unpack the output file into `e_polywav_split`
+3. Arm a Signal Crate patch to twin decoders and mix upon output. The simplest example is:
+```bash
+wav_player(file=/path/to/fileW.wav) as w
+wav_player(file=/path/to/fileX.wav) as x
+wav_player(file=/path/to/fileY.wav) as y
+wav_player(file=/path/to/fileZ.wav) as z
+
+ambi_decode([ch=left],w,x,y,z) as left
+ambi_decode([ch=right],w,x,y,z) as right
+
+vca(left) as out1
+vca(right) as out2
+```
+Any processing or treatment of w,x,y, and z can be made between file load and output.
+
+---
 
 ## Audio Modules
 
@@ -156,6 +177,16 @@ input([ch=8]) as in8
 vca(in8) as out3
 ```
 - `amp` - amplitude of signal
+
+---
+
+### **Ambisonics Decode**
+`ambi_decode`
+Ambisonics decode module.
+- `azi` - azimuth/listener rotation in degrees (0-360)
+- `elev` - elevation/vertical angle in degrees (-90 to +90)
+- `gain` - output gain level
+- `width` - stereo width control (0=mono, 1=full stereo width)
 
 ---
 
@@ -640,6 +671,16 @@ vco as v3
 e_recorder(v1, v2, v3) as rec
 vca(rec) as out
 ```
+
+---
+
+### **Ambisonics A to B**
+`e_ambi_a_to_b`
+Converts a 4-channel polywav file from Ambisonics A format to B. In Signal Crate,
+the next step is to use `e_polywav_split` to separate the B format into four useable
+mono channels with `e_ambi_decode`. For the full workflow, reference the above section
+ambisonics. Input file must be a 4-channel polywav.
+`e_ambi_a_to_b([file=/path/to/filename.wav])`
 
 ---
 

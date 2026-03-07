@@ -18,7 +18,7 @@ static void ensure_a_to_b_dir(void) {
 }
 
 static void convert_a_to_b(const char *filepath, unsigned int convert_id,
-                            int ch[4]) {
+                           int ch[4]) {
   SF_INFO in_info = (SF_INFO){0};
   SNDFILE *infile = sf_open(filepath, SFM_READ, &in_info);
   if (!infile) {
@@ -38,7 +38,8 @@ static void convert_a_to_b(const char *filepath, unsigned int convert_id,
   for (int i = 0; i < 4; i++) {
     if (ch[i] < 0 || ch[i] >= in_info.channels) {
       fprintf(stderr,
-              "[e_ambi_a_to_b] channel index %d out of range (file has %d channels)\n",
+              "[e_ambi_a_to_b] channel index %d out of range (file has %d "
+              "channels)\n",
               ch[i], in_info.channels);
       sf_close(infile);
       return;
@@ -84,17 +85,17 @@ static void convert_a_to_b(const char *filepath, unsigned int convert_id,
       float lbd = a_frame[i * in_info.channels + ch[2]]; // Left Back Down
       float rbu = a_frame[i * in_info.channels + ch[3]]; // Right Back Up
 
-      // A-to-B conversion matrix (standard SoundField-style)
-      float w = 0.5f * (lfu + rfd + lbd + rbu); // Omnidirectional
-      float x = 0.5f * (lfu + rfd - lbd - rbu); // Front-Back
-      float y = 0.5f * (lfu - rfd + lbd - rbu); // Left-Right
-      float z = 0.5f * (lfu - rfd - lbd + rbu); // Up-Down
+      // A-to-B conversion: AmbiX / SN3D
+      float w = 0.5f * (lfu + rfd + lbd + rbu);
+      float x = 0.5f * (lfu + rfd - lbd - rbu);
+      float y = 0.5f * (lfu - rfd + lbd - rbu);
+      float z = 0.5f * (lfu - rfd - lbd + rbu);
 
-      // B-format output
+      // AmbiX channel order: W, Y, Z, X
       b_frame[i * 4 + 0] = w;
-      b_frame[i * 4 + 1] = x;
-      b_frame[i * 4 + 2] = y;
-      b_frame[i * 4 + 3] = z;
+      b_frame[i * 4 + 1] = y;
+      b_frame[i * 4 + 2] = z;
+      b_frame[i * 4 + 3] = x;
     }
     sf_writef_float(outfile, b_frame, frames);
   }
@@ -135,8 +136,8 @@ Module *create_module(const char *args, float sample_rate) {
   }
 
   if (args && strstr(args, "channels=")) {
-    sscanf(strstr(args, "channels="), "channels=%d,%d,%d,%d",
-           &ch[0], &ch[1], &ch[2], &ch[3]);
+    sscanf(strstr(args, "channels="), "channels=%d,%d,%d,%d", &ch[0], &ch[1],
+           &ch[2], &ch[3]);
   }
 
   ensure_a_to_b_dir();

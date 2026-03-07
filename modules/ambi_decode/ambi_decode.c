@@ -23,11 +23,11 @@ static void ambi_decode_process(Module *m, float *in, unsigned long frames) {
   AmbiDecode *s = (AmbiDecode *)m->state;
   float *out = m->output_buffer;
 
-  // Get input channels: W, X, Y, Z
+  // AmbiX input order from e_ambi_a_to_b: W, Y, Z, X
   float *w_ch = (m->num_inputs > 0) ? m->inputs[0] : NULL;
-  float *x_ch = (m->num_inputs > 1) ? m->inputs[1] : NULL;
-  float *y_ch = (m->num_inputs > 2) ? m->inputs[2] : NULL;
-  float *z_ch = (m->num_inputs > 3) ? m->inputs[3] : NULL;
+  float *y_ch = (m->num_inputs > 1) ? m->inputs[1] : NULL;
+  float *z_ch = (m->num_inputs > 2) ? m->inputs[2] : NULL;
+  float *x_ch = (m->num_inputs > 3) ? m->inputs[3] : NULL;
 
   if (!w_ch) {
     memset(out, 0, frames * sizeof(float));
@@ -100,18 +100,12 @@ static void ambi_decode_process(Module *m, float *in, unsigned long frames) {
 
     float decoded;
     if (channel == CHANNEL_LEFT) {
-      // Left channel: L = W + 0.707 * (X * cos(az) + Y * sin(az) + Z * sin(el))
       decoded =
-          w + 0.707f * width *
-                  (x * cosf(az_rad) + y * sinf(az_rad) + z * sinf(el_rad));
+          w + width * (x * cosf(az_rad) + y * sinf(az_rad) + z * sinf(el_rad));
     } else {
-      // Right channel: R = W + 0.707 * (X * cos(az) - Y * sin(az) + Z *
-      // sin(el))
       decoded =
-          w + 0.707f * width *
-                  (x * cosf(az_rad) - y * sinf(az_rad) + z * sinf(el_rad));
+          w + width * (x * cosf(az_rad) - y * sinf(az_rad) + z * sinf(el_rad));
     }
-
     out[i] = decoded * gain;
   }
 

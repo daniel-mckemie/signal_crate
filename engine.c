@@ -308,9 +308,6 @@ void process_audio(float* input, float* output, unsigned long frames) {
 		}
     }
 
-	double block_ms = (1000.0 * frames / sample_rate);
-	scheduler_tick(block_ms);
-
 	// --- Final multi-channel mixdown ---
 	int num_channels = g_num_output_channels;
 	const PaDeviceInfo* info = Pa_GetDeviceInfo(Pa_GetDefaultOutputDevice());

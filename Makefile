@@ -9,7 +9,7 @@ endif
 APP  = SignalCrate
 CC   = gcc
 
-SRCS = main.c engine.c scheduler.c ui.c module_loader.c util.c osc.c midi.c module.c
+SRCS = main.c engine.c ui.c module_loader.c util.c osc.c midi.c module.c
 
 PKG_CFLAGS := $(shell pkg-config --cflags portaudio-2.0 sndfile fftw3 liblo ncurses)
 PKG_LIBS   := $(shell pkg-config --libs   portaudio-2.0 sndfile fftw3 liblo ncurses)

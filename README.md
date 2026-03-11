@@ -1,8 +1,5 @@
 # Signal Crate
-Signal Crate is a terminal application written entirely in C for live audio processing
-and performance that is lightweight and easily expandable. Blending the worlds of control voltage,
-scripted event programming with modular synthesizer design. All modules are controllable via the
-computer keyboard, one another, or using OSC.
+Signal Crate is a modular audio environment for macOS and Linux that runs in the terminal and is built in C for real-time sound synthesis, processing, editing, and voltage control. Unlike traditional DAWs, it emphasizes transparency, determinism, and compositional precision at the sample level. It is architecturally minimal with control and audio processing running in two sequential passes on a single real-time audio thread with dedicated threads for UI, MIDI, and OSC. Because control runs at the same rate as audio, modulation is continuous and artifact-free, meaning no zipper noise, no stepped CV, no block-rate quantization of parameter changes. This matches the behavior of analog hardware, much of which was the primary inspiration for the project in the first place. Modules span synthesis, sampling, spectral/FFT processing, dynamics, effects, control voltage, MIDI (7- and 14-bit), ambisonics, and offline environment tasks, all sharing a common C interface for straightforward extension.
 
 ## Installation
 
@@ -11,7 +8,7 @@ computer keyboard, one another, or using OSC.
 chmod +x build.sh
 ./build.sh
 ```
-The build script automatically installs all dependencies and builds Signal Crate for macOS and Linux. I have tested this on an ARM Raspberry Pi to success, you may need to adjust package paths and config based on your setup. I aim to have more support for this moving forward. If you want to have an alias to arm Signal Crate in your directory, add the following to your zsh pr bash profile.
+The build script automatically installs all dependencies and builds Signal Crate for macOS and Linux. I have tested this on an ARM Raspberry Pi to success, you may need to adjust package paths and config based on your setup. I aim to have more support for this moving forward. If you want to have an alias to arm Signal Crate in your directory, add the following to your zsh or bash profile.
 
 ```bash
 # adjust this to your Signal Crate root
@@ -37,7 +34,8 @@ sig() {
 4. Execute `./SignalCrate`
 
 ## Notes on the environment:
-- There are dedicated audio, control, and UI threads
+- Control and audio run in two sequential passes on a single PortAudio callback thread, with  dedicated
+threads for UI, MIDI, and OSC.
 - Modules follow similar design patterns for processing audio, UI, OSC, and control functions, with
 a central engine to wire it together. This allows for new modules to be created as they are needed.
 - The `input` module can take in multichannel audio independently.
@@ -204,7 +202,7 @@ Dual input with control over amp of each signal.
 `bark_processor`
 Dual-input, Bark-scale filter bank processor inspired by Verbos-style spectral dynamics .
 
-- `ctr` - spectral center; move the active emphais window low to high
+- `ctr` - spectral center; move the active emphasis window low to high
 - `wid` - spectral width; how many neighboring bands around the center are emphasized (narrow to wide)
 - `tilt` - spectral tilt; positive values boost higher bands and attenuate lower ones while negative values do the opposite
 - `drv` - output drive; increases nonlinear coloration harmonic density after band summation
@@ -212,7 +210,7 @@ Dual-input, Bark-scale filter bank processor inspired by Verbos-style spectral d
 - `oge` - even-band output gain
 - `o2e` - odd-to-even envelope mod enable; odd-band envelopes modulated paired even bands, creating cross-bank amp coupling
 - `e2o` - even-to-odd envelope mod enable; even-band envelopes modulate paired odd bands, creating reciprocal cross-bank coupling
-- `b` - selected Bark band index; chooses which indvidual band is targeted for per-band gain adjustment
+- `b` - selected Bark band index; chooses which individual band is targeted for per-band gain adjustment
 - `g` - per-band gain for selected band; scales amplitude before windowing, tilt, and bank gain are applied
 
 ---
@@ -238,8 +236,8 @@ Basic delay line.
 `freeverb`
 Schroeder reverb
 - `fb` - feedback
-- `damp` - dampness of reveberated signal
-- `wet` - mix of amount of reverated signal
+- `damp` - dampness of reverberated signal
+- `wet` - mix of amount of reverberated signal
 
 ---
 
@@ -290,7 +288,7 @@ Generates white, pink, or brown noise.
 
 ### **Phase Modulator**
 `pm_mod`
-Dual input, classic digial PM with base freq setting
+Dual input, classic digital PM with base freq setting
 `pm_mod(in1,in2) as pm1`
 - `car_amp` - amplitude of carrier signal
 - `mod_amp` - amplitude of modulator signal
@@ -387,7 +385,7 @@ Waveform oscillator.
 `center` - Bark-domain window center
 `width` - Bark window width
 `atk_ms` - envelope attack
-`rel_ms` - enevelope release
+`rel_ms` - envelope release
 `curve` - envelope response shaping
 `bandN` - per-band gain (band0 - band 23)
 
@@ -436,7 +434,7 @@ Secondary clocks each have their own mult, pw, and switch behavior, but are alwa
 The primary clock switch will always control the secondary clocks' switch.
 
 This example has one `primeclk` controlling two clocks. You can only have ONE primary clock, as opposed to families
-of clocks. If you want indepdendent clocks, see `c_clock_u`.
+of clocks. If you want independent clocks, see `c_clock_u`.
 ```bash
 c_clock_s as primeclk
 c_clock_s(in=primeclk) as secondclk
@@ -468,7 +466,7 @@ c_clock_u as indyclk
 ### **CV Monitor**
 `c_cv_monitor`
 Monitors incoming and outgoing signal, and gives extra utils
-- `in` (va) = to pass in control signal, must call `c_cv_monitor(in=alias)`
+- `in`  - to pass in control signal, must set the assignment of `in`, for example `c_cv_monitor(in=alias)`
 - `att` - attenuvert 
 - `off` - offset
 
@@ -478,13 +476,13 @@ Monitors incoming and outgoing signal, and gives extra utils
 `c_cv_proc`
 Flexible control signal processor. Modeled after Buchla 257
 `V_a * K + V_b * (1 - M) + M * V_c + V_offset = V_out`
-- `in` (va) = to pass in control signal, must call `c_cv_proc(in=alias)`
+- `in` (va) - to pass in control signal, must set the assignment of `in`, for example `c_cv_proc(in=alias)`
 - `vb` - input to crossfade with `vc`
 - `vc` - input to crossfade with `vb`
 
 Params controllable via OSC
 - `k` - scale factor 
-- `m` - crossface between `vb` and `vc` 
+- `m` - crossfade between `vb` and `vc` 
 - `offset` - offset input or built-in offset
 
 ---
@@ -498,7 +496,7 @@ Extracts amplitude envelope.
 
 ---
 
-### **Fluctating Random Voltages**
+### **Fluctuating Random Voltages**
 `c_fluct`
 Fluctuating Random Voltages after the Buchla 266
 - `rate` - rate of fluctuation 
@@ -520,7 +518,7 @@ Attack-Release slope generator. No sustain, only trig to fire
 
 ### **LFO**
 `c_lfo`
-Low-frequency waveform modulator running on the control thread
+Low-frequency waveform modulator
 - `rate` - rate/frequency speed[0.001 - 100.0]
 - `amp` - strength of signal output
 - `wave` - waveform (sine, sawtooth, square, triangle)
@@ -632,7 +630,7 @@ and routes out as audio, set to output channel similar to VCA.
 - `val` - output value of CV
 ```bash
 c_lfo as l1
-c_output(l1) as out3` // output lfo from Signal Crate to channel 3 of interface
+c_output(l1) as out3 // output lfo from Signal Crate to channel 3 of interface
 ```
 *To output audio as CV, use `audio -> c_env_fol -> c_output`*
 
@@ -724,24 +722,6 @@ To monitor the audio, `out` alias is required. No inputs.
 
 ---
 
-## Script Box
-The Script Box module allows for functions to be declared and targeted throughout the system. The Script Box is armed
-and goes into a separate editor, and here functions can be declared line by line. In the main Signal Crate UI view, the
-module can be run using the `Ctrl+R` command. Every function is equipped to either run as a one-shot or on a cycle. To
-use the cycle feature, the last argument is preceded with a `~` and the value to cycle in milliseconds.
-
-Each function is on their own scheduler and uses OSC to target modules and their params within Signal Crate. A list of 
-available functions is below, along with their arguments.
-
-- `rand` - random number generator (min,max,alias,param)
-
-```bash
-rand(100,1000,vco1,freq)    // Sends a one-shot random value to vco1's frequency param
-rand(0.3,0.6,vco1,amp,~500) // Sends a random value to vco1's amp param every 500ms
-```
-
----
-
 ## OSC Instructions
 
 OSC routes are assigned using `alias/param`.  
@@ -767,15 +747,15 @@ Your layout will target each oscillator. But the alias must match your layout!
 
 All modules expect -1.0f - 1.0f and all OSC params are designed to work with 0-1.
 For example, if you have a slider `/vco1/freq` setting 0-1 automatically gives you
-the required range as a lograthmic control.
+the required range as a logarithmic control.
 
 - An extra note:
-For OSC compatibility. Firewall must allow incoming connections to terminal.
+For OSC network compatibility. Firewall must allow incoming connections to terminal.
 Depending on your settings, this may silently block incoming UDP connections.
 Add terminal/iterm to firewall allowance, and if needed run these commands:
 
-- `sudo /usr/libexec/ApplicationFirewall/socketfilterfw --add /Applications/iTerm.app`
-- `sudo /usr/libexec/ApplicationFirewall/socketfilterfw --unblockapp /Applications/iTerm.app`
+- `sudo /usr/libexec/ApplicationFirewall/socketfilterfw --add /Applications/Terminal.app`
+- `sudo /usr/libexec/ApplicationFirewall/socketfilterfw --unblockapp /Applications/Terminal.app`
 - `sudo /usr/libexec/ApplicationFirewall/socketfilterfw --add path/to/signal_crate/SignalCrate`
 - `sudo /usr/libexec/ApplicationFirewall/socketfilterfw --unblockapp path/to/signal_crate/SignalCrate`
 

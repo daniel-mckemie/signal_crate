@@ -20,20 +20,7 @@ typedef struct ScriptBox {
 
     // --- status ---
     char last_result[128];
-
-    // --- scheduling state ---
-    int looping;
-    unsigned int interval_ms;
-    char loop_cmd[256];
-    pthread_t loop_thread;
 } ScriptBox;
-
-typedef struct {
-    char script_line[256];
-    void* scriptbox_ptr;  // pointer back to ScriptBox
-} ScriptEvent;
-
-void run_script_line_cb(void* userdata);
 
 #endif
 

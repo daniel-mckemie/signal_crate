@@ -73,7 +73,7 @@ static void clamp_params(Noise *state) {
 
 static void noise_draw_ui(Module *m, int y, int x) {
 	Noise *state = (Noise*)m->state;
-	const char *noise_names[] = {"White", "Pink", "Brown"};
+	const char *noise_names[] = {"white", "pink", "brown"};
 
 	float amp;
 	NoiseType noise_type;

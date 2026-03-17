@@ -62,7 +62,7 @@ static void c_sh_process(Module* m, float* in, unsigned long frames) {
 
         if (trig) {
             float x = trig[i];
-            if (last_trig < 0.5f && x >= 0.5f)
+            if (last_trig <= 0.0f && x > 0.0f)
                 triggered = 1;
             last_trig = x;
         } else {

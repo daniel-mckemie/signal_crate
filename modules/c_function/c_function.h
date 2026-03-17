@@ -26,6 +26,10 @@ typedef struct {
 	bool trig_prev;
 	bool cycle_prev_cv;
 
+    bool latch;
+    float latched_att;
+    float latched_rel;
+
 	float attack_start_level;
 	float release_start_level;
     float threshold_trigger;

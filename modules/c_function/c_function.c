@@ -17,6 +17,7 @@ static void c_function_process_control(Module* m, unsigned long frames) {
     float th_trig, th_gate, th_cycle;
     bool  short_mode;
     bool  stop_req;
+    bool  latch;
 
     pthread_mutex_lock(&s->lock);
     base_att   = s->attack_time;
@@ -28,6 +29,7 @@ static void c_function_process_control(Module* m, unsigned long frames) {
     th_cycle   = s->threshold_cycle;
     short_mode = s->short_mode;
     stop_req   = s->cycle_stop_requested;
+    latch      = s->latch;
     pthread_mutex_unlock(&s->lock);
 
     float att_s   = process_smoother(&s->smooth_att,   base_att);
@@ -111,13 +113,22 @@ static void c_function_process_control(Module* m, unsigned long frames) {
 
         bool fire = (trig_now && !prev_trig) || (gate_now && !prev_gate);
 
-        if (fire && s->state == ENV_IDLE)
+        if (fire && s->state == ENV_IDLE) {
+            if (latch) {
+                s->latched_att = att;
+                s->latched_rel = rel;
+            }
             s->state = ENV_ATTACK;
+        }
+
+        // Determine effective att/rel for this sample
+        float eff_att = latch ? s->latched_att : att;
+        float eff_rel = latch ? s->latched_rel : rel;
 
         switch (s->state) {
 
             case ENV_ATTACK: {
-                float delta = step / fmaxf(att, 0.001f);
+                float delta = step / fmaxf(eff_att, 0.001f);
                 s->envelope_out += delta;
                 if (s->envelope_out >= 1.0f) {
                     s->envelope_out = 1.0f;
@@ -127,11 +138,15 @@ static void c_function_process_control(Module* m, unsigned long frames) {
             }
 
             case ENV_RELEASE: {
-                float delta = step / fmaxf(rel, 0.001f);
+                float delta = step / fmaxf(eff_rel, 0.001f);
                 s->envelope_out -= delta;
                 if (s->envelope_out <= 0.0f) {
                     s->envelope_out = 0.0f;
                     if (cycle && !stop_req) {
+                        if (latch) {
+                            s->latched_att = att;
+                            s->latched_rel = rel;
+                        }
                         s->state = ENV_ATTACK;
                     } else {
                         cycle = 0;
@@ -145,6 +160,10 @@ static void c_function_process_control(Module* m, unsigned long frames) {
             case ENV_IDLE:
             default:
                 if (cycle && !stop_req) {
+                    if (latch) {
+                        s->latched_att = att;
+                        s->latched_rel = rel;
+                    }
                     s->state = ENV_ATTACK;
                 } else {
                     s->envelope_out = 0.0f;
@@ -154,8 +173,8 @@ static void c_function_process_control(Module* m, unsigned long frames) {
 
         out[i] = s->envelope_out * depth;
 
-        disp_att   = att;
-        disp_rel   = rel;
+        disp_att   = latch ? s->latched_att : att;
+        disp_rel   = latch ? s->latched_rel : rel;
         disp_depth = depth;
 
         prev_gate = gate_now;
@@ -211,11 +230,12 @@ static void c_function_draw_ui(Module* m, int y, int x) {
     ORANGE(); printw(" %.2f|", s->display_depth); CLR();
 
     ORANGE(); printw("%s|", s->short_mode ? "s" : "l"); CLR();
-    ORANGE(); printw("%s", s->display_cycle ? "c" : "t"); CLR();
+    ORANGE(); printw("%s|", s->display_cycle ? "c" : "t"); CLR();
+    ORANGE(); printw("%s", s->latch ? "l" : "nl"); CLR();
 
     YELLOW();
-    mvprintw(y+1, x, "Keys: fire/cycle f/c, att -/=, rel _/+, gate [/], depth d/D, sh/lng [m]");
-    mvprintw(y+2, x, "Command: :1 [att], :2 [rel], :3 [g_thresh], :d[depth]");
+    mvprintw(y+1, x, "fire/cyc/lch f/c/l, att -/=, rel _/+, gate [/], dpth d/D, s/l [m]");
+    mvprintw(y+2, x, "Command: :1 [att], :2 [rel], :3 [g_thresh], :d [depth]");
     pthread_mutex_unlock(&s->lock);
     BLACK();
 }
@@ -228,19 +248,15 @@ static void c_function_handle_input(Module* m, int key) {
     if (!s->entering_command) {
         switch (key) {
 
-            /* Trigger once (does not force state; just sets intent via stop flag + one-shot) */
             case 'f':
-                /* if cycling, request stop after current release */
                 if (s->cycle) {
                     s->cycle_stop_requested = true;
                 } else {
-                    /* one-shot trigger is done by nudging trig_prev edge detector */
                     s->trig_prev = false;
                 }
                 handled = 1;
                 break;
 
-            /* Cycle toggle: request stop-after-release; do NOT touch display_cycle */
             case 'c':
                 if (!s->cycle) {
                     s->cycle = true;
@@ -248,6 +264,11 @@ static void c_function_handle_input(Module* m, int key) {
                 } else {
                     s->cycle_stop_requested = true;
                 }
+                handled = 1;
+                break;
+
+            case 'l':
+                s->latch = !s->latch;
                 handled = 1;
                 break;
 
@@ -311,15 +332,15 @@ static void c_function_set_osc_param(Module* m, const char* param, float value) 
     } else if (strcmp(param, "gate") == 0) {
         s->threshold_gate = value;
     } else if (strcmp(param, "cycle") == 0) {
-        /* 0..1: treat as toggle-intent, not display */
         if (value > 0.5f) {
             s->cycle = true;
             s->cycle_stop_requested = false;
         } else {
             s->cycle_stop_requested = true;
         }
+    } else if (strcmp(param, "latch") == 0) {
+        s->latch = (value > 0.5f);
     } else if (strcmp(param, "trig") == 0) {
-        /* trigger intent without forcing engine state */
         if (value > s->threshold_trigger) {
             s->trig_prev = false;
         }
@@ -339,31 +360,53 @@ Module* create_module(const char* args, float sample_rate) {
     float attack_time  = 1.0f;
     float release_time = 1.0f;
     float depth        = 0.5f;
+    int   cycle        = 0;
+    bool  latch        = false;
 
     if (args && strstr(args, "att="))   sscanf(strstr(args, "att="),   "att=%f",   &attack_time);
     if (args && strstr(args, "rel="))   sscanf(strstr(args, "rel="),   "rel=%f",   &release_time);
     if (args && strstr(args, "depth=")) sscanf(strstr(args, "depth="), "depth=%f", &depth);
 
+    if (args && strstr(args, "cycle=")) {
+        char cycle_str[8] = {0};
+        sscanf(strstr(args, "cycle="), "cycle=%7[^,]]", cycle_str);
+        if (strcmp(cycle_str, "c") == 0 || strcmp(cycle_str, "cycle") == 0)
+            cycle = 1;
+        else if (strcmp(cycle_str, "t") == 0 || strcmp(cycle_str, "trig") == 0)
+            cycle = 0;
+        else
+            cycle = atoi(cycle_str);
+    }
+
+    if (args && strstr(args, "latch=")) {
+        char latch_str[4] = {0};
+        sscanf(strstr(args, "latch="), "latch=%3[^,]]", latch_str);
+        latch = (strcmp(latch_str, "l") == 0 || strcmp(latch_str, "y") == 0 || strcmp(latch_str, "1") == 0);
+    }
+
     CFunction* s = calloc(1, sizeof(CFunction));
-    s->attack_time = attack_time;
+    s->attack_time  = attack_time;
     s->release_time = release_time;
-    s->depth = depth;
+    s->depth        = depth;
+    s->latch        = latch;
+    s->latched_att  = attack_time;
+    s->latched_rel  = release_time;
 
     s->sample_rate = sample_rate;
-    s->short_mode = true;
+    s->short_mode  = true;
 
     s->threshold_trigger = 0.5f;
     s->threshold_gate    = 0.5f;
     s->threshold_cycle   = 0.5f;
 
     s->envelope_out = 0.0f;
-    s->state = ENV_IDLE;
+    s->state        = ENV_IDLE;
 
-    s->gate_prev = false;
-    s->trig_prev = false;
+    s->gate_prev     = false;
+    s->trig_prev     = false;
     s->cycle_prev_cv = false;
 
-    s->cycle = false;
+    s->cycle                = cycle ? true : false;
     s->cycle_stop_requested = false;
 
     pthread_mutex_init(&s->lock, NULL);
@@ -374,14 +417,13 @@ Module* create_module(const char* args, float sample_rate) {
     clamp_params(s);
 
     Module* m = calloc(1, sizeof(Module));
-    m->name = "c_function";
-    m->state = s;
+    m->name            = "c_function";
+    m->state           = s;
     m->process_control = c_function_process_control;
-    m->draw_ui = c_function_draw_ui;
-    m->handle_input = c_function_handle_input;
-    m->set_param = c_function_set_osc_param;
-    m->destroy = c_function_destroy;
-    m->control_output = calloc(MAX_BLOCK_SIZE, sizeof(float));
+    m->draw_ui         = c_function_draw_ui;
+    m->handle_input    = c_function_handle_input;
+    m->set_param       = c_function_set_osc_param;
+    m->destroy         = c_function_destroy;
+    m->control_output  = calloc(MAX_BLOCK_SIZE, sizeof(float));
     return m;
 }
-

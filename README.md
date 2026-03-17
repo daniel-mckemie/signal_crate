@@ -1,5 +1,8 @@
 # Signal Crate
-Signal Crate is a modular audio environment for macOS and Linux that runs in the terminal and is built in C for real-time sound synthesis, processing, editing, and voltage control. Unlike traditional DAWs, it emphasizes transparency, determinism, and compositional precision at the sample level. It is architecturally minimal with control and audio processing running in two sequential passes on a single real-time audio thread with dedicated threads for UI, MIDI, and OSC. Because control runs at the same rate as audio, modulation is continuous and artifact-free, meaning no zipper noise, no stepped CV, no block-rate quantization of parameter changes. This matches the behavior of analog hardware, much of which was the primary inspiration for the project in the first place. Modules span synthesis, sampling, spectral/FFT processing, dynamics, effects, control voltage, MIDI (7- and 14-bit), ambisonics, and offline environment tasks, all sharing a common C interface for straightforward extension.
+Signal Crate is a modular audio environment for macOS and Linux, built in C for real-time sound synthesis, processing, and control. Unlike traditional digital audio workstations or modular GUIs, it operates entirely in the terminal, emphasizing transparency, performance, determinism, and compositional precision. The system merges low-level DSP coding with the immediacy of modular synthesis, providing a controlled yet flexible platform for procedural and performance-driven sound design.
+At its foundation, Signal Crate implements a static audio graph: modules and their connections are defined in a plain-text patch file at launch and remain fixed for the session. Control and audio run in two sequential passes on a single real-time thread, meaning modulation is continuous and artifact-free giving no zipper noise, no stepped CV, and no block-rate quantization. This matches the behavior of analog hardware, which was the primary inspiration for the project.
+All modules follow a common C interface, making the system straightforward to extend. The framework exposes every module parameter internally and over a network via Open Sound Control and 14-bit MIDI. Each module automatically publishes its controls under unique OSC addresses, enabling remote manipulation from external controllers, scripts, or mobile devices via TouchOSC. This networked interface allows Signal Crate to be controlled remotely within larger hybrid setups combining hardware and software instruments. 
+Beyond the real-time graph, a set of environment modules handles offline and production tasks such as multitrack recording, audio splicing, normalization, polywav unpacking, and a full Ambisonics A-to-B conversion and decoding workflow, to name a few. Together, these layers allow composers and sound designers to build complex modulation networks, spectral transformations, and generative control structures without code or low-level patching.
 
 ## Installation
 
@@ -249,6 +252,15 @@ Single input, sine wave as internal modulator.
 
 ---
 
+### **Limiter**
+`limiter`
+Lookahead brickwall limiter with instant attack and configurable release
+- `thresh` - value for limiting to take place  
+- `rel` - time for sound recovery
+- `look` - lookahead time in ms (max 10ms); only assignable at instantiation
+
+---
+
 ### **Looper**
 `looper`
 10-second (default) looper
@@ -279,7 +291,7 @@ Multi-mode resonant filter (Lowpass/Highpass/Bandpass/Notch/Resonant).
 ---
 
 ### **Noise Source**
-`noise_source`
+`noise`
 Generates white, pink, or brown noise.  
 - `amp` - amplitude of signal 
 - `type` - noise type
@@ -415,8 +427,6 @@ Mono WAV playback.
 Attack-Sustain-Release envelope generator.  
 - `att` - attack 
 - `rel` - release 
-- `trig` - trigger mode (one-shot)
-- `cycle` - cycle mode (repeats env)
 - `depth` - range of output 
 - `long/short` toggles maximum att/rel time (short=10s max, long=no upper bounds)
 
@@ -511,6 +521,9 @@ Attack-Release slope generator. No sustain, only trig to fire
 - `att` - attack 
 - `rel` - release 
 - `gate` - gate threshold, min to fire generator (takes in as control, ie. gate=clk)
+- `trig` - trigger mode (one-shot)
+- `cycle` - cycle mode (repeats env)
+- `latch` - latch mode (latches the CV value upon trigger, held internally for the duration of the cycle, like Buchla 281)
 - `depth` - range of output 
 - `long/short` toggles maximum att/rel time (short=10s max, long=no upper bounds)
 
@@ -599,6 +612,7 @@ Random control signal generator
 ### **Sample and Hold**
 `c_sh`
 Sample and Hold requires audio input and outputs control signal
+- `trig` - CV input to trigger upon rise of signal
 - `rate` - frequency/rate of triggered sample
 - `depth` - range of output 
 

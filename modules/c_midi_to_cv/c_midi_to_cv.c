@@ -50,7 +50,7 @@ static void c_midi_to_cv_draw_ui(Module* m, int y, int x) {
     mvprintw(y, x, "[c_midi_to_cv:%s] ", m->name);
     CLR();
 	
-    LABEL(2, "chan:");
+    LABEL(2, "ch:");
     ORANGE(); printw(" %d", chan); CLR();
 
     LABEL(2, "cc:");
@@ -60,7 +60,7 @@ static void c_midi_to_cv_draw_ui(Module* m, int y, int x) {
     ORANGE(); printw(" %.3f", v); CLR();
 
     YELLOW();
-    mvprintw(y+1, x, "Command mode: :1 [chan#] :2 [cc#]");
+    mvprintw(y+1, x, "Command mode: :1 [ch#] :2 [cc#]");
     BLACK();
 }
 
@@ -124,8 +124,8 @@ Module* create_module(const char* args, float sample_rate) {
 	if (args) {
 		if (strstr(args, "cc="))
 			sscanf(strstr(args, "cc="), "cc=%d", &cc);
-		if (strstr(args, "chan="))
-			sscanf(strstr(args, "chan="), "chan=%d", &chan);
+		if (strstr(args, "ch="))
+			sscanf(strstr(args, "ch="), "ch=%d", &chan);
 	}
 
 	if (cc < 0) cc = 0;

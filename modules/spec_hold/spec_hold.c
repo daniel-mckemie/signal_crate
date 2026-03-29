@@ -168,12 +168,12 @@ static void spec_hold_draw_ui(Module* m, int y, int x) {
     mvprintw(y,   x, "[SpecTilt:%s] ", m->name);
 	CLR();
 
-	LABEL(2, "pivot:");
-	ORANGE(); printw(" %.2f Hz | ", pivot_hz); CLR();
-
 	LABEL(2, "tilt:");
 	ORANGE(); printw(" %.2f | ", tilt); CLR();
 	
+	LABEL(2, "pivot:");
+	ORANGE(); printw(" %.2f Hz | ", pivot_hz); CLR();
+
 	LABEL(2, "freeze:");
 	ORANGE(); printw(" %s | ", freeze ? "ON" : "OFF"); CLR();
 
@@ -191,10 +191,10 @@ static void spec_hold_handle_input(Module* m, int key) {
 
     if (!state->entering_command) {
         switch (key) {
-            case '=': state->pivot_hz += 0.05f; handled = 1; break;
-            case '-': state->pivot_hz -= 0.05f; handled = 1; break;
-            case '+': state->tilt += 0.01f; handled = 1; break;
-            case '_': state->tilt -= 0.01f; handled = 1; break;
+            case '=': state->tilt += 0.05f; handled = 1; break;
+            case '-': state->tilt -= 0.05f; handled = 1; break;
+            case '+': state->pivot_hz += 0.01f; handled = 1; break;
+            case '_': state->pivot_hz -= 0.01f; handled = 1; break;
             case 'f': state->freeze = !state->freeze; handled = 1; break;
             case ':':
                 state->entering_command = true;
@@ -209,8 +209,8 @@ static void spec_hold_handle_input(Module* m, int key) {
             char type;
             float val;
             if (sscanf(state->command_buffer, "%c %f", &type, &val) == 2) {
-                if (type == '1') {state->pivot_hz = val;}
-				else if (type == '2') {state->tilt = val;}
+                if (type == '1') {state->tilt = val;}
+				else if (type == '2') {state->pivot_hz = val;}
             }
             handled = 1;
         } else if (key == 27) {

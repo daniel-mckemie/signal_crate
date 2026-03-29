@@ -45,6 +45,15 @@ static void vco_process(Module *m, float* in, unsigned long frames) {
 			else if (strcmp(param, "amp") == 0) {
 				amp += control;
 			}
+            else if (strcmp(param, "wave") == 0) {
+                static int last_triggered = 0;
+                int triggered = (control > 0.5f && !last_triggered);
+                last_triggered = (control > 0.5f);
+                if (triggered) {
+                    waveform = (waveform + 1) % 4;
+                    state->waveform = waveform;
+                }
+            }
 		}
 
 		clampf(&freq, 0.01, sample_rate * 0.45f);

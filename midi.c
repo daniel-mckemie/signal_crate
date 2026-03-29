@@ -1,5 +1,4 @@
 #include "midi.h"
-
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -217,7 +216,12 @@ int midi_cc14_raw(int cc) {
 }
 
 float midi_cc14_norm(int cc) {
-    return midi_cc14_raw(cc) / 16383.0f;
+    if (cc < 0 || cc > 31) return 0.0f;
+    pthread_mutex_lock(&g_lock);
+    int msb = g_cc_msb[cc];
+    int lsb = g_cc_lsb[cc];
+    pthread_mutex_unlock(&g_lock);
+
+    if (lsb == 0) return msb / 127.0f;
+    return ((msb << 7) | lsb) / 16383.0f;
 }
-
-

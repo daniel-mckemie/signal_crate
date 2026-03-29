@@ -78,6 +78,9 @@ void ui_loop() {
 	int mod_x[MAX_MODULES] = {0};
 	int mod_y[MAX_MODULES] = {0};
 
+    // Stopwatch timer
+    struct timespec start_time;
+    clock_gettime(CLOCK_MONOTONIC, &start_time);
     while (running) {
         erase();
 		attrset(A_NORMAL);
@@ -95,11 +98,18 @@ void ui_loop() {
 		int mchan = midi_last_channel();
 		int mcc   = midi_last_cc();
 
+        // Stopwatch
+        struct timespec now;
+        clock_gettime(CLOCK_MONOTONIC, &now);
+        int elapsed = (int)(now.tv_sec - start_time.tv_sec);
+        int mm = elapsed / 60;
+        int ss = elapsed % 60;
+
 		if (mchan > 0 && mcc >= 0)
-			mvprintw(0, COLS - 48, "[CPU] %.1f%%  [OSC:%s]  [MIDI ch:%d cc:%d]",
-					 cpu, osc_port, mchan, mcc);
+			mvprintw(0, COLS - 48, "[CPU] %.1f%%  [OSC:%s]  [MIDI ch:%d cc:%d] [%02d:%02d]",
+					 cpu, osc_port, mchan, mcc, mm, ss);
 		else
-			mvprintw(0, COLS - 30, "[CPU] %.1f%%  [OSC:%s]", cpu, osc_port);
+			mvprintw(0, COLS - 48, "[CPU] %.1f%%  [OSC:%s] [%02d:%02d]", cpu, osc_port, mm, ss);
 
 
 		int rows, cols;

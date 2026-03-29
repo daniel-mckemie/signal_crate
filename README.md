@@ -584,7 +584,9 @@ moog_filter(cutoff=c74) as out
 
 **High-resolution control using CC9 (MSB) + CC41 (LSB)**
 
-Sends 14-bit (0-16383) over CC9 with CC41 as LSB internally
+Sends 14-bit (0-16383) over CC9 with CC41 as LSB internally. For example,
+the monitor in the UI will log CC41, but the transmission values are actually
+over CC9. So take your monitor CC - 32 and assign that in your module.
 ```bash
 c_midi_to_cv([ch=1, cc=9]) as c9
 vco(freq=c9) as out

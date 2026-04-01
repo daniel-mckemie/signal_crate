@@ -18,15 +18,8 @@ The build script automatically installs all dependencies and builds Signal Crate
 SIGNAL_CRATE_DIR="$HOME/signal_crate"
 SIGNAL_CRATE_BIN="$SIGNAL_CRATE_DIR/SignalCrate"
 sig() {
-    local arg="$1"
-
     cd "$SIGNAL_CRATE_DIR" || return 1
-
-    if [ -n "$arg" ]; then
-        "$SIGNAL_CRATE_BIN" "$arg"
-    else
-        "$SIGNAL_CRATE_BIN"
-    fi
+    "$SIGNAL_CRATE_BIN" "$@"
 }
 ```
 
@@ -63,17 +56,19 @@ corresponding LSB is CC + 32. When both messages are present, Signal Crate recon
 
 ---
 ## Loading a Signal Crate
-Arm Signal Crate in the directory with `./SignalCrate`, or `sig` within the root directory
+Arm Signal Crate in the directory with `./SignalCrate`, or `sig` if the alias in your profile.
 
 There are two ways to load an environment, declaratively line by line in the terminal or as a .txt file
-passed in as an argument upon launch. (ie. ./SignalCrate mypatch.txt). The language is the same for either
-method.
+passed in as an argument upon launch. The patching language is the same for either method:
+
+`./SignalCrate` = launches with the prompt screen to enter a patch
+`./SignalCrate mypatch.txt` = launches with what is written in mypatch.txt
 
 For example, this would patch two oscillators into a filter and out. `out` is a keyword to output to your system output
 as determined by your local settings. If you want multichannel audio output, using a `vca` with the `out#` nomenclature
-can control specific channel routing out of Signal Crate. More info in the VCA section above.
+can control specific channel routing out of Signal Crate. More info is in the VCA section:
 
-This could be saved in a .txt file all the same:
+This could be saved in a .txt file or typed upon launch of Signal Crate:
 
 ```bash
 vco as vco1
@@ -140,6 +135,15 @@ vco([freq=220], freq=u) as out
 The control parameters for the modules listed above are the exact labels to assign control. Again not all of these
 are assignable via CV, mostly for ease of architecture and lack of musical purpose to build it. They are all, however,
 controllable via OSC. `wave` for example, is not assignable via CV but is as a button/toggle via OSC.
+
+For loading a MIDI device, you may pass in a device name as an argument upon loading Signal Crate, or if left blank
+it will arm the first available device:
+
+`./SignalCrate` = loads the prompt screen to enter a patch and defaults to your first MIDI device...
+`./SignalCrate mypatch.txt Grid` = launches mypatch.txt AND enabled your Intech Studio Grid MIDI controller as your device
+`./SignalCrate Grid` = this will break! You MUST have two arguments to customize MIDI device...your .txt patch file then your device name
+
+Currently Signal Crate only supports one MIDI device, but concurrent OSC and MIDI control is allowed.
 
 ---
 ## Using Ambisonics
@@ -597,8 +601,19 @@ vco(freq=c9) as out
 c_midi_to_cv([ch=1, cc=6]) as freq
 vco(freq=freq) as out
 ```
+As mentioned above, only a single MIDI device is supported at a time. The default
+behavior upon launching a patch is the first MIDI device listed in the system is
+used. You may pass in a second argument to declare a device by name:
+
+`./SignalCrate` = loads the prompt screen to enter a patch and defaults to your first MIDI device...
+`./SignalCrate mypatch.txt Grid` = launches mypatch.txt AND enabled your Intech Studio Grid MIDI controller as your device
+`./SignalCrate Grid` = this will break! You MUST have two arguments to customize MIDI device...your .txt patch file then your device name
+
+A note on the "broken" option of only passing in your device name. This is more elegant to handle programmatically and it also
+allows for managing more complex patches and MIDI routing in a txt file, versus entering this information via the prompt!
 
 ---
+
 
 ### **Random**
 `c_random`

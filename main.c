@@ -70,7 +70,8 @@ int main(int argc, char **argv) {
   if (argc > 1) {
     FILE *f = fopen(argv[1], "r");
     if (!f) {
-      fprintf(stderr, "[main] Failed to open patch file: %s\n", argv[1]);
+      fprintf(stderr, "Usage: signalcrate <patch.txt> [midi-device]\n"
+                      "[main] Failed to open patch file: %s\n", argv[1]);
       Pa_Terminate();
       return 1;
     }
@@ -126,7 +127,8 @@ int main(int argc, char **argv) {
   initialize_engine(patch);
   free(patch);
 
-  midi_start(NULL);
+  const char *midi_device = (argc > 2) ? argv[2] : NULL;
+  midi_start(midi_device);
   midi_print_devices();
 
   // Safety: ensure we have at least one module producing audio

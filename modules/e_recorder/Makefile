@@ -21,11 +21,11 @@ PKG_CONFIG_LIBS := $(shell pkg-config --libs portaudio-2.0 portmidi liblo ncurse
 
 CC = gcc
 CFLAGS = -Wall -O2 -fPIC -I$(MODULE_DIR) $(PKG_CONFIG_CFLAGS)
-LDFLAGS = $(PKG_CONFIG_LIBS) $(SHARED_FLAG) -lpthread -lm
+LDFLAGS = $(PKG_CONFIG_LIBS) -lsndfile $(SHARED_FLAG) -lpthread -lm
 
 $(MODULE_NAME).$(SHARED_EXT): $(SRC) $(UTIL)
-	$(CC) $(CFLAGS) $(LDFLAGS) -o $(MODULE_NAME).$(SHARED_EXT) \
-	$(SRC) $(UTIL) $(MODULE)
+	$(CC) $(CFLAGS) $(SHARED_FLAG) -o $(MODULE_NAME).$(SHARED_EXT) \
+	$(SRC) $(UTIL) $(MODULE) $(PKG_CONFIG_LIBS) -lsndfile -lpthread -lm
 
 clean:
 	rm -f *.dylib *.so

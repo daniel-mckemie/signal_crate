@@ -1,5 +1,4 @@
 UNAME := $(shell uname)
-
 ifeq ($(UNAME), Darwin)
     SHARED_EXT = dylib
 else
@@ -11,8 +10,8 @@ CC   = gcc
 
 SRCS = main.c engine.c ui.c module_loader.c util.c osc.c midi.c module.c
 
-PKG_CFLAGS := $(shell pkg-config --cflags portaudio-2.0 sndfile fftw3 liblo ncurses)
-PKG_LIBS   := $(shell pkg-config --libs   portaudio-2.0 sndfile fftw3 liblo ncurses)
+PKG_CFLAGS := $(shell pkg-config --cflags portaudio-2.0 sndfile fftw3f liblo ncurses)
+PKG_LIBS   := $(shell pkg-config --libs   portaudio-2.0 sndfile fftw3f liblo ncurses)
 
 PORTMIDI_CFLAGS :=
 PORTMIDI_LDFLAGS := -lportmidi
@@ -27,6 +26,11 @@ endif
 
 CFLAGS  = -Wall -O2 -fPIC -I./modules -I. $(PKG_CFLAGS) $(PORTMIDI_CFLAGS)
 LDFLAGS = $(PKG_LIBS) $(PORTMIDI_LDFLAGS) -ldl -lpthread -lm
+
+# On Linux, export all symbols from main binary so .so modules can resolve them at runtime
+ifneq ($(UNAME), Darwin)
+    LDFLAGS += -Wl,--export-dynamic
+endif
 
 MODULE_DIRS := $(shell find modules -type f -name Makefile -exec dirname {} \;)
 SPECIAL_TARGETS := all clean modules it
@@ -58,3 +62,4 @@ $(filter-out $(SPECIAL_TARGETS),$(MAKECMDGOALS)):
 	rm -f "$$lib"; \
 	echo "Building module $@..."; \
 	$(MAKE) -C $$modpath
+

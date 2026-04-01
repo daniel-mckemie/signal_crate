@@ -14,24 +14,30 @@ MODULE_DIR = ../..
 SRC = $(MODULE_NAME).c
 UTIL = $(MODULE_DIR)/util.c
 MODULE = $(MODULE_DIR)/module.c
+MIDI = $(MODULE_DIR)/midi.c
 
-# Use pkg-config to get library flags
 PKG_CONFIG_CFLAGS := $(shell pkg-config --cflags portaudio-2.0 portmidi liblo ncurses 2>/dev/null)
 PKG_CONFIG_LIBS := $(shell pkg-config --libs portaudio-2.0 portmidi liblo ncurses 2>/dev/null)
 
 CC = gcc
 CFLAGS = -Wall -O2 -fPIC -I$(MODULE_DIR) $(PKG_CONFIG_CFLAGS)
 
-# Special handling for dynamic symbol resolution
 ifeq ($(UNAME), Darwin)
     LDFLAGS = $(PKG_CONFIG_LIBS) $(SHARED_FLAG) -undefined dynamic_lookup -lpthread -lm
 else
-    LDFLAGS = $(PKG_CONFIG_LIBS) $(SHARED_FLAG) -lpthread -lm
+    LDFLAGS = $(PKG_CONFIG_LIBS) -lportmidi $(SHARED_FLAG) -lpthread -lm
 endif
 
+ifeq ($(UNAME), Darwin)
 $(MODULE_NAME).$(SHARED_EXT): $(SRC) $(UTIL)
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $(MODULE_NAME).$(SHARED_EXT) \
 	$(SRC) $(UTIL) $(MODULE)
+else
+$(MODULE_NAME).$(SHARED_EXT): $(SRC) $(UTIL)
+	$(CC) $(CFLAGS) $(LDFLAGS) -o $(MODULE_NAME).$(SHARED_EXT) \
+	$(SRC) $(UTIL) $(MODULE) $(MIDI)
+endif
 
 clean:
 	rm -f *.dylib *.so
+

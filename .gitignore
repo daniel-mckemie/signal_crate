@@ -17,6 +17,7 @@ compile_commands.json
 *.wav
 *.png
 *.txt
+start_jack.sh
 e_output_files/
 pieces/
 .DS_Store

@@ -106,10 +106,10 @@ void ui_loop() {
         int ss = elapsed % 60;
 
 		if (mchan > 0 && mcc >= 0)
-			mvprintw(0, COLS - 48, "[CPU] %.1f%%  [OSC:%s]  [MIDI ch:%d cc:%d] [%02d:%02d]",
+			mvprintw(0, COLS - 54, "[CPU] %.1f%%  [OSC:%s]  [MIDI ch:%d cc:%d] [%02d:%02d]",
 					 cpu, osc_port, mchan, mcc, mm, ss);
 		else
-			mvprintw(0, COLS - 48, "[CPU] %.1f%%  [OSC:%s] [%02d:%02d]", cpu, osc_port, mm, ss);
+			mvprintw(0, COLS - 54, "[CPU] %.1f%%  [OSC:%s] [%02d:%02d]", cpu, osc_port, mm, ss);
 
 
 		int rows, cols;

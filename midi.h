@@ -16,8 +16,8 @@ int midi_cc_raw(int cc);
 float midi_cc_norm(int cc);
 
 // 14-bit MIDI
-int   midi_cc14_raw(int cc);
-float midi_cc14_norm(int cc);
+int   midi_cc14_raw(int channel, int cc);
+float midi_cc14_norm(int channel, int cc);
 
 // Optional: print devices to stderr (for now).
 void midi_print_devices(void);

@@ -14,8 +14,8 @@ static int g_running = 0;
 static pthread_mutex_t g_lock = PTHREAD_MUTEX_INITIALIZER;
 
 static int g_cc[128]; // CC 0-127
-static int g_cc_msb[32]; // CC 0-31 
-static int g_cc_lsb[32]; // CC 32-63 -> index 0-31
+static int g_cc_msb[16][32]; // [channel][cc]
+static int g_cc_lsb[16][32]; // [channel][cc]
 
 static int last_midi_channel = -1;
 static int last_midi_cc      = -1;
@@ -86,11 +86,11 @@ static void handle_event(PmEvent ev) {
     pthread_mutex_lock(&g_lock);
     g_cc[data1] = data2;
 
-	if (data1 < 32) {
-		g_cc_msb[data1] = data2;
-	} else if (data1 < 64) {
-		g_cc_lsb[data1 - 32] = data2;
-	}
+    if (data1 < 32) {
+        g_cc_msb[channel-1][data1] = data2;
+    } else if (data1 < 64) {
+        g_cc_lsb[channel-1][data1 - 32] = data2;
+    }	
 
 	last_midi_channel = channel;
 	last_midi_cc = data1;
@@ -207,21 +207,20 @@ float midi_cc_norm(int cc) {
     return (float)midi_cc_raw(cc) / 127.0f;
 }
 
-int midi_cc14_raw(int cc) {
+int midi_cc14_raw(int channel, int cc) {
     if (cc < 0 || cc > 31) return 0;
     pthread_mutex_lock(&g_lock);
-    int v = (g_cc_msb[cc] << 7) | g_cc_lsb[cc];
+    int v = (g_cc_msb[channel-1][cc] << 7) | g_cc_lsb[channel-1][cc];
     pthread_mutex_unlock(&g_lock);
-    return v;  // 0–16383
+    return v;
 }
 
-float midi_cc14_norm(int cc) {
+float midi_cc14_norm(int channel, int cc) {
     if (cc < 0 || cc > 31) return 0.0f;
     pthread_mutex_lock(&g_lock);
-    int msb = g_cc_msb[cc];
-    int lsb = g_cc_lsb[cc];
+    int msb = g_cc_msb[channel-1][cc];
+    int lsb = g_cc_lsb[channel-1][cc];
     pthread_mutex_unlock(&g_lock);
-
     if (lsb == 0) return msb / 127.0f;
     return ((msb << 7) | lsb) / 16383.0f;
 }

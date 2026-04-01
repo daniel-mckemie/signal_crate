@@ -16,15 +16,14 @@ static void c_midi_to_cv_process(Module* m, float* in, unsigned long frames) {
     float last = s->last_val;
 
 	float v = 0.0f;
-	int last_chan = midi_last_channel();
 
-	if (s->chan == 0 || s->chan == last_chan) {
-		if (s->cc < 32) {
-			v = midi_cc14_norm(s->cc);   // uses CC + CC+32
-		} else {
-			v = midi_cc_norm(s->cc);     // legacy 7-bit
-		}
-	}
+    if (s->cc < 32 && s->chan > 0) {
+        v = midi_cc14_norm(s->chan, s->cc);
+    } else if (s->chan == 0) {
+        v = midi_cc14_norm(midi_last_channel(), s->cc);
+    } else {
+        v = midi_cc_norm(s->cc);
+    }	
 
     for (unsigned long i = 0; i < frames; i++) {
         float sm = process_smoother(&s->smooth, v);

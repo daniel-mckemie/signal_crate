@@ -1,21 +1,21 @@
+#include <ncurses.h>
+#include <pthread.h>
 #include <stdlib.h>
 #include <string.h>
-#include <pthread.h>
-#include <ncurses.h>
 
+#include "c_midi_to_cv.h"
+#include "midi.h"
 #include "module.h"
 #include "util.h"
-#include "midi.h"
-#include "c_midi_to_cv.h"
 
-static void c_midi_to_cv_process(Module* m, float* in, unsigned long frames) {
+static void c_midi_to_cv_process(Module *m, float *in, unsigned long frames) {
     (void)in;
-    CMidiToCVState* s = (CMidiToCVState*)m->state;
-    float* out = m->control_output;
+    CMidiToCVState *s = (CMidiToCVState *)m->state;
+    float *out = m->control_output;
 
     float last = s->last_val;
 
-	float v = 0.0f;
+    float v = 0.0f;
 
     if (s->cc < 32 && s->chan > 0) {
         v = midi_cc14_norm(s->chan, s->cc);
@@ -23,7 +23,7 @@ static void c_midi_to_cv_process(Module* m, float* in, unsigned long frames) {
         v = midi_cc14_norm(midi_last_channel(), s->cc);
     } else {
         v = midi_cc_norm(s->cc);
-    }	
+    }
 
     for (unsigned long i = 0; i < frames; i++) {
         float sm = process_smoother(&s->smooth, v);
@@ -36,35 +36,41 @@ static void c_midi_to_cv_process(Module* m, float* in, unsigned long frames) {
     pthread_mutex_unlock(&s->lock);
 }
 
-static void c_midi_to_cv_draw_ui(Module* m, int y, int x) {
-    CMidiToCVState* s = (CMidiToCVState*)m->state;
+static void c_midi_to_cv_draw_ui(Module *m, int y, int x) {
+    CMidiToCVState *s = (CMidiToCVState *)m->state;
 
     pthread_mutex_lock(&s->lock);
     float v = s->last_val;
     int cc = s->cc;
-	int chan = s->chan;
+    int chan = s->chan;
     pthread_mutex_unlock(&s->lock);
 
     BLUE();
     mvprintw(y, x, "[c_midi_to_cv:%s] ", m->name);
     CLR();
-	
+
     LABEL(2, "ch:");
-    ORANGE(); printw(" %d", chan); CLR();
+    ORANGE();
+    printw(" %d", chan);
+    CLR();
 
     LABEL(2, "cc:");
-    ORANGE(); printw(" %d", cc); CLR();
+    ORANGE();
+    printw(" %d", cc);
+    CLR();
 
     LABEL(2, "val:");
-    ORANGE(); printw(" %.3f", v); CLR();
+    ORANGE();
+    printw(" %.3f", v);
+    CLR();
 
     YELLOW();
-    mvprintw(y+1, x, "Command mode: :1 [ch#] :2 [cc#]");
+    mvprintw(y + 1, x, "Command mode: :1 [ch#] :2 [cc#]");
     BLACK();
 }
 
-static void c_midi_to_cv_handle_input(Module* m, int key) {
-    CMidiToCVState* s = (CMidiToCVState*)m->state;
+static void c_midi_to_cv_handle_input(Module *m, int key) {
+    CMidiToCVState *s = (CMidiToCVState *)m->state;
     int handled = 0;
 
     pthread_mutex_lock(&s->lock);
@@ -79,26 +85,36 @@ static void c_midi_to_cv_handle_input(Module* m, int key) {
     } else {
         if (key == '\n') {
             s->entering_command = false;
-            char type; int chan; int cc;
-            if (sscanf(s->command_buffer, "%c %d", &type, &chan) == 2 && type == '1') {
-                if (chan < 0) chan = 0;
-                if (chan > 16) chan = 16;
+            char type;
+            int chan;
+            int cc;
+            if (sscanf(s->command_buffer, "%c %d", &type, &chan) == 2 &&
+                type == '1') {
+                if (chan < 0)
+                    chan = 0;
+                if (chan > 16)
+                    chan = 16;
                 s->chan = chan;
             }
-            if (sscanf(s->command_buffer, "%c %d", &type, &cc) == 2 && type == '2') {
-                if (cc < 0) cc = 0;
-                if (cc > 127) cc = 127;
+            if (sscanf(s->command_buffer, "%c %d", &type, &cc) == 2 &&
+                type == '2') {
+                if (cc < 0)
+                    cc = 0;
+                if (cc > 127)
+                    cc = 127;
                 s->cc = cc;
             }
             handled = 1;
         } else if (key == 27) { // ESC
             s->entering_command = false;
             handled = 1;
-        } else if ((key == KEY_BACKSPACE || key == 127) && s->command_index > 0) {
+        } else if ((key == KEY_BACKSPACE || key == 127) &&
+                   s->command_index > 0) {
             s->command_index--;
             s->command_buffer[s->command_index] = '\0';
             handled = 1;
-        } else if (key >= 32 && key < 127 && s->command_index < (int)sizeof(s->command_buffer)-1) {
+        } else if (key >= 32 && key < 127 &&
+                   s->command_index < (int)sizeof(s->command_buffer) - 1) {
             s->command_buffer[s->command_index++] = (char)key;
             s->command_buffer[s->command_index] = '\0';
             handled = 1;
@@ -109,38 +125,43 @@ static void c_midi_to_cv_handle_input(Module* m, int key) {
     pthread_mutex_unlock(&s->lock);
 }
 
-static void c_midi_to_cv_destroy(Module* m) {
-    CMidiToCVState* s = (CMidiToCVState*)m->state;
-    if (s) pthread_mutex_destroy(&s->lock);
+static void c_midi_to_cv_destroy(Module *m) {
+    CMidiToCVState *s = (CMidiToCVState *)m->state;
+    if (s)
+        pthread_mutex_destroy(&s->lock);
 
     destroy_base_module(m);
 }
 
-Module* create_module(const char* args, float sample_rate) {
-	int cc   = 1;
-	int chan = 0;  // 0 = any channel
+Module *create_module(const char *args, float sample_rate) {
+    int cc = 1;
+    int chan = 0; // 0 = any channel
 
-	if (args) {
-		if (strstr(args, "cc="))
-			sscanf(strstr(args, "cc="), "cc=%d", &cc);
-		if (strstr(args, "ch="))
-			sscanf(strstr(args, "ch="), "ch=%d", &chan);
-	}
+    if (args) {
+        if (strstr(args, "cc="))
+            sscanf(strstr(args, "cc="), "cc=%d", &cc);
+        if (strstr(args, "ch="))
+            sscanf(strstr(args, "ch="), "ch=%d", &chan);
+    }
 
-	if (cc < 0) cc = 0;
-	if (cc > 127) cc = 127;
-	if (chan < 0) chan = 0;
-	if (chan > 16) chan = 16;
+    if (cc < 0)
+        cc = 0;
+    if (cc > 127)
+        cc = 127;
+    if (chan < 0)
+        chan = 0;
+    if (chan > 16)
+        chan = 16;
 
-    CMidiToCVState* s = calloc(1, sizeof(CMidiToCVState));
+    CMidiToCVState *s = calloc(1, sizeof(CMidiToCVState));
     s->sample_rate = sample_rate;
     s->cc = cc;
-	s->chan = chan;
+    s->chan = chan;
     pthread_mutex_init(&s->lock, NULL);
     init_smoother(&s->smooth, 0.15f);
     s->last_val = 0.0f;
 
-    Module* m = calloc(1, sizeof(Module));
+    Module *m = calloc(1, sizeof(Module));
     m->name = "c_midi_to_cv";
     m->type = "c_midi_to_cv";
     m->state = s;
@@ -153,4 +174,3 @@ Module* create_module(const char* args, float sample_rate) {
     m->control_output = calloc(MAX_BLOCK_SIZE, sizeof(float));
     return m;
 }
-

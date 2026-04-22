@@ -1,9 +1,9 @@
 #ifndef FREEVERB_H
 #define FREEVERB_H
 
-#include <pthread.h>
 #include "module.h"
 #include "util.h"
+#include <pthread.h>
 
 #define NUM_COMBS 8
 #define NUM_ALLPASS 4
@@ -18,9 +18,9 @@ typedef struct {
 typedef struct {
     float sample_rate;
 
-    float feedback;    // 0.0 to <1.0
-    float damping;     // 0.0 to 1.0
-    float wet;         // 0.0 to 1.0
+    float feedback; // 0.0 to <1.0
+    float damping;  // 0.0 to 1.0
+    float wet;      // 0.0 to 1.0
 
     DelayLine combs[NUM_COMBS];
     float comb_filterstore[NUM_COMBS];
@@ -45,4 +45,3 @@ typedef struct {
 } Freeverb;
 
 #endif
-

@@ -7,7 +7,6 @@ typedef struct {
     int executed;
 } EMonoMix;
 
-Module* create_module(const char* args, float sample_rate);
+Module *create_module(const char *args, float sample_rate);
 
 #endif
-

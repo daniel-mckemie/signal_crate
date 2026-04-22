@@ -1,17 +1,13 @@
 #ifndef C_RANDOM_H
 #define C_RANDOM_H
 
+#include "brown_noise.h"
+#include "pink_filter.h"
+#include "util.h"
 #include <pthread.h>
 #include <stdbool.h>
-#include "util.h"
-#include "pink_filter.h"
-#include "brown_noise.h"
 
-typedef enum {
-    RAND_WHITE = 0,
-    RAND_PINK  = 1,
-    RAND_BROWN = 2
-} RandomType;
+typedef enum { RAND_WHITE = 0, RAND_PINK = 1, RAND_BROWN = 2 } RandomType;
 
 typedef struct {
     float rate_hz;
@@ -24,8 +20,8 @@ typedef struct {
 
     float current_val;
     float display_val;
-	float display_rate;
-	float display_depth;
+    float display_rate;
+    float display_depth;
 
     RandomType type;
 
@@ -44,4 +40,3 @@ typedef struct {
 } CRandom;
 
 #endif
-

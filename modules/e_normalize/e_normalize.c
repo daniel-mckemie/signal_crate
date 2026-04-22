@@ -1,9 +1,9 @@
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-#include <sys/stat.h>
 #include <math.h>
 #include <sndfile.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/stat.h>
 
 #include "e_normalize.h"
 #include "module.h"
@@ -14,27 +14,27 @@
 #define BLOCK_FRAMES 4096
 
 static void ensure_norm_dir(void) {
-	mkdir(E_FILES_DIR, 0755);
+    mkdir(E_FILES_DIR, 0755);
     mkdir(NORM_DIR, 0755);
 }
 
-static void normalize_file(const char* filepath)
-{
+static void normalize_file(const char *filepath) {
     SF_INFO info = (SF_INFO){0};
-    SNDFILE* in = sf_open(filepath, SFM_READ, &info);
+    SNDFILE *in = sf_open(filepath, SFM_READ, &info);
     if (!in) {
         fprintf(stderr, "[e_normalize] failed to open '%s'\n", filepath);
         return;
     }
 
-    float* buf = malloc(sizeof(float) * BLOCK_FRAMES * info.channels);
+    float *buf = malloc(sizeof(float) * BLOCK_FRAMES * info.channels);
     float peak = 0.0f;
 
     sf_count_t frames;
     while ((frames = sf_readf_float(in, buf, BLOCK_FRAMES)) > 0) {
         for (sf_count_t i = 0; i < frames * info.channels; i++) {
             float a = fabsf(buf[i]);
-            if (a > peak) peak = a;
+            if (a > peak)
+                peak = a;
         }
     }
 
@@ -47,22 +47,21 @@ static void normalize_file(const char* filepath)
     float gain = 1.0f / peak;
     sf_seek(in, 0, SEEK_SET);
 
-	const char* fname = strrchr(filepath, '/');
-	fname = fname ? fname + 1 : filepath;  // strip path if present
+    const char *fname = strrchr(filepath, '/');
+    fname = fname ? fname + 1 : filepath; // strip path if present
 
-	char stem[512];
-	strncpy(stem, fname, sizeof(stem));
-	stem[sizeof(stem) - 1] = '\0';
+    char stem[512];
+    strncpy(stem, fname, sizeof(stem));
+    stem[sizeof(stem) - 1] = '\0';
 
-	char* dot = strrchr(stem, '.');
-	if (dot) *dot = '\0';
+    char *dot = strrchr(stem, '.');
+    if (dot)
+        *dot = '\0';
 
-	char outpath[1024];
-	snprintf(outpath, sizeof(outpath),
-			 NORM_DIR "/%s_norm.wav", stem);
+    char outpath[1024];
+    snprintf(outpath, sizeof(outpath), NORM_DIR "/%s_norm.wav", stem);
 
-
-    SNDFILE* out = sf_open(outpath, SFM_WRITE, &info);
+    SNDFILE *out = sf_open(outpath, SFM_WRITE, &info);
     if (!out) {
         sf_close(in);
         free(buf);
@@ -81,26 +80,20 @@ static void normalize_file(const char* filepath)
     free(buf);
 }
 
-
-static void normalize_process(Module* m, float* in, unsigned long frames)
-{
+static void normalize_process(Module *m, float *in, unsigned long frames) {
     (void)in;
     memset(m->output_buffer, 0, sizeof(float) * frames);
 }
 
-static void normalize_destroy(Module* m)
-{
-    destroy_base_module(m);
-}
+static void normalize_destroy(Module *m) { destroy_base_module(m); }
 
-Module* create_module(const char* args, float sample_rate)
-{
+Module *create_module(const char *args, float sample_rate) {
     (void)sample_rate;
 
     char filepath[512] = "";
 
     if (args && strstr(args, "file=")) {
-        const char* p = strstr(args, "file=") + 5;
+        const char *p = strstr(args, "file=") + 5;
         size_t i = 0;
         while (*p && *p != ',' && *p != ' ' && i < sizeof(filepath) - 1) {
             filepath[i++] = *p++;
@@ -116,10 +109,10 @@ Module* create_module(const char* args, float sample_rate)
     ensure_norm_dir();
     normalize_file(filepath);
 
-    ENormalize* s = calloc(1, sizeof(ENormalize));
+    ENormalize *s = calloc(1, sizeof(ENormalize));
     s->executed = 1;
 
-    Module* m = calloc(1, sizeof(Module));
+    Module *m = calloc(1, sizeof(Module));
     m->name = "e_normalize";
     m->state = s;
     m->process = normalize_process;
@@ -128,4 +121,3 @@ Module* create_module(const char* args, float sample_rate)
 
     return m;
 }
-

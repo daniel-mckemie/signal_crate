@@ -1,11 +1,11 @@
 #ifndef C_INPUT_H
 #define C_INPUT_H
 
-#include <pthread.h>
 #include "util.h"
+#include <pthread.h>
 
 typedef struct {
-    int channel_index;    // which input channel the ENGINE extracts
+    int channel_index; // which input channel the ENGINE extracts
 
     float sample_rate;
     float last_val;
@@ -22,4 +22,3 @@ typedef struct {
 } CInputState;
 
 #endif
-

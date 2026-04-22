@@ -1,23 +1,20 @@
 #ifndef AMBI_DECODE_H
 #define AMBI_DECODE_H
 
+#include "util.h"
 #include <pthread.h>
 #include <stdbool.h>
-#include "util.h"
 
-typedef enum {
-    CHANNEL_LEFT,
-    CHANNEL_RIGHT
-} AmbiChannel;
+typedef enum { CHANNEL_LEFT, CHANNEL_RIGHT } AmbiChannel;
 
 typedef struct {
     float sample_rate;
 
     // Ambisonic decoding parameters
-    float azimuth;      // Listener rotation in degrees (0-360)
-    float elevation;    // Vertical angle in degrees (-90 to +90)
-    float gain;         // Output gain
-    float width;        // Stereo width (0=mono, 1=full width)
+    float azimuth;   // Listener rotation in degrees (0-360)
+    float elevation; // Vertical angle in degrees (-90 to +90)
+    float gain;      // Output gain
+    float width;     // Stereo width (0=mono, 1=full width)
 
     // Channel selection
     AmbiChannel channel;
@@ -43,4 +40,3 @@ typedef struct {
 } AmbiDecode;
 
 #endif
-

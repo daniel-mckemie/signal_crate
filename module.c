@@ -1,14 +1,15 @@
+#include "module.h"
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdio.h>
-#include "module.h"
 
-void destroy_base_module(Module* m) {
-    if (!m) return;
+void destroy_base_module(Module *m) {
+    if (!m)
+        return;
 
     for (int i = 0; i < m->num_control_inputs; i++) {
         if (m->control_input_params[i]) {
-            free((void*)m->control_input_params[i]); /* strdup */
+            free((void *)m->control_input_params[i]); /* strdup */
             m->control_input_params[i] = NULL;
         }
     }
@@ -18,23 +19,28 @@ void destroy_base_module(Module* m) {
     free(m->output_bufferR);
     free(m->control_output);
     free(m->state);
-    free((void*)m->name);
+    free((void *)m->name);
 
     free(m);
 }
 
-void clampf(float* val, float min, float max) {
-	if (*val < min) *val = min;
-	if (*val > max) *val = max;
+void clampf(float *val, float min, float max) {
+    if (*val < min)
+        *val = min;
+    if (*val > max)
+        *val = max;
 }
 
-void clampd(double* val, double min, double max) {
-	if (*val < min) *val = min;
-	if (*val > max) *val = max;
+void clampd(double *val, double min, double max) {
+    if (*val < min)
+        *val = min;
+    if (*val > max)
+        *val = max;
 }
 
-void clampi(int* val, int min, int max) {
-    if (*val < min) *val = min;
-    if (*val > max) *val = max;
+void clampi(int *val, int min, int max) {
+    if (*val < min)
+        *val = min;
+    if (*val > max)
+        *val = max;
 }
-

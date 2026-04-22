@@ -1,9 +1,9 @@
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-#include <pthread.h>
 #include <ncurses.h>
+#include <pthread.h>
 #include <sndfile.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <sys/stat.h>
 
 #include "e_recorder.h"
@@ -20,38 +20,44 @@ static void ensure_record_dir(void) {
     mkdir(RECORD_DIR, 0755);
 }
 
-static void submit_job_locked(ERecorder* s);
+static void submit_job_locked(ERecorder *s);
 
-static void grow_buffers(ERecorder* s, uint64_t needed) {
-    if (needed <= s->buffer_capacity) return;
+static void grow_buffers(ERecorder *s, uint64_t needed) {
+    if (needed <= s->buffer_capacity)
+        return;
 
     uint64_t newcap = s->buffer_capacity;
-    if (newcap == 0) newcap = 1;
-    while (newcap < needed) newcap *= 2;
+    if (newcap == 0)
+        newcap = 1;
+    while (newcap < needed)
+        newcap *= 2;
 
     for (int ch = 0; ch < s->num_inputs; ch++) {
-        float* p = realloc(s->buffers[ch], newcap * sizeof(float));
-        if (!p) return;
+        float *p = realloc(s->buffers[ch], newcap * sizeof(float));
+        if (!p)
+            return;
         s->buffers[ch] = p;
     }
 
-    float* mixp = realloc(s->mix_buffer, newcap * sizeof(float));
-    if (!mixp) return;
+    float *mixp = realloc(s->mix_buffer, newcap * sizeof(float));
+    if (!mixp)
+        return;
     s->mix_buffer = mixp;
 
     s->buffer_capacity = newcap;
     s->mix_capacity = newcap;
 }
 
-static void ensure_buffers(ERecorder* s, int num_inputs) {
-    if (num_inputs <= 0) return;
-    if (s->num_inputs == num_inputs &&
-        s->buffers && s->buffer_sizes &&
+static void ensure_buffers(ERecorder *s, int num_inputs) {
+    if (num_inputs <= 0)
+        return;
+    if (s->num_inputs == num_inputs && s->buffers && s->buffer_sizes &&
         s->mix_buffer)
         return;
 
     if (s->buffers) {
-        for (int ch = 0; ch < s->num_inputs; ch++) free(s->buffers[ch]);
+        for (int ch = 0; ch < s->num_inputs; ch++)
+            free(s->buffers[ch]);
         free(s->buffers);
         s->buffers = NULL;
     }
@@ -65,7 +71,7 @@ static void ensure_buffers(ERecorder* s, int num_inputs) {
     }
 
     s->num_inputs = num_inputs;
-    s->buffers = calloc((size_t)s->num_inputs, sizeof(float*));
+    s->buffers = calloc((size_t)s->num_inputs, sizeof(float *));
     s->buffer_sizes = calloc((size_t)s->num_inputs, sizeof(uint64_t));
 
     for (int ch = 0; ch < s->num_inputs; ch++) {
@@ -78,23 +84,16 @@ static void ensure_buffers(ERecorder* s, int num_inputs) {
     s->mix_size = 0;
 }
 
-static void write_wavs_job(
-    float sample_rate,
-    unsigned int take_id,
-    int num_files,
-    float** buffers,
-    uint64_t* sizes
-) {
+static void write_wavs_job(float sample_rate, unsigned int take_id,
+                           int num_files, float **buffers, uint64_t *sizes) {
     for (int i = 0; i < num_files; i++) {
         char path[1024];
 
         if (i == num_files - 1) {
-            snprintf(path, sizeof(path),
-                     RECORD_DIR "/sc_take_%03u_mix.wav",
+            snprintf(path, sizeof(path), RECORD_DIR "/sc_take_%03u_mix.wav",
                      take_id);
         } else {
-            snprintf(path, sizeof(path),
-                     RECORD_DIR "/sc_take_%03u_ch_%02d.wav",
+            snprintf(path, sizeof(path), RECORD_DIR "/sc_take_%03u_ch_%02d.wav",
                      take_id, i);
         }
 
@@ -103,28 +102,30 @@ static void write_wavs_job(
         info.channels = 1;
         info.format = SF_FORMAT_WAV | SF_FORMAT_FLOAT;
 
-        SNDFILE* sf = sf_open(path, SFM_WRITE, &info);
-        if (!sf) continue;
+        SNDFILE *sf = sf_open(path, SFM_WRITE, &info);
+        if (!sf)
+            continue;
 
         sf_write_float(sf, buffers[i], (sf_count_t)sizes[i]);
         sf_close(sf);
     }
 }
 
-static void* writer_main(void* arg) {
-    ERecorder* s = (ERecorder*)arg;
+static void *writer_main(void *arg) {
+    ERecorder *s = (ERecorder *)arg;
 
     pthread_mutex_lock(&s->writer_lock);
     while (s->writer_running) {
         while (s->writer_running && !s->job_pending) {
             pthread_cond_wait(&s->writer_cv, &s->writer_lock);
         }
-        if (!s->writer_running) break;
+        if (!s->writer_running)
+            break;
 
         unsigned int take_id = s->job_take_id;
         int num_files = s->job_num_inputs;
-        float** buffers = s->job_buffers;
-        uint64_t* sizes = s->job_sizes;
+        float **buffers = s->job_buffers;
+        uint64_t *sizes = s->job_sizes;
         float sr = s->sample_rate;
 
         s->job_pending = false;
@@ -136,7 +137,8 @@ static void* writer_main(void* arg) {
 
         write_wavs_job(sr, take_id, num_files, buffers, sizes);
 
-        for (int i = 0; i < num_files; i++) free(buffers[i]);
+        for (int i = 0; i < num_files; i++)
+            free(buffers[i]);
         free(buffers);
         free(sizes);
 
@@ -146,11 +148,11 @@ static void* writer_main(void* arg) {
     return NULL;
 }
 
-static void multirec_process(Module* m, float* in, unsigned long frames) {
+static void multirec_process(Module *m, float *in, unsigned long frames) {
     (void)in;
 
-    ERecorder* s = (ERecorder*)m->state;
-    float* out = m->output_buffer;
+    ERecorder *s = (ERecorder *)m->state;
+    float *out = m->output_buffer;
 
     float mix_gain = (m->num_inputs > 1) ? (1.0f / (float)m->num_inputs) : 1.0f;
 
@@ -191,18 +193,21 @@ static void multirec_process(Module* m, float* in, unsigned long frames) {
 
             for (int ch = 0; ch < m->num_inputs; ch++) {
                 float v = m->inputs[ch] ? m->inputs[ch][i] : 0.0f;
-                if (s->buffers && s->buffers[ch]) s->buffers[ch][sc + written] = v * g;
+                if (s->buffers && s->buffers[ch])
+                    s->buffers[ch][sc + written] = v * g;
                 sum += v;
             }
 
             float mix = sum * mix_gain * g;
             out[i] = mix;
-            if (s->mix_buffer) s->mix_buffer[sc + written] = mix;
+            if (s->mix_buffer)
+                s->mix_buffer[sc + written] = mix;
 
             written++;
         }
 
-        for (unsigned long k = written; k < frames; k++) out[k] = 0.0f;
+        for (unsigned long k = written; k < frames; k++)
+            out[k] = 0.0f;
 
         s->sample_counter += written;
 
@@ -217,7 +222,8 @@ static void multirec_process(Module* m, float* in, unsigned long frames) {
             submit_job_locked(s);
             s->sample_counter = 0;
             s->display_seconds = 0.0;
-            for (int ch = 0; ch < s->num_inputs; ch++) s->buffer_sizes[ch] = 0;
+            for (int ch = 0; ch < s->num_inputs; ch++)
+                s->buffer_sizes[ch] = 0;
             s->mix_size = 0;
         }
     } else {
@@ -233,8 +239,8 @@ static void multirec_process(Module* m, float* in, unsigned long frames) {
     pthread_mutex_unlock(&s->lock);
 }
 
-static void multirec_draw_ui(Module* m, int y, int x) {
-    ERecorder* s = (ERecorder*)m->state;
+static void multirec_draw_ui(Module *m, int y, int x) {
+    ERecorder *s = (ERecorder *)m->state;
 
     pthread_mutex_lock(&s->lock);
     ERecState st = s->state;
@@ -247,28 +253,35 @@ static void multirec_draw_ui(Module* m, int y, int x) {
     CLR();
 
     LABEL(2, "state:");
-    ORANGE(); printw(" %s | ", st == EREC_RECORDING ? "REC" : "IDLE"); CLR();
+    ORANGE();
+    printw(" %s | ", st == EREC_RECORDING ? "REC" : "IDLE");
+    CLR();
 
     LABEL(2, "t:");
-    ORANGE(); printw(" %.3f s | ", sec); CLR();
+    ORANGE();
+    printw(" %.3f s | ", sec);
+    CLR();
 
     LABEL(2, "take:");
-    ORANGE(); printw(" %03u", take); CLR();
+    ORANGE();
+    printw(" %03u", take);
+    CLR();
 
     YELLOW();
     mvprintw(y + 1, x, "SPACE = rec / stop");
     BLACK();
 }
 
-static void submit_job_locked(ERecorder* s) {
+static void submit_job_locked(ERecorder *s) {
     uint64_t frames = s->sample_counter;
-    if (frames == 0) return;
+    if (frames == 0)
+        return;
 
     int stems = s->num_inputs;
     int files = stems + 1;
 
-    float** jb = calloc((size_t)files, sizeof(float*));
-    uint64_t* js = calloc((size_t)files, sizeof(uint64_t));
+    float **jb = calloc((size_t)files, sizeof(float *));
+    uint64_t *js = calloc((size_t)files, sizeof(uint64_t));
     if (!jb || !js) {
         free(jb);
         free(js);
@@ -278,7 +291,8 @@ static void submit_job_locked(ERecorder* s) {
     for (int ch = 0; ch < stems; ch++) {
         jb[ch] = malloc((size_t)frames * sizeof(float));
         if (!jb[ch]) {
-            for (int k = 0; k < ch; k++) free(jb[k]);
+            for (int k = 0; k < ch; k++)
+                free(jb[k]);
             free(jb);
             free(js);
             return;
@@ -289,7 +303,8 @@ static void submit_job_locked(ERecorder* s) {
 
     jb[stems] = malloc((size_t)frames * sizeof(float));
     if (!jb[stems]) {
-        for (int k = 0; k < stems; k++) free(jb[k]);
+        for (int k = 0; k < stems; k++)
+            free(jb[k]);
         free(jb);
         free(js);
         return;
@@ -300,7 +315,8 @@ static void submit_job_locked(ERecorder* s) {
     pthread_mutex_lock(&s->writer_lock);
 
     if (s->job_pending) {
-        for (int i = 0; i < s->job_num_inputs; i++) free(s->job_buffers[i]);
+        for (int i = 0; i < s->job_num_inputs; i++)
+            free(s->job_buffers[i]);
         free(s->job_buffers);
         free(s->job_sizes);
     }
@@ -317,10 +333,11 @@ static void submit_job_locked(ERecorder* s) {
     s->take_id++;
 }
 
-static void multirec_handle_input(Module* m, int key) {
-    if (key != ' ') return;
+static void multirec_handle_input(Module *m, int key) {
+    if (key != ' ')
+        return;
 
-    ERecorder* s = (ERecorder*)m->state;
+    ERecorder *s = (ERecorder *)m->state;
 
     pthread_mutex_lock(&s->lock);
     ensure_buffers(s, m->num_inputs);
@@ -329,7 +346,8 @@ static void multirec_handle_input(Module* m, int key) {
         s->state = EREC_RECORDING;
         s->sample_counter = 0;
         s->display_seconds = 0.0;
-        for (int ch = 0; ch < s->num_inputs; ch++) s->buffer_sizes[ch] = 0;
+        for (int ch = 0; ch < s->num_inputs; ch++)
+            s->buffer_sizes[ch] = 0;
         s->mix_size = 0;
 
         s->fade_count = 0;
@@ -346,8 +364,8 @@ static void multirec_handle_input(Module* m, int key) {
     pthread_mutex_unlock(&s->lock);
 }
 
-static void erecorder_set_osc_param(Module* m, const char* param, float value) {
-    ERecorder* s = (ERecorder*)m->state;
+static void erecorder_set_osc_param(Module *m, const char *param, float value) {
+    ERecorder *s = (ERecorder *)m->state;
     pthread_mutex_lock(&s->lock);
 
     if (strcmp(param, "rec") == 0) {
@@ -358,7 +376,8 @@ static void erecorder_set_osc_param(Module* m, const char* param, float value) {
                 s->state = EREC_RECORDING;
                 s->sample_counter = 0;
                 s->display_seconds = 0.0;
-                for (int ch = 0; ch < s->num_inputs; ch++) s->buffer_sizes[ch] = 0;
+                for (int ch = 0; ch < s->num_inputs; ch++)
+                    s->buffer_sizes[ch] = 0;
                 s->mix_size = 0;
 
                 s->fade_count = 0;
@@ -377,9 +396,10 @@ static void erecorder_set_osc_param(Module* m, const char* param, float value) {
     pthread_mutex_unlock(&s->lock);
 }
 
-static void multirec_destroy(Module* m) {
-    ERecorder* s = (ERecorder*)m->state;
-    if (!s) return;
+static void multirec_destroy(Module *m) {
+    ERecorder *s = (ERecorder *)m->state;
+    if (!s)
+        return;
 
     pthread_mutex_lock(&s->writer_lock);
     s->writer_running = false;
@@ -389,7 +409,8 @@ static void multirec_destroy(Module* m) {
 
     pthread_mutex_lock(&s->writer_lock);
     if (s->job_pending) {
-        for (int i = 0; i < s->job_num_inputs; i++) free(s->job_buffers[i]);
+        for (int i = 0; i < s->job_num_inputs; i++)
+            free(s->job_buffers[i]);
         free(s->job_buffers);
         free(s->job_sizes);
     }
@@ -399,7 +420,8 @@ static void multirec_destroy(Module* m) {
     pthread_cond_destroy(&s->writer_cv);
 
     if (s->buffers) {
-        for (int ch = 0; ch < s->num_inputs; ch++) free(s->buffers[ch]);
+        for (int ch = 0; ch < s->num_inputs; ch++)
+            free(s->buffers[ch]);
         free(s->buffers);
     }
     free(s->buffer_sizes);
@@ -409,12 +431,12 @@ static void multirec_destroy(Module* m) {
     destroy_base_module(m);
 }
 
-Module* create_module(const char* args, float sample_rate) {
+Module *create_module(const char *args, float sample_rate) {
     (void)args;
 
     ensure_record_dir();
 
-    ERecorder* s = calloc(1, sizeof(ERecorder));
+    ERecorder *s = calloc(1, sizeof(ERecorder));
     s->sample_rate = sample_rate;
     s->state = EREC_IDLE;
     s->take_id = 0;
@@ -447,7 +469,7 @@ Module* create_module(const char* args, float sample_rate) {
 
     pthread_create(&s->writer_thread, NULL, writer_main, s);
 
-    Module* m = calloc(1, sizeof(Module));
+    Module *m = calloc(1, sizeof(Module));
     m->name = "e_recorder";
     m->state = s;
     m->process = multirec_process;
@@ -459,4 +481,3 @@ Module* create_module(const char* args, float sample_rate) {
 
     return m;
 }
-

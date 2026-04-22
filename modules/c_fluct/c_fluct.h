@@ -1,14 +1,11 @@
 #ifndef C_FLUCT_H
 #define C_FLUCT_H
 
-#include <pthread.h>
-#include "util.h"
 #include "module.h"
+#include "util.h"
+#include <pthread.h>
 
-typedef enum {
-	FLUCT_NOISE,
-	FLUCT_WALK
-} FluctMode;
+typedef enum { FLUCT_NOISE, FLUCT_WALK } FluctMode;
 
 typedef struct {
     float rate;

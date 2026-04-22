@@ -5,8 +5,8 @@
 #include <stdbool.h>
 
 typedef struct {
-  // No runtime state needed for this environment module
-  char placeholder;
+    // No runtime state needed for this environment module
+    char placeholder;
 } EAmbiAToB;
 
 #endif

@@ -1,17 +1,17 @@
 #ifndef C_ASR_H
 #define C_ASR_H
 
-#include <pthread.h>
-#include "util.h"
 #include "module.h"
+#include "util.h"
+#include <pthread.h>
 
 typedef enum { ENV_IDLE, ENV_ATTACK, ENV_SUSTAIN, ENV_RELEASE } EnvState;
 
 typedef struct {
     float attack_time;
     float release_time;
-	float sustain_level;
-	float depth;
+    float sustain_level;
+    float depth;
     float envelope_out;
 
     float timer;
@@ -20,24 +20,24 @@ typedef struct {
     EnvState state;
 
     bool short_mode;
-	bool gate_prev;
+    bool gate_prev;
 
-	float threshold_gate;
+    float threshold_gate;
 
     // Smoothed control inputs
     CParamSmooth smooth_att;
     CParamSmooth smooth_rel;
-	CParamSmooth smooth_depth;
-	CParamSmooth smooth_sus;
+    CParamSmooth smooth_depth;
+    CParamSmooth smooth_sus;
 
     pthread_mutex_t lock;
 
-	float display_att;
-	float display_rel;
-	float display_depth;
-	float display_sus;
-    
-	// UI and command state
+    float display_att;
+    float display_rel;
+    float display_depth;
+    float display_sus;
+
+    // UI and command state
     bool entering_command;
     char command_buffer[64];
     int command_index;

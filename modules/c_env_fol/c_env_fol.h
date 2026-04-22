@@ -1,32 +1,32 @@
 #ifndef C_LFO_H
 #define C_LFO_H
 
-#include <pthread.h>
-#include "util.h"
 #include "module.h"
+#include "util.h"
+#include <pthread.h>
 
 typedef struct {
     float attack_ms;
     float decay_ms;
-	float sens;
+    float sens;
     float env;
-	float depth;
-	float smoothed_env;
+    float depth;
+    float smoothed_env;
     float sample_rate;
 
-	float display_env;
+    float display_env;
 
     CParamSmooth smooth_attack;
     CParamSmooth smooth_decay;
-	CParamSmooth smooth_sens;
-	CParamSmooth smooth_depth;
+    CParamSmooth smooth_sens;
+    CParamSmooth smooth_depth;
 
     pthread_mutex_t lock;
 
-	float display_att;
-	float display_dec;
-	float display_sens;
-	float display_depth;
+    float display_att;
+    float display_dec;
+    float display_sens;
+    float display_depth;
 
     // Command mode
     bool entering_command;
@@ -35,4 +35,3 @@ typedef struct {
 } CEnvFol;
 
 #endif
-

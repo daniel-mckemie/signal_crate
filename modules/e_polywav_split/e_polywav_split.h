@@ -7,7 +7,6 @@ typedef struct {
     int executed;
 } EPolywavSplit;
 
-Module* create_module(const char* args, float sample_rate);
+Module *create_module(const char *args, float sample_rate);
 
 #endif
-

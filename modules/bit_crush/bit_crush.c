@@ -1,17 +1,17 @@
+#include <math.h>
+#include <ncurses.h>
+#include <pthread.h>
 #include <stdlib.h>
 #include <string.h>
-#include <math.h>
-#include <pthread.h>
-#include <ncurses.h>
 
+#include "bit_crush.h"
 #include "module.h"
 #include "util.h"
-#include "bit_crush.h"
 
-static void bit_crush_process(Module* m, float* in, unsigned long frames) {
-    BitCrushState* s = (BitCrushState*)m->state;
-    float* input = (m->num_inputs > 0) ? m->inputs[0] : in;
-    float* out = m->output_buffer;
+static void bit_crush_process(Module *m, float *in, unsigned long frames) {
+    BitCrushState *s = (BitCrushState *)m->state;
+    float *input = (m->num_inputs > 0) ? m->inputs[0] : in;
+    float *out = m->output_buffer;
 
     pthread_mutex_lock(&s->lock);
     float base_bits = s->bits;
@@ -21,146 +21,170 @@ static void bit_crush_process(Module* m, float* in, unsigned long frames) {
     float bits_s = process_smoother(&s->smooth_bits, base_bits);
     float rate_s = process_smoother(&s->smooth_rate, base_rate);
 
-	float disp_bits = bits_s;
-	float disp_rate = rate_s;
+    float disp_bits = bits_s;
+    float disp_rate = rate_s;
 
-	float phs = s->phase;
-	float held = s->last_sample;
+    float phs = s->phase;
+    float held = s->last_sample;
 
-	for (unsigned long i=0; i<frames; i++) {
-		float bits = bits_s;
-		float rate = rate_s;
+    for (unsigned long i = 0; i < frames; i++) {
+        float bits = bits_s;
+        float rate = rate_s;
 
-		for (int j=0; j < m->num_control_inputs; j++) {
-			if (!m->control_inputs[j] || !m->control_input_params[j]) continue;
+        for (int j = 0; j < m->num_control_inputs; j++) {
+            if (!m->control_inputs[j] || !m->control_input_params[j])
+                continue;
 
-			const char* param = m->control_input_params[j];
-			float control = m->control_inputs[j][i];
-			control = fminf(fmaxf(control, -1.0f), 1.0f);
+            const char *param = m->control_input_params[j];
+            float control = m->control_inputs[j][i];
+            control = fminf(fmaxf(control, -1.0f), 1.0f);
 
-			if (strcmp(param, "rate") == 0) {
-				rate += control;
-			}
-			else if (strcmp(param, "bits") == 0) {
-				bits += control;
-			}
-		}
+            if (strcmp(param, "rate") == 0) {
+                rate += control;
+            } else if (strcmp(param, "bits") == 0) {
+                bits += control;
+            }
+        }
 
-		clampf(&rate, 20.0f, s->sample_rate * 0.45f);
-		clampf(&bits, 2.0f, 16.0f);
+        clampf(&rate, 20.0f, s->sample_rate * 0.45f);
+        clampf(&bits, 2.0f, 16.0f);
 
-		disp_bits = bits;
-		disp_rate = rate;
+        disp_bits = bits;
+        disp_rate = rate;
 
-		float step = rate / s->sample_rate;
-		if (step <= 0.0f) step = 1.0f;
+        float step = rate / s->sample_rate;
+        if (step <= 0.0f)
+            step = 1.0f;
 
-		float bits_q = roundf(bits);
-		float bit_levels = powf(2.0f, bits_q) - 1.0f;
+        float bits_q = roundf(bits);
+        float bit_levels = powf(2.0f, bits_q) - 1.0f;
 
+        phs += step;
+        if (phs >= 1.0f) {
+            phs -= 1.0f;
+            float inp = input ? input[i] : 0.0f;
+            held = roundf(inp * bit_levels) / bit_levels;
+        }
+        out[i] = held;
+    }
 
-		phs += step;
-		if (phs >= 1.0f) {
-			phs -= 1.0f;
-			float inp = input ? input[i] : 0.0f;
-			held = roundf(inp * bit_levels) / bit_levels;
-		}
-		out[i] = held;
-	}
-
-	pthread_mutex_lock(&s->lock);
+    pthread_mutex_lock(&s->lock);
     s->phase = phs;
     s->last_sample = held;
     s->display_bits = disp_bits;
     s->display_rate = disp_rate;
-	pthread_mutex_unlock(&s->lock);
+    pthread_mutex_unlock(&s->lock);
 }
 
-static void bit_crush_draw_ui(Module* m, int y, int x) {
-    BitCrushState* s = (BitCrushState*)m->state;
+static void bit_crush_draw_ui(Module *m, int y, int x) {
+    BitCrushState *s = (BitCrushState *)m->state;
     pthread_mutex_lock(&s->lock);
     float bits = s->display_bits;
     float rate = s->display_rate;
     pthread_mutex_unlock(&s->lock);
 
-	BLUE();
-    mvprintw(y,   x, "[BITCRUSH:%s] ", m->name);
-	CLR();
-	
-	LABEL(2, "bits:");
-	ORANGE(); printw(" %.0f | ", bits); CLR();
+    BLUE();
+    mvprintw(y, x, "[BITCRUSH:%s] ", m->name);
+    CLR();
 
-	LABEL(2, "rate:");
-	ORANGE(); printw(" %.1f Hz", rate); CLR();
+    LABEL(2, "bits:");
+    ORANGE();
+    printw(" %.0f | ", bits);
+    CLR();
 
-	YELLOW();
-    mvprintw(y+1, x, "Keys: -/= bits, _/+ rate");
-    mvprintw(y+2, x, "Command: :1 [bits], :2 [rate]");
-	BLACK();
+    LABEL(2, "rate:");
+    ORANGE();
+    printw(" %.1f Hz", rate);
+    CLR();
+
+    YELLOW();
+    mvprintw(y + 1, x, "Keys: -/= bits, _/+ rate");
+    mvprintw(y + 2, x, "Command: :1 [bits], :2 [rate]");
+    BLACK();
 }
 
-static void clamp_params(BitCrushState* s) {
-	float min_rate = 20.0f;
+static void clamp_params(BitCrushState *s) {
+    float min_rate = 20.0f;
     float max_rate = s->sample_rate * 0.45f;
 
     clampf(&s->bits, 2.0f, 16.0f);
     clampf(&s->rate, min_rate, max_rate);
 }
 
-static void bit_crush_handle_input(Module* m, int key) {
-    BitCrushState* s = (BitCrushState*)m->state;
+static void bit_crush_handle_input(Module *m, int key) {
+    BitCrushState *s = (BitCrushState *)m->state;
     int handled = 0;
     pthread_mutex_lock(&s->lock);
 
     if (!s->entering_command) {
         switch (key) {
-            case '-': s->bits -= 1.0f; handled = 1; break;
-            case '=': s->bits += 1.0f; handled = 1; break;
-            case '_': s->rate -= 0.5f; handled = 1; break;
-            case '+': s->rate += 0.5f; handled = 1; break;
-            case ':':
-                s->entering_command = true;
-                memset(s->command_buffer, 0, sizeof(s->command_buffer));
-                s->command_index = 0;
-                handled = 1;
-                break;
+        case '-':
+            s->bits -= 1.0f;
+            handled = 1;
+            break;
+        case '=':
+            s->bits += 1.0f;
+            handled = 1;
+            break;
+        case '_':
+            s->rate -= 0.5f;
+            handled = 1;
+            break;
+        case '+':
+            s->rate += 0.5f;
+            handled = 1;
+            break;
+        case ':':
+            s->entering_command = true;
+            memset(s->command_buffer, 0, sizeof(s->command_buffer));
+            s->command_index = 0;
+            handled = 1;
+            break;
         }
     } else {
         if (key == '\n') {
             s->entering_command = false;
-            char type; float val;
+            char type;
+            float val;
             if (sscanf(s->command_buffer, "%c %f", &type, &val) == 2) {
-                if (type == '1') s->bits = val;
-                else if (type == '2') s->rate = val;
+                if (type == '1')
+                    s->bits = val;
+                else if (type == '2')
+                    s->rate = val;
             }
             handled = 1;
         } else if (key == 27) {
-            s->entering_command = false; handled = 1;
-        } else if ((key == KEY_BACKSPACE || key == 127) && s->command_index > 0) {
+            s->entering_command = false;
+            handled = 1;
+        } else if ((key == KEY_BACKSPACE || key == 127) &&
+                   s->command_index > 0) {
             s->command_index--;
             s->command_buffer[s->command_index] = '\0';
             handled = 1;
-        } else if (key >= 32 && key < 127 && s->command_index < sizeof(s->command_buffer)-1) {
+        } else if (key >= 32 && key < 127 &&
+                   s->command_index < sizeof(s->command_buffer) - 1) {
             s->command_buffer[s->command_index++] = (char)key;
             s->command_buffer[s->command_index] = '\0';
             handled = 1;
         }
     }
 
-    if (handled) clamp_params(s);
+    if (handled)
+        clamp_params(s);
     pthread_mutex_unlock(&s->lock);
 }
 
-static void bit_crush_set_osc_param(Module* m, const char* param, float value) {
-    BitCrushState* s = (BitCrushState*)m->state;
+static void bit_crush_set_osc_param(Module *m, const char *param, float value) {
+    BitCrushState *s = (BitCrushState *)m->state;
     pthread_mutex_lock(&s->lock);
 
     if (strcmp(param, "rate") == 0) {
-        // Expect 0.0–1.0 from slider, map exponentially from 20 Hz to sample_rate * 0.45
+        // Expect 0.0–1.0 from slider, map exponentially from 20 Hz to
+        // sample_rate * 0.45
         float min_rate = 20.0f;
         float max_rate = s->sample_rate * 0.45f;
 
-        float norm = fminf(fmaxf(value, 0.0f), 1.0f);  // clamp 0–1
+        float norm = fminf(fmaxf(value, 0.0f), 1.0f); // clamp 0–1
         float hz = min_rate * powf(max_rate / min_rate, norm);
         s->rate = hz;
 
@@ -178,33 +202,35 @@ static void bit_crush_set_osc_param(Module* m, const char* param, float value) {
     pthread_mutex_unlock(&s->lock);
 }
 
-
-static void bit_crush_destroy(Module* m) {
-    BitCrushState* s = (BitCrushState*)m->state;
-    if (s) pthread_mutex_destroy(&s->lock);
+static void bit_crush_destroy(Module *m) {
+    BitCrushState *s = (BitCrushState *)m->state;
+    if (s)
+        pthread_mutex_destroy(&s->lock);
     destroy_base_module(m);
 }
 
-Module* create_module(const char* args, float sample_rate) {
+Module *create_module(const char *args, float sample_rate) {
     float bits = 8.0f;
     float rate = 8000.0f;
 
-    if (args && strstr(args, "bits=")) sscanf(strstr(args, "bits="), "bits=%f", &bits);
-    if (args && strstr(args, "rate=")) sscanf(strstr(args, "rate="), "rate=%f", &rate);
+    if (args && strstr(args, "bits="))
+        sscanf(strstr(args, "bits="), "bits=%f", &bits);
+    if (args && strstr(args, "rate="))
+        sscanf(strstr(args, "rate="), "rate=%f", &rate);
 
-    BitCrushState* s = calloc(1, sizeof(BitCrushState));
+    BitCrushState *s = calloc(1, sizeof(BitCrushState));
     s->bits = bits;
     s->rate = rate;
     s->phase = 0.0f;
     s->last_sample = 0.0f;
-	s->sample_rate = sample_rate;
+    s->sample_rate = sample_rate;
 
     pthread_mutex_init(&s->lock, NULL);
     init_smoother(&s->smooth_bits, 0.75f);
     init_smoother(&s->smooth_rate, 0.75f);
-	clamp_params(s);
+    clamp_params(s);
 
-    Module* m = calloc(1, sizeof(Module));
+    Module *m = calloc(1, sizeof(Module));
     m->name = "bit_crush";
     m->state = s;
     m->output_buffer = calloc(MAX_BLOCK_SIZE, sizeof(float));
@@ -215,4 +241,3 @@ Module* create_module(const char* args, float sample_rate) {
     m->destroy = bit_crush_destroy;
     return m;
 }
-

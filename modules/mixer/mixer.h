@@ -1,9 +1,9 @@
 #ifndef MIXER_H
 #define MIXER_H
 
+#include "util.h"
 #include <pthread.h>
 #include <stdbool.h>
-#include "util.h"
 
 typedef struct {
     float sample_rate;
@@ -21,4 +21,3 @@ typedef struct {
 } MixerState;
 
 #endif
-

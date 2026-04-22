@@ -1,9 +1,9 @@
 #ifndef C_CV_MONITOR
 #define C_CV_MONITOR
 
-#include <pthread.h>
-#include "util.h"
 #include "module.h"
+#include "util.h"
+#include <pthread.h>
 
 typedef struct {
     float attenuvert;
@@ -16,11 +16,11 @@ typedef struct {
     CParamSmooth smooth_off;
 
     pthread_mutex_t lock;
-	
-	float display_input;
-	float display_output;
-	float display_att;
-	float display_off;
+
+    float display_input;
+    float display_output;
+    float display_att;
+    float display_off;
 
     char command_buffer[32];
     int command_index;

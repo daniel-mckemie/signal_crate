@@ -1,27 +1,27 @@
 #ifndef E_SPLICER_H
 #define E_SPLICER_H
 
-#include <stdint.h>
-#include <stdbool.h>
 #include <pthread.h>
+#include <stdbool.h>
+#include <stdint.h>
 
 #include "module.h"
 
 typedef struct {
     pthread_mutex_t lock;
 
-    double* data;
+    double *data;
     uint64_t frames;
     int channels;
     int file_sr;
     int format;
-	int valid;
-	char error[128];
+    int valid;
+    char error[128];
 
     uint64_t playhead;
     bool playing;
-	float playback_speed;
-	float speed_accum;
+    float playback_speed;
+    float speed_accum;
 
     bool cut_a_set;
     bool cut_b_set;
@@ -39,7 +39,6 @@ typedef struct {
 
 } ESplicer;
 
-Module* create_module(const char* args, float sample_rate);
+Module *create_module(const char *args, float sample_rate);
 
 #endif
-

@@ -1,168 +1,197 @@
+#include <math.h>
+#include <ncurses.h>
+#include <pthread.h>
 #include <stdlib.h>
 #include <string.h>
-#include <math.h>
-#include <pthread.h>
-#include <ncurses.h>
 
 #include "freeverb.h"
 #include "module.h"
 #include "util.h"
 
 // Delay lengths (prime-ish for decorrelation), must be < MAX_DELAY
-static const int comb_lengths[NUM_COMBS] = {1116, 1188, 1277, 1356, 1422, 1491, 1557, 1617};
+static const int comb_lengths[NUM_COMBS] = {1116, 1188, 1277, 1356,
+                                            1422, 1491, 1557, 1617};
 static const int allpass_lengths[NUM_ALLPASS] = {556, 441, 341, 225};
 
-static void delayline_init(DelayLine* d, int size) {
+static void delayline_init(DelayLine *d, int size) {
     d->size = size;
     d->index = 0;
     memset(d->buffer, 0, sizeof(float) * MAX_DELAY);
 }
 
-static float delayline_process(DelayLine* d, float input) {
+static float delayline_process(DelayLine *d, float input) {
     float out = d->buffer[d->index];
     d->buffer[d->index] = input;
     d->index = (d->index + 1) % d->size;
     return out;
 }
 
-static float allpass_process(DelayLine* d, float input) {
+static float allpass_process(DelayLine *d, float input) {
     int idx = d->index;
     float bufout = d->buffer[idx];
     float output = -input + bufout;
-    d->buffer[idx] = input + (bufout * 0.5f);  // 0.5 is the standard Freeverb allpass gain
+    d->buffer[idx] =
+        input + (bufout * 0.5f); // 0.5 is the standard Freeverb allpass gain
     d->index = (idx + 1) % d->size;
     return output;
 }
 
-static void freeverb_process(Module* m, float* in, unsigned long frames) {
-    Freeverb* s = (Freeverb*)m->state;
-	float* input = (m->num_inputs > 0) ? m->inputs[0] : in;
-	float* out = m->output_buffer;
+static void freeverb_process(Module *m, float *in, unsigned long frames) {
+    Freeverb *s = (Freeverb *)m->state;
+    float *input = (m->num_inputs > 0) ? m->inputs[0] : in;
+    float *out = m->output_buffer;
 
-	pthread_mutex_lock(&s->lock);
-	float base_fb   = s->feedback;
-	float base_damp = s->damping;
-	float base_wet  = s->wet;
-	pthread_mutex_unlock(&s->lock);
+    pthread_mutex_lock(&s->lock);
+    float base_fb = s->feedback;
+    float base_damp = s->damping;
+    float base_wet = s->wet;
+    pthread_mutex_unlock(&s->lock);
 
-    float fb_s   = process_smoother(&s->smooth_feedback, base_fb);
+    float fb_s = process_smoother(&s->smooth_feedback, base_fb);
     float damp_s = process_smoother(&s->smooth_damping, base_damp);
-    float wet_s  = process_smoother(&s->smooth_wet, base_wet);
+    float wet_s = process_smoother(&s->smooth_wet, base_wet);
 
-	float disp_fb   = fb_s;
-	float disp_damp = damp_s;
-	float disp_wet  = wet_s;
+    float disp_fb = fb_s;
+    float disp_damp = damp_s;
+    float disp_wet = wet_s;
 
-	for (unsigned long i=0; i<frames; i++) {
-		float fb   = fb_s;
-		float damp = damp_s;
-		float wet  = wet_s;
+    for (unsigned long i = 0; i < frames; i++) {
+        float fb = fb_s;
+        float damp = damp_s;
+        float wet = wet_s;
 
-		for (int j=0; j<m->num_control_inputs; j++) {
+        for (int j = 0; j < m->num_control_inputs; j++) {
 
-			if (!m->control_inputs[j] || !m->control_input_params[j]) continue;
+            if (!m->control_inputs[j] || !m->control_input_params[j])
+                continue;
 
-			const char* param = m->control_input_params[j];
-			float control = m->control_inputs[j][i];
-			control = fminf(fmaxf(control, -1.0f), 1.0f);
+            const char *param = m->control_input_params[j];
+            float control = m->control_inputs[j][i];
+            control = fminf(fmaxf(control, -1.0f), 1.0f);
 
-			if (strcmp(param, "fb") == 0) {
-				fb += control;
-			} else if (strcmp(param, "damp") == 0) {
-				damp += control;
-			} else if (strcmp(param, "wet") == 0) {
-				wet += control;
-			}
-		}
+            if (strcmp(param, "fb") == 0) {
+                fb += control;
+            } else if (strcmp(param, "damp") == 0) {
+                damp += control;
+            } else if (strcmp(param, "wet") == 0) {
+                wet += control;
+            }
+        }
 
-		clampf(&fb, 0.0f, 0.99f);
-		clampf(&damp, 0.0f, 1.0f);
-		clampf(&wet, 0.0f, 1.0f);
+        clampf(&fb, 0.0f, 0.99f);
+        clampf(&damp, 0.0f, 1.0f);
+        clampf(&wet, 0.0f, 1.0f);
 
-		disp_fb   = fb;
-		disp_damp = damp;
-		disp_wet  = wet;
+        disp_fb = fb;
+        disp_damp = damp;
+        disp_wet = wet;
 
-		float in_s = input ? input[i] : 0.0f;
-		float acc = 0.0f;
+        float in_s = input ? input[i] : 0.0f;
+        float acc = 0.0f;
 
-		for (int k=0; k<NUM_COMBS; k++) {
-			float comb_out = delayline_process(&s->combs[k], in_s + s->comb_filterstore[k] * fb);
-			s->comb_filterstore[k] = damp * s->comb_filterstore[k] + (1 - damp) * comb_out;
-			acc += comb_out;
-		}
+        for (int k = 0; k < NUM_COMBS; k++) {
+            float comb_out = delayline_process(
+                &s->combs[k], in_s + s->comb_filterstore[k] * fb);
+            s->comb_filterstore[k] =
+                damp * s->comb_filterstore[k] + (1 - damp) * comb_out;
+            acc += comb_out;
+        }
 
-		float allpass_out = acc;
-		for (int k=0; k<NUM_ALLPASS; k++) {
-			allpass_out = allpass_process(&s->allpasses[k], allpass_out);
-		}
+        float allpass_out = acc;
+        for (int k = 0; k < NUM_ALLPASS; k++) {
+            allpass_out = allpass_process(&s->allpasses[k], allpass_out);
+        }
 
-		float dry = 1.0f - wet;
-		out[i] = dry * in_s + wet * (allpass_out / NUM_COMBS);
-	}
+        float dry = 1.0f - wet;
+        out[i] = dry * in_s + wet * (allpass_out / NUM_COMBS);
+    }
 
-	pthread_mutex_lock(&s->lock);
-	s->display_feedback = disp_fb;
-	s->display_damping  = disp_damp;
-	s->display_wet      = disp_wet;
-	pthread_mutex_unlock(&s->lock);
+    pthread_mutex_lock(&s->lock);
+    s->display_feedback = disp_fb;
+    s->display_damping = disp_damp;
+    s->display_wet = disp_wet;
+    pthread_mutex_unlock(&s->lock);
 }
 
-static void clamp_params(Freeverb* s) {
+static void clamp_params(Freeverb *s) {
     clampf(&s->feedback, 0.0f, 0.99f);
     clampf(&s->damping, 0.0f, 1.0f);
     clampf(&s->wet, 0.0f, 1.0f);
 }
 
-static void freeverb_draw_ui(Module* m, int y, int x) {
-    Freeverb* s = (Freeverb*)m->state;
-	float fb, damp, wet;
+static void freeverb_draw_ui(Module *m, int y, int x) {
+    Freeverb *s = (Freeverb *)m->state;
+    float fb, damp, wet;
 
-	pthread_mutex_lock(&s->lock);
-	fb = s->display_feedback;
-	damp = s->display_damping;
-	wet = s->display_wet;
+    pthread_mutex_lock(&s->lock);
+    fb = s->display_feedback;
+    damp = s->display_damping;
+    wet = s->display_wet;
     pthread_mutex_unlock(&s->lock);
 
-	BLUE();
+    BLUE();
     mvprintw(y, x, "[Freeverb:%s] ", m->name);
-	CLR();
+    CLR();
 
-	LABEL(2, "fb:");
-	ORANGE(); printw(" %.2f | ", fb); CLR();
+    LABEL(2, "fb:");
+    ORANGE();
+    printw(" %.2f | ", fb);
+    CLR();
 
-	LABEL(2, "damp:");
-	ORANGE(); printw(" %.2f | ", damp); CLR();
+    LABEL(2, "damp:");
+    ORANGE();
+    printw(" %.2f | ", damp);
+    CLR();
 
-	LABEL(2, "wet:");
-	ORANGE(); printw(" %.2f", wet); CLR();
+    LABEL(2, "wet:");
+    ORANGE();
+    printw(" %.2f", wet);
+    CLR();
 
-	YELLOW();
-    mvprintw(y+1, x, "Keys: -/= fb, _/+ damp, [/] wet");
-    mvprintw(y+2, x, "Cmd: :1 [fb], :2 [damp], :3 [wet]");
-	BLACK();
+    YELLOW();
+    mvprintw(y + 1, x, "Keys: -/= fb, _/+ damp, [/] wet");
+    mvprintw(y + 2, x, "Cmd: :1 [fb], :2 [damp], :3 [wet]");
+    BLACK();
 }
 
-static void freeverb_handle_input(Module* m, int key) {
-    Freeverb* s = (Freeverb*)m->state;
+static void freeverb_handle_input(Module *m, int key) {
+    Freeverb *s = (Freeverb *)m->state;
     int handled = 0;
 
     pthread_mutex_lock(&s->lock);
 
     if (!s->entering_command) {
         switch (key) {
-            case '-': s->feedback -= 0.01f; handled = 1; break;
-            case '=': s->feedback += 0.01f; handled = 1; break;
-            case '_': s->damping -= 0.01f; handled = 1; break;
-            case '+': s->damping += 0.01f; handled = 1; break;
-            case '[': s->wet -= 0.01f; handled = 1; break;
-            case ']': s->wet += 0.01f; handled = 1; break;
-            case ':':
-                s->entering_command = true;
-                memset(s->command_buffer, 0, sizeof(s->command_buffer));
-                s->command_index = 0;
-                handled = 1;
-                break;
+        case '-':
+            s->feedback -= 0.01f;
+            handled = 1;
+            break;
+        case '=':
+            s->feedback += 0.01f;
+            handled = 1;
+            break;
+        case '_':
+            s->damping -= 0.01f;
+            handled = 1;
+            break;
+        case '+':
+            s->damping += 0.01f;
+            handled = 1;
+            break;
+        case '[':
+            s->wet -= 0.01f;
+            handled = 1;
+            break;
+        case ']':
+            s->wet += 0.01f;
+            handled = 1;
+            break;
+        case ':':
+            s->entering_command = true;
+            memset(s->command_buffer, 0, sizeof(s->command_buffer));
+            s->command_index = 0;
+            handled = 1;
+            break;
         }
     } else {
         if (key == '\n') {
@@ -170,65 +199,81 @@ static void freeverb_handle_input(Module* m, int key) {
             char type;
             float val;
             if (sscanf(s->command_buffer, "%c %f", &type, &val) == 2) {
-                if (type == '1') s->feedback = val;
-                else if (type == '2') s->damping = val;
-                else if (type == '3') s->wet = val;
+                if (type == '1')
+                    s->feedback = val;
+                else if (type == '2')
+                    s->damping = val;
+                else if (type == '3')
+                    s->wet = val;
             }
             handled = 1;
         } else if (key == 27) {
             s->entering_command = false;
             handled = 1;
-        } else if ((key == KEY_BACKSPACE || key == 127) && s->command_index > 0) {
+        } else if ((key == KEY_BACKSPACE || key == 127) &&
+                   s->command_index > 0) {
             s->command_index--;
             s->command_buffer[s->command_index] = '\0';
             handled = 1;
-        } else if (key >= 32 && key < 127 && s->command_index < sizeof(s->command_buffer) - 1) {
+        } else if (key >= 32 && key < 127 &&
+                   s->command_index < sizeof(s->command_buffer) - 1) {
             s->command_buffer[s->command_index++] = (char)key;
             s->command_buffer[s->command_index] = '\0';
             handled = 1;
         }
     }
 
-    if (handled) clamp_params(s);
+    if (handled)
+        clamp_params(s);
     pthread_mutex_unlock(&s->lock);
 }
 
-static void freeverb_set_osc_param(Module* m, const char* param, float value) {
-    Freeverb* s = (Freeverb*)m->state;
+static void freeverb_set_osc_param(Module *m, const char *param, float value) {
+    Freeverb *s = (Freeverb *)m->state;
     pthread_mutex_lock(&s->lock);
 
-    if (strcmp(param, "fb") == 0) s->feedback = value;
-    else if (strcmp(param, "damp") == 0) s->damping = value;
-    else if (strcmp(param, "wet") == 0) s->wet = value;
-    else fprintf(stderr, "[freeverb] Unknown OSC param: %s\n", param);
+    if (strcmp(param, "fb") == 0)
+        s->feedback = value;
+    else if (strcmp(param, "damp") == 0)
+        s->damping = value;
+    else if (strcmp(param, "wet") == 0)
+        s->wet = value;
+    else
+        fprintf(stderr, "[freeverb] Unknown OSC param: %s\n", param);
 
     clamp_params(s);
     pthread_mutex_unlock(&s->lock);
 }
 
-static void freeverb_destroy(Module* m) {
-    if (!m) return;
-    Freeverb* s = (Freeverb*)m->state;
+static void freeverb_destroy(Module *m) {
+    if (!m)
+        return;
+    Freeverb *s = (Freeverb *)m->state;
     pthread_mutex_destroy(&s->lock);
     destroy_base_module(m);
 }
 
-Module* create_module(const char* args, float sample_rate) {
+Module *create_module(const char *args, float sample_rate) {
     float fb = 0.5f, damp = 0.5f, wet = 0.33f;
 
-    if (args && strstr(args, "fb=")) sscanf(strstr(args, "fb="), "fb=%f", &fb);
-    if (args && strstr(args, "damp=")) sscanf(strstr(args, "damp="), "damp=%f", &damp);
-    if (args && strstr(args, "wet=")) sscanf(strstr(args, "wet="), "wet=%f", &wet);
+    if (args && strstr(args, "fb="))
+        sscanf(strstr(args, "fb="), "fb=%f", &fb);
+    if (args && strstr(args, "damp="))
+        sscanf(strstr(args, "damp="), "damp=%f", &damp);
+    if (args && strstr(args, "wet="))
+        sscanf(strstr(args, "wet="), "wet=%f", &wet);
 
-    Freeverb* s = calloc(1, sizeof(Freeverb));
-	memset(s->comb_filterstore, 0, sizeof(float) * NUM_COMBS);
+    Freeverb *s = calloc(1, sizeof(Freeverb));
+    memset(s->comb_filterstore, 0, sizeof(float) * NUM_COMBS);
     s->sample_rate = sample_rate;
     s->feedback = fb;
     s->damping = damp;
     s->wet = wet;
 
-    for (int i = 0; i < NUM_COMBS; i++) delayline_init(&s->combs[i], comb_lengths[i]);
-    for (int i = 0; i < NUM_ALLPASS; i++) delayline_init(&s->allpasses[i], allpass_lengths[i]);
+    for (int i = 0; i < NUM_COMBS; i++)
+        delayline_init(&s->combs[i], comb_lengths[i]);
+    for (int i = 0; i < NUM_ALLPASS; i++)
+        delayline_init(&s->allpasses[i], allpass_lengths[i]);
 
     init_smoother(&s->smooth_feedback, 0.5f);
     init_smoother(&s->smooth_damping, 0.5f);
@@ -237,7 +282,7 @@ Module* create_module(const char* args, float sample_rate) {
     pthread_mutex_init(&s->lock, NULL);
     clamp_params(s);
 
-    Module* m = calloc(1, sizeof(Module));
+    Module *m = calloc(1, sizeof(Module));
     m->name = "freeverb";
     m->state = s;
     m->output_buffer = calloc(MAX_BLOCK_SIZE, sizeof(float));
@@ -248,4 +293,3 @@ Module* create_module(const char* args, float sample_rate) {
     m->destroy = freeverb_destroy;
     return m;
 }
-

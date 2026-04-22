@@ -1,23 +1,23 @@
 #ifndef INPUT_H
 #define INPUT_H
 
-#include <pthread.h>
 #include "util.h"
+#include <pthread.h>
 
 typedef struct {
-	float gain;
-	float sample_rate;
+    float gain;
+    float sample_rate;
 
-	int channel_index;
+    int channel_index;
 
-	CParamSmooth smooth_gain;
-	
-	pthread_mutex_t lock;
+    CParamSmooth smooth_gain;
 
-	// For command mode
-	bool entering_command;
-	char command_buffer[64];
-	int command_index;
+    pthread_mutex_t lock;
+
+    // For command mode
+    bool entering_command;
+    char command_buffer[64];
+    int command_index;
 } InputState;
 
 #endif

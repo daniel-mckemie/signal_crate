@@ -1,9 +1,9 @@
 #ifndef C_CLOCK_S_H
 #define C_CLOCK_S_H
 
+#include "util.h"
 #include <pthread.h>
 #include <stdbool.h>
-#include "util.h"
 
 /*
  * CClockS represents a single clock module that is syncable to others like it
@@ -26,20 +26,19 @@ typedef struct {
 
     int user_enable;
 
-	int pending_resync;
-	float last_sync_in;
+    int pending_resync;
+    float last_sync_in;
 
     float display_bpm;
     float display_pw;
     float display_mult;
-    int   display_running;
+    int display_running;
 
-    bool  entering_command;
-    char  command_buffer[64];
-    int   command_index;
+    bool entering_command;
+    char command_buffer[64];
+    int command_index;
 
     pthread_mutex_t lock;
 } CClockS;
 
 #endif
-

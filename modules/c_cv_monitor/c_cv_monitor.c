@@ -1,17 +1,17 @@
+#include <math.h>
+#include <ncurses.h>
+#include <pthread.h>
 #include <stdlib.h>
 #include <string.h>
-#include <math.h>
-#include <pthread.h>
-#include <ncurses.h>
 
 #include "c_cv_monitor.h"
 #include "module.h"
 #include "util.h"
 
-static void cv_monitor_process_control(Module* m, unsigned long frames) {
-    CCVMonitor* s = (CCVMonitor*)m->state;
-	float* in_buf = (m->num_control_inputs > 0) ? m->control_inputs[0] : NULL;
-	float* out    = m->control_output;
+static void cv_monitor_process_control(Module *m, unsigned long frames) {
+    CCVMonitor *s = (CCVMonitor *)m->state;
+    float *in_buf = (m->num_control_inputs > 0) ? m->control_inputs[0] : NULL;
+    float *out = m->control_output;
 
     float base_att, base_off;
     pthread_mutex_lock(&s->lock);
@@ -21,62 +21,61 @@ static void cv_monitor_process_control(Module* m, unsigned long frames) {
 
     float att_s = process_smoother(&s->smooth_att, base_att);
     float off_s = process_smoother(&s->smooth_off, base_off);
-	
-	float disp_att = att_s;
-	float disp_off = off_s;
-	float disp_in  = 0.0f;
-	float disp_out = 0.0f;
 
-	for (unsigned long i=0; i < frames; i++) {
-		float att = att_s;
-		float off = off_s;
+    float disp_att = att_s;
+    float disp_off = off_s;
+    float disp_in = 0.0f;
+    float disp_out = 0.0f;
 
-		for (int j=0; j < m->num_control_inputs; j++) {
-			
-			if (!m->control_inputs[j] || !m->control_input_params[j]) continue;
+    for (unsigned long i = 0; i < frames; i++) {
+        float att = att_s;
+        float off = off_s;
 
-			const char* param = m->control_input_params[j];
-			float control = m->control_inputs[j][i];
-			control = fminf(fmaxf(control, -1.0f), 1.0f);
+        for (int j = 0; j < m->num_control_inputs; j++) {
 
-			if (strcmp(param, "att") == 0) {
-				att += control;
-			} else if (strcmp(param, "offset") == 0) {
-				off += control;
-			}
-		}
+            if (!m->control_inputs[j] || !m->control_input_params[j])
+                continue;
 
-		clampf(&att, -2.0f, 2.0f);
-		clampf(&off, -1.0f, 1.0f);
+            const char *param = m->control_input_params[j];
+            float control = m->control_inputs[j][i];
+            control = fminf(fmaxf(control, -1.0f), 1.0f);
 
-		float in = in_buf ? in_buf[i] : 0.0f;
-		float val = fminf(fmaxf(in * att + off, -1.0f), 1.0f);
+            if (strcmp(param, "att") == 0) {
+                att += control;
+            } else if (strcmp(param, "offset") == 0) {
+                off += control;
+            }
+        }
 
-		out[i] = val;
+        clampf(&att, -2.0f, 2.0f);
+        clampf(&off, -1.0f, 1.0f);
 
-		disp_att = att;
-		disp_off = off;
-		disp_in  = in;
-		disp_out = val;
-	}
+        float in = in_buf ? in_buf[i] : 0.0f;
+        float val = fminf(fmaxf(in * att + off, -1.0f), 1.0f);
+
+        out[i] = val;
+
+        disp_att = att;
+        disp_off = off;
+        disp_in = in;
+        disp_out = val;
+    }
 
     pthread_mutex_lock(&s->lock);
-    s->display_input  = disp_in;
+    s->display_input = disp_in;
     s->display_output = disp_out;
-    s->display_att    = disp_att;
-    s->display_off    = disp_off;
+    s->display_att = disp_att;
+    s->display_off = disp_off;
     pthread_mutex_unlock(&s->lock);
-
 }
 
-
-static void clamp_params(CCVMonitor* s) {
+static void clamp_params(CCVMonitor *s) {
     clampf(&s->attenuvert, -2.0f, 2.0f);
     clampf(&s->offset, -1.0f, 1.0f);
 }
 
-static void cv_monitor_draw_ui(Module* m, int y, int x) {
-    CCVMonitor* s = (CCVMonitor*)m->state;
+static void cv_monitor_draw_ui(Module *m, int y, int x) {
+    CCVMonitor *s = (CCVMonitor *)m->state;
     pthread_mutex_lock(&s->lock);
     float in = s->display_input;
     float out = s->display_output;
@@ -84,45 +83,65 @@ static void cv_monitor_draw_ui(Module* m, int y, int x) {
     float off = s->display_off;
     pthread_mutex_unlock(&s->lock);
 
-	BLUE();
-	mvprintw(y,   x, "[CVMon:%s] ", m->name);
-	CLR();
+    BLUE();
+    mvprintw(y, x, "[CVMon:%s] ", m->name);
+    CLR();
 
-	LABEL(2, "in:");
-	ORANGE(); printw(" %.3f | ", in); CLR();
+    LABEL(2, "in:");
+    ORANGE();
+    printw(" %.3f | ", in);
+    CLR();
 
-	LABEL(2, "att:");
-	ORANGE(); printw(" %.2f | ", att); CLR();
-	
-	LABEL(2, "off:");
-	ORANGE(); printw(" %.2f | ", off); CLR();
+    LABEL(2, "att:");
+    ORANGE();
+    printw(" %.2f | ", att);
+    CLR();
 
-	LABEL(2, "out:");
-	ORANGE(); printw(" %.3f", out); CLR();
+    LABEL(2, "off:");
+    ORANGE();
+    printw(" %.2f | ", off);
+    CLR();
 
-	YELLOW();
-    mvprintw(y+1, x, "Real-Time Keys: -/= att, _/+ offset");
-    mvprintw(y+2, x, "Cmd Keys: :1 att, :2 offset");
-	BLACK();
+    LABEL(2, "out:");
+    ORANGE();
+    printw(" %.3f", out);
+    CLR();
+
+    YELLOW();
+    mvprintw(y + 1, x, "Real-Time Keys: -/= att, _/+ offset");
+    mvprintw(y + 2, x, "Cmd Keys: :1 att, :2 offset");
+    BLACK();
 }
 
-static void cv_monitor_handle_input(Module* m, int key) {
-    CCVMonitor* s = (CCVMonitor*)m->state;
+static void cv_monitor_handle_input(Module *m, int key) {
+    CCVMonitor *s = (CCVMonitor *)m->state;
     int handled = 0;
 
     pthread_mutex_lock(&s->lock);
     if (!s->entering_command) {
         switch (key) {
-            case '=': s->attenuvert += 0.01f; handled = 1; break;
-            case '-': s->attenuvert -= 0.01f; handled = 1; break;
-            case '+': s->offset += 0.01f; handled = 1; break;
-            case '_': s->offset -= 0.01f; handled = 1; break;
-            case ':':
-                s->entering_command = true;
-                s->command_index = 0;
-                memset(s->command_buffer, 0, sizeof(s->command_buffer));
-                handled = 1;
-                break;
+        case '=':
+            s->attenuvert += 0.01f;
+            handled = 1;
+            break;
+        case '-':
+            s->attenuvert -= 0.01f;
+            handled = 1;
+            break;
+        case '+':
+            s->offset += 0.01f;
+            handled = 1;
+            break;
+        case '_':
+            s->offset -= 0.01f;
+            handled = 1;
+            break;
+        case ':':
+            s->entering_command = true;
+            s->command_index = 0;
+            memset(s->command_buffer, 0, sizeof(s->command_buffer));
+            handled = 1;
+            break;
         }
     } else {
         if (key == '\n') {
@@ -130,18 +149,22 @@ static void cv_monitor_handle_input(Module* m, int key) {
             char type;
             float val;
             if (sscanf(s->command_buffer, "%c %f", &type, &val) == 2) {
-                if (type == '1') s->attenuvert = val;
-                else if (type == '2') s->offset = val;
+                if (type == '1')
+                    s->attenuvert = val;
+                else if (type == '2')
+                    s->offset = val;
             }
             handled = 1;
         } else if (key == 27) {
             s->entering_command = false;
             handled = 1;
-        } else if ((key == KEY_BACKSPACE || key == 127) && s->command_index > 0) {
+        } else if ((key == KEY_BACKSPACE || key == 127) &&
+                   s->command_index > 0) {
             s->command_index--;
             s->command_buffer[s->command_index] = '\0';
             handled = 1;
-        } else if (key >= 32 && key < 127 && s->command_index < sizeof(s->command_buffer) - 1) {
+        } else if (key >= 32 && key < 127 &&
+                   s->command_index < sizeof(s->command_buffer) - 1) {
             s->command_buffer[s->command_index++] = (char)key;
             s->command_buffer[s->command_index] = '\0';
             handled = 1;
@@ -154,8 +177,9 @@ static void cv_monitor_handle_input(Module* m, int key) {
     pthread_mutex_unlock(&s->lock);
 }
 
-static void cv_monitor_set_osc_param(Module* m, const char* param, float value) {
-    CCVMonitor* s = (CCVMonitor*)m->state;
+static void cv_monitor_set_osc_param(Module *m, const char *param,
+                                     float value) {
+    CCVMonitor *s = (CCVMonitor *)m->state;
     pthread_mutex_lock(&s->lock);
     if (strcmp(param, "att") == 0)
         s->attenuvert = fminf(fmaxf(value, -2.0f), 2.0f);
@@ -163,24 +187,26 @@ static void cv_monitor_set_osc_param(Module* m, const char* param, float value) 
         s->offset = fminf(fmaxf(value, -1.0f), 1.0f);
     else
         fprintf(stderr, "[c_cv_monitor] Unknown param: %s\n", param);
-	clamp_params(s);
+    clamp_params(s);
     pthread_mutex_unlock(&s->lock);
 }
 
-static void cv_monitor_destroy(Module* m) {
-    CCVMonitor* s = (CCVMonitor*)m->state;
+static void cv_monitor_destroy(Module *m) {
+    CCVMonitor *s = (CCVMonitor *)m->state;
     pthread_mutex_destroy(&s->lock);
     destroy_base_module(m);
 }
 
-Module* create_module(const char* args, float sample_rate) {
+Module *create_module(const char *args, float sample_rate) {
     float att = 1.0f;
     float off = 0.0f;
 
-    if (args && strstr(args, "att=")) sscanf(strstr(args, "att="), "att=%f", &att);
-    if (args && strstr(args, "offset=")) sscanf(strstr(args, "offset="), "offset=%f", &off);
+    if (args && strstr(args, "att="))
+        sscanf(strstr(args, "att="), "att=%f", &att);
+    if (args && strstr(args, "offset="))
+        sscanf(strstr(args, "offset="), "offset=%f", &off);
 
-    CCVMonitor* s = calloc(1, sizeof(CCVMonitor));
+    CCVMonitor *s = calloc(1, sizeof(CCVMonitor));
     s->attenuvert = att;
     s->offset = off;
     s->sample_rate = sample_rate;
@@ -188,17 +214,16 @@ Module* create_module(const char* args, float sample_rate) {
     pthread_mutex_init(&s->lock, NULL);
     init_smoother(&s->smooth_att, 0.75f);
     init_smoother(&s->smooth_off, 0.75f);
-	clamp_params(s);
+    clamp_params(s);
 
-    Module* m = calloc(1, sizeof(Module));
+    Module *m = calloc(1, sizeof(Module));
     m->name = "c_cv_monitor";
     m->state = s;
     m->process_control = cv_monitor_process_control;
     m->draw_ui = cv_monitor_draw_ui;
     m->handle_input = cv_monitor_handle_input;
-	m->set_param = cv_monitor_set_osc_param;
+    m->set_param = cv_monitor_set_osc_param;
     m->destroy = cv_monitor_destroy;
     m->control_output = calloc(MAX_BLOCK_SIZE, sizeof(float));
     return m;
 }
-

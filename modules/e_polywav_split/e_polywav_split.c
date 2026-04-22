@@ -13,14 +13,13 @@
 #define SPLIT_DIR "e_output_files/polywav_splits"
 
 static void ensure_split_dir(void) {
-	mkdir(E_FILES_DIR, 0755);
+    mkdir(E_FILES_DIR, 0755);
     mkdir(SPLIT_DIR, 0755);
 }
 
-static void split_polywav(const char* filepath, unsigned int split_id)
-{
+static void split_polywav(const char *filepath, unsigned int split_id) {
     SF_INFO in_info = (SF_INFO){0};
-    SNDFILE* infile = sf_open(filepath, SFM_READ, &in_info);
+    SNDFILE *infile = sf_open(filepath, SFM_READ, &in_info);
     if (!infile) {
         fprintf(stderr, "[e_polywav_splitter] failed to open '%s'\n", filepath);
         return;
@@ -31,7 +30,7 @@ static void split_polywav(const char* filepath, unsigned int split_id)
     SF_INFO out_info = in_info;
     out_info.channels = 1;
 
-    SNDFILE** outs = calloc((size_t)channels, sizeof(SNDFILE*));
+    SNDFILE **outs = calloc((size_t)channels, sizeof(SNDFILE *));
     if (!outs) {
         sf_close(infile);
         return;
@@ -39,24 +38,27 @@ static void split_polywav(const char* filepath, unsigned int split_id)
 
     for (int ch = 0; ch < channels; ch++) {
         char path[1024];
-        snprintf(path, sizeof(path),
-                 SPLIT_DIR "/sc_split_%03u_ch_%02d.wav",
+        snprintf(path, sizeof(path), SPLIT_DIR "/sc_split_%03u_ch_%02d.wav",
                  split_id, ch);
 
         outs[ch] = sf_open(path, SFM_WRITE, &out_info);
         if (!outs[ch]) {
             fprintf(stderr, "[e_polywav_splitter] failed output ch %d\n", ch);
-            for (int k = 0; k < channels; k++) if (outs[k]) sf_close(outs[k]);
+            for (int k = 0; k < channels; k++)
+                if (outs[k])
+                    sf_close(outs[k]);
             free(outs);
             sf_close(infile);
             return;
         }
     }
 
-    float* inter = malloc(sizeof(float) * BLOCK_FRAMES * (size_t)channels);
-    float* mono  = malloc(sizeof(float) * BLOCK_FRAMES);
+    float *inter = malloc(sizeof(float) * BLOCK_FRAMES * (size_t)channels);
+    float *mono = malloc(sizeof(float) * BLOCK_FRAMES);
     if (!inter || !mono) {
-        for (int k = 0; k < channels; k++) if (outs[k]) sf_close(outs[k]);
+        for (int k = 0; k < channels; k++)
+            if (outs[k])
+                sf_close(outs[k]);
         free(outs);
         sf_close(infile);
         free(inter);
@@ -74,7 +76,8 @@ static void split_polywav(const char* filepath, unsigned int split_id)
         }
     }
 
-    for (int ch = 0; ch < channels; ch++) sf_close(outs[ch]);
+    for (int ch = 0; ch < channels; ch++)
+        sf_close(outs[ch]);
     sf_close(infile);
 
     free(outs);
@@ -82,26 +85,21 @@ static void split_polywav(const char* filepath, unsigned int split_id)
     free(mono);
 }
 
-static void splitter_process(Module* m, float* in, unsigned long frames)
-{
+static void splitter_process(Module *m, float *in, unsigned long frames) {
     (void)in;
     memset(m->output_buffer, 0, sizeof(float) * frames);
 }
 
-static void splitter_destroy(Module* m)
-{
-    destroy_base_module(m);
-}
+static void splitter_destroy(Module *m) { destroy_base_module(m); }
 
-Module* create_module(const char* args, float sample_rate)
-{
+Module *create_module(const char *args, float sample_rate) {
     (void)sample_rate;
 
     char filepath[512] = "polywav.wav";
     unsigned int split_id = 0;
 
     if (args && strstr(args, "file=")) {
-        const char* p = strstr(args, "file=") + 5;
+        const char *p = strstr(args, "file=") + 5;
         size_t i = 0;
         while (*p && *p != ',' && *p != ' ' && i < sizeof(filepath) - 1) {
             filepath[i++] = *p++;
@@ -116,9 +114,9 @@ Module* create_module(const char* args, float sample_rate)
     ensure_split_dir();
     split_polywav(filepath, split_id);
 
-    EPolywavSplit* s = calloc(1, sizeof(EPolywavSplit));
+    EPolywavSplit *s = calloc(1, sizeof(EPolywavSplit));
 
-    Module* m = calloc(1, sizeof(Module));
+    Module *m = calloc(1, sizeof(Module));
     m->name = "e_polywav_split";
     m->state = s;
     m->process = splitter_process;
@@ -127,4 +125,3 @@ Module* create_module(const char* args, float sample_rate)
 
     return m;
 }
-

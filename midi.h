@@ -2,21 +2,22 @@
 #define MIDI_H
 
 // Start PortMIDI input.
-// If device_substr is non-NULL and non-empty, picks the first input device whose name contains it.
-// Otherwise picks the first available input device.
+// If device_substr is non-NULL and non-empty, picks the first input device
+// whose name contains it. Otherwise picks the first available input device.
 // Returns 0 on success, nonzero on failure.
-int midi_start(const char* device_substr);
+int midi_start(const char *device_substr);
 
 void midi_stop(void);
 
-// Latest CC value (channel 1), raw 0..127. Returns 0 if never seen or invalid cc.
+// Latest CC value (channel 1), raw 0..127. Returns 0 if never seen or invalid
+// cc.
 int midi_cc_raw(int cc);
 
 // Latest CC value normalized to 0..1.
 float midi_cc_norm(int cc);
 
 // 14-bit MIDI
-int   midi_cc14_raw(int channel, int cc);
+int midi_cc14_raw(int channel, int cc);
 float midi_cc14_norm(int channel, int cc);
 
 // Optional: print devices to stderr (for now).
@@ -27,4 +28,3 @@ int midi_last_channel(void);
 int midi_last_cc(void);
 
 #endif
-

@@ -1,21 +1,21 @@
 #ifndef DELAY_H
 #define DELAY_H
 
-#include <pthread.h>
 #include "module.h"
 #include "util.h"
+#include <pthread.h>
 
 typedef struct {
     float delay_ms;
     float mix;
     float feedback;
 
-	float sample_rate;
-    float* buffer;
+    float sample_rate;
+    float *buffer;
     unsigned int buffer_size;
     unsigned int write_index;
     unsigned int read_index;
-	float last_delay_samples;
+    float last_delay_samples;
 
     // Smoothing
     CParamSmooth smooth_delay;
@@ -36,4 +36,3 @@ typedef struct {
 } Delay;
 
 #endif
-

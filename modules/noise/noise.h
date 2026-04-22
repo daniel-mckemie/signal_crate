@@ -1,36 +1,32 @@
 #ifndef NOISE_H
 #define NOISE_H
 
-#include <pthread.h>
-#include "util.h"
-#include "pink_filter.h"
 #include "brown_noise.h"
+#include "pink_filter.h"
+#include "util.h"
+#include <pthread.h>
 
-typedef enum {
-	WHITE_NOISE,
-	PINK_NOISE,
-	BROWN_NOISE
-} NoiseType;
+typedef enum { WHITE_NOISE, PINK_NOISE, BROWN_NOISE } NoiseType;
 
 typedef struct {
-	float amplitude;
-	NoiseType noise_type;
-	float sample_rate;
+    float amplitude;
+    NoiseType noise_type;
+    float sample_rate;
 
-	uint32_t rng;
+    uint32_t rng;
 
-	CParamSmooth smooth_amp;
+    CParamSmooth smooth_amp;
 
-	PinkFilter pink;
-    BrownNoise brown;	
+    PinkFilter pink;
+    BrownNoise brown;
 
-	pthread_mutex_t lock;
+    pthread_mutex_t lock;
 
-	float display_amp;
+    float display_amp;
 
-	bool entering_command;
-	char command_buffer[64];
-	int command_index;
+    bool entering_command;
+    char command_buffer[64];
+    int command_index;
 } Noise;
 
 #endif

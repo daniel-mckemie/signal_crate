@@ -5,18 +5,18 @@
 
 typedef struct {
     char name[32];
-    Module* module;
+    Module *module;
 } NamedModule;
 
 extern int ui_enabled;
 
 // DAG patching API
-void initialize_engine(const char* patch_text);
+void initialize_engine(const char *patch_text);
 void shutdown_engine(void);
-void process_audio(float* input, float* output, unsigned long frames);
+void process_audio(float *input, float *output, unsigned long frames);
 
-Module* get_module(int index);
+Module *get_module(int index);
 int get_module_count(void);
-const char* get_module_alias(int index);
+const char *get_module_alias(int index);
 
 #endif

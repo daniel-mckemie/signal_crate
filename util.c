@@ -1,30 +1,27 @@
-#include <stdlib.h>
 #include <ctype.h>
-#include <string.h>
-#include <stdio.h>
 #include <math.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
-#include "util.h"
 #include "module.h"
+#include "util.h"
 
-float randf() {
-	return (float)rand() / (float)RAND_MAX;
-}
+float randf() { return (float)rand() / (float)RAND_MAX; }
 
 static float sine_table[SINE_TABLE_SIZE];
 static int sine_table_initialized = 0;
 
 void init_sine_table() {
-	if (sine_table_initialized) return;
-	for (int i=0; i<SINE_TABLE_SIZE; i++) {
-		sine_table[i] = sinf((float)i / SINE_TABLE_SIZE * 2.0f * M_PI);
-	}
-	sine_table_initialized = 1;
+    if (sine_table_initialized)
+        return;
+    for (int i = 0; i < SINE_TABLE_SIZE; i++) {
+        sine_table[i] = sinf((float)i / SINE_TABLE_SIZE * 2.0f * M_PI);
+    }
+    sine_table_initialized = 1;
 }
 
-const float* get_sine_table(void) {
-	return sine_table;
-}
+const float *get_sine_table(void) { return sine_table; }
 
 // For smoothing VCO, square specifically
 float poly_blep(float t, float dt) {
@@ -50,13 +47,15 @@ float process_smoother(CParamSmooth *s, float in) {
     return s->z;
 }
 
-char* trim_whitespace(char* str) {
-    while (isspace((unsigned char)*str)) str++;
-    if (*str == 0) return str;
+char *trim_whitespace(char *str) {
+    while (isspace((unsigned char)*str))
+        str++;
+    if (*str == 0)
+        return str;
 
-    char* end = str + strlen(str) - 1;
-    while (end > str && isspace((unsigned char)*end)) end--;
+    char *end = str + strlen(str) - 1;
+    while (end > str && isspace((unsigned char)*end))
+        end--;
     end[1] = '\0';
     return str;
 }
-

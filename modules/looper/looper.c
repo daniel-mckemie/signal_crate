@@ -1,227 +1,246 @@
-#include <stdlib.h>
 #include <math.h>
-#include <pthread.h>
 #include <ncurses.h>
+#include <pthread.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "looper.h"
 #include "module.h"
 #include "util.h"
 
-static void looper_process(Module* m, float* in, unsigned long frames) {
-    Looper* s = (Looper*)m->state;
-	float* input = (m->num_inputs > 0) ? m->inputs[0] : in;
-	float* out = m->output_buffer;
+static void looper_process(Module *m, float *in, unsigned long frames) {
+    Looper *s = (Looper *)m->state;
+    float *input = (m->num_inputs > 0) ? m->inputs[0] : in;
+    float *out = m->output_buffer;
 
-	pthread_mutex_lock(&s->lock);
-	float* buffer      = s->buffer;
-	unsigned long buffer_len = s->buffer_len;
-	double read_pos     = s->read_pos;
-	double write_pos  = s->write_pos;
-	unsigned long loop_start = s->loop_start;
-	unsigned long loop_end   = s->loop_end;
-	float base_speed = s->playback_speed;
-	float base_amp   = s->amp;
+    pthread_mutex_lock(&s->lock);
+    float *buffer = s->buffer;
+    unsigned long buffer_len = s->buffer_len;
+    double read_pos = s->read_pos;
+    double write_pos = s->write_pos;
+    unsigned long loop_start = s->loop_start;
+    unsigned long loop_end = s->loop_end;
+    float base_speed = s->playback_speed;
+    float base_amp = s->amp;
     bool mon_on = s->monitor_on;
-	LooperState current_state = s->looper_state;
-	pthread_mutex_unlock(&s->lock);
+    LooperState current_state = s->looper_state;
+    pthread_mutex_unlock(&s->lock);
 
-	float playback_speed_s = process_smoother(&s->smooth_speed, base_speed);
-	float amp_s            = process_smoother(&s->smooth_amp,   base_amp);
+    float playback_speed_s = process_smoother(&s->smooth_speed, base_speed);
+    float amp_s = process_smoother(&s->smooth_amp, base_amp);
 
-	float disp_playback_speed = playback_speed_s;
-	float disp_amp			  = amp_s;
-	float disp_read_pos		  = read_pos;
+    float disp_playback_speed = playback_speed_s;
+    float disp_amp = amp_s;
+    float disp_read_pos = read_pos;
 
-    for (unsigned long i=0; i<frames; i++) {
-		float playback_speed = playback_speed_s;
-		float amp            = amp_s;
-		
-        for (int j=0; j<m->num_control_inputs; j++) {
-            if (!m->control_inputs[j] || !m->control_input_params[j]) continue;
+    for (unsigned long i = 0; i < frames; i++) {
+        float playback_speed = playback_speed_s;
+        float amp = amp_s;
 
-            const char* param = m->control_input_params[j];
+        for (int j = 0; j < m->num_control_inputs; j++) {
+            if (!m->control_inputs[j] || !m->control_input_params[j])
+                continue;
+
+            const char *param = m->control_input_params[j];
             float control = m->control_inputs[j][i];
             control = fminf(fmaxf(control, -1.0f), 1.0f);
 
             if (strcmp(param, "speed") == 0) {
                 playback_speed += control * 4.0f;
-            }
-            else if (strcmp(param, "amp") == 0) {
+            } else if (strcmp(param, "amp") == 0) {
                 amp += control;
-            }
-            else if (strcmp(param, "start") == 0) {
-                s->loop_start = (unsigned long)((control * 0.5f + 0.5f) * s->sample_rate * 30.0f);
-            }
-            else if (strcmp(param, "end") == 0) {
-                s->loop_end = (unsigned long)((control * 0.5f + 0.5f) * s->sample_rate * 30.0f);
+            } else if (strcmp(param, "start") == 0) {
+                s->loop_start = (unsigned long)((control * 0.5f + 0.5f) *
+                                                s->sample_rate * 30.0f);
+            } else if (strcmp(param, "end") == 0) {
+                s->loop_end = (unsigned long)((control * 0.5f + 0.5f) *
+                                              s->sample_rate * 30.0f);
             }
 
             else if (strcmp(param, "record") == 0 && control > 0.5f) {
                 if (s->looper_state != RECORDING) {
                     s->write_pos = (double)s->loop_start;
-                    s->loop_end  = s->loop_start + 1;
-                    s->read_pos  = (double)s->loop_start;
+                    s->loop_end = s->loop_start + 1;
+                    s->read_pos = (double)s->loop_start;
                     s->looper_state = RECORDING;
                 }
-            }
-            else if (strcmp(param, "play") == 0 && control > 0.5f) {
+            } else if (strcmp(param, "play") == 0 && control > 0.5f) {
                 if (s->looper_state != PLAYING) {
                     s->read_pos = (double)s->loop_start;
                     s->looper_state = PLAYING;
                 }
-            }
-            else if (strcmp(param, "overdub") == 0 && control > 0.5f) {
+            } else if (strcmp(param, "overdub") == 0 && control > 0.5f) {
                 if (s->looper_state != OVERDUBBING) {
                     s->looper_state = OVERDUBBING;
                 }
-            }
-            else if (strcmp(param, "stop") == 0 && control > 0.5f) {
+            } else if (strcmp(param, "stop") == 0 && control > 0.5f) {
                 if (s->looper_state == RECORDING) {
                     unsigned long le = s->write_pos;
-                    if (le <= s->loop_start) le = s->loop_start + 1;
-                    if (le > s->buffer_len)  le = s->buffer_len;
+                    if (le <= s->loop_start)
+                        le = s->loop_start + 1;
+                    if (le > s->buffer_len)
+                        le = s->buffer_len;
                     s->loop_end = le;
                     s->read_pos = (double)s->loop_start;
                 }
                 s->looper_state = STOPPED;
-            }
-            else if (strcmp(param, "mon") == 0 && control > 0.5f) {
+            } else if (strcmp(param, "mon") == 0 && control > 0.5f) {
                 mon_on = !mon_on;
             }
         }
 
-		clampf(&playback_speed, 0.1f, 4.0f);
-		clampf(&amp, 0.0, 1.0f);
+        clampf(&playback_speed, 0.1f, 4.0f);
+        clampf(&amp, 0.0, 1.0f);
 
-		disp_playback_speed = playback_speed;
-		disp_amp			= amp;
+        disp_playback_speed = playback_speed;
+        disp_amp = amp;
 
-		float in_s = input ? input[i] : 0.0f;
-		float output = 0.0f;
+        float in_s = input ? input[i] : 0.0f;
+        float output = 0.0f;
 
-		unsigned long le = loop_end;
-		if (le <= loop_start) le = loop_start + 1;
-		if (le > buffer_len)  le = buffer_len;
+        unsigned long le = loop_end;
+        if (le <= loop_start)
+            le = loop_start + 1;
+        if (le > buffer_len)
+            le = buffer_len;
 
-		if ((current_state == PLAYING || current_state == OVERDUBBING) && le <= loop_start + 1) {
-			out[i] = 0.0f;
-			continue;
-		}
+        if ((current_state == PLAYING || current_state == OVERDUBBING) &&
+            le <= loop_start + 1) {
+            out[i] = 0.0f;
+            continue;
+        }
 
-		switch (current_state) {
-			case RECORDING: {
-				unsigned long w = (unsigned long)write_pos;
-				if (w >= buffer_len) {
-					output = mon_on ? in_s : 0.0f;
-					break;
-				}
-				buffer[w] = in_s;
-				output = in_s; // monitor input
-				write_pos += 1.0;
-				if ((unsigned long)write_pos > loop_end) loop_end = (unsigned long)write_pos;
-				if (loop_end > buffer_len) loop_end = buffer_len;
-				break;
-			}
+        switch (current_state) {
+        case RECORDING: {
+            unsigned long w = (unsigned long)write_pos;
+            if (w >= buffer_len) {
+                output = mon_on ? in_s : 0.0f;
+                break;
+            }
+            buffer[w] = in_s;
+            output = in_s; // monitor input
+            write_pos += 1.0;
+            if ((unsigned long)write_pos > loop_end)
+                loop_end = (unsigned long)write_pos;
+            if (loop_end > buffer_len)
+                loop_end = buffer_len;
+            break;
+        }
 
-			case PLAYING: {
-				unsigned long i1 = (unsigned long)read_pos;
-				if (i1 >= le) i1 = loop_start;
+        case PLAYING: {
+            unsigned long i1 = (unsigned long)read_pos;
+            if (i1 >= le)
+                i1 = loop_start;
 
-				unsigned long i2 = i1 + 1;
-				if (i2 >= le) i2 = loop_start;
+            unsigned long i2 = i1 + 1;
+            if (i2 >= le)
+                i2 = loop_start;
 
-				double frac = read_pos - (double)i1;
-				double play = (1.0 - frac) * (double)buffer[i1]
-							+        frac  * (double)buffer[i2];
+            double frac = read_pos - (double)i1;
+            double play =
+                (1.0 - frac) * (double)buffer[i1] + frac * (double)buffer[i2];
 
-				/* crossfade at both loop edges to prevent click */
-				const double xf = LOOP_FADE_SAMPLES; 
-				double env = 1.0;
+            /* crossfade at both loop edges to prevent click */
+            const double xf = LOOP_FADE_SAMPLES;
+            double env = 1.0;
 
-				/* fade-in at start */
-				if (read_pos < (double)loop_start + xf) {
-					double in = (read_pos - (double)loop_start) / xf;
-					if (in < env) env = in;
-				}
+            /* fade-in at start */
+            if (read_pos < (double)loop_start + xf) {
+                double in = (read_pos - (double)loop_start) / xf;
+                if (in < env)
+                    env = in;
+            }
 
-				/* fade-out at end */
-				if (read_pos > (double)le - xf) {
-					double out = ((double)le - read_pos) / xf;
-					if (out < env) env = out;
-				}
+            /* fade-out at end */
+            if (read_pos > (double)le - xf) {
+                double out = ((double)le - read_pos) / xf;
+                if (out < env)
+                    env = out;
+            }
 
-				if (env < 0.0) env = 0.0;
-				if (env > 1.0) env = 1.0;
+            if (env < 0.0)
+                env = 0.0;
+            if (env > 1.0)
+                env = 1.0;
 
-				output = (float)(play * env);
+            output = (float)(play * env);
 
-				read_pos += (double)playback_speed;
-				if (read_pos >= (double)le) read_pos = (double)loop_start;
-				break;
-			}
+            read_pos += (double)playback_speed;
+            if (read_pos >= (double)le)
+                read_pos = (double)loop_start;
+            break;
+        }
 
-			case OVERDUBBING: {
-				unsigned long widx = (unsigned long)read_pos;
-				if (widx >= le) widx = loop_start;
-				if (widx >= buffer_len) widx %= buffer_len;
+        case OVERDUBBING: {
+            unsigned long widx = (unsigned long)read_pos;
+            if (widx >= le)
+                widx = loop_start;
+            if (widx >= buffer_len)
+                widx %= buffer_len;
 
-				buffer[widx] += in_s; // overdub
+            buffer[widx] += in_s; // overdub
 
-				unsigned long i1 = (unsigned long)read_pos;
-				if (i1 >= le) i1 = loop_start;
+            unsigned long i1 = (unsigned long)read_pos;
+            if (i1 >= le)
+                i1 = loop_start;
 
-				unsigned long i2 = i1 + 1;
-				if (i2 >= le) i2 = loop_start;
+            unsigned long i2 = i1 + 1;
+            if (i2 >= le)
+                i2 = loop_start;
 
-				double frac = read_pos - (double)i1;
-				double play = (1.0 - frac) * (double)buffer[i1]
-							+        frac  * (double)buffer[i2];
+            double frac = read_pos - (double)i1;
+            double play =
+                (1.0 - frac) * (double)buffer[i1] + frac * (double)buffer[i2];
 
-				const double xf = LOOP_FADE_SAMPLES;
-				double env = 1.0;
+            const double xf = LOOP_FADE_SAMPLES;
+            double env = 1.0;
 
-				if (read_pos < (double)loop_start + xf) {
-					double in = (read_pos - (double)loop_start) / xf;
-					if (in < env) env = in;
-				}
-				if (read_pos > (double)le - xf) {
-					double out = ((double)le - read_pos) / xf;
-					if (out < env) env = out;
-				}
+            if (read_pos < (double)loop_start + xf) {
+                double in = (read_pos - (double)loop_start) / xf;
+                if (in < env)
+                    env = in;
+            }
+            if (read_pos > (double)le - xf) {
+                double out = ((double)le - read_pos) / xf;
+                if (out < env)
+                    env = out;
+            }
 
-				if (env < 0.0) env = 0.0;
-				if (env > 1.0) env = 1.0;
+            if (env < 0.0)
+                env = 0.0;
+            if (env > 1.0)
+                env = 1.0;
 
-                float live = mon_on ? in_s : 0.0f;
-				output = (float)(play * env + (double)live);
+            float live = mon_on ? in_s : 0.0f;
+            output = (float)(play * env + (double)live);
 
-				read_pos += (double)playback_speed;
-				if (read_pos >= (double)le) read_pos = (double)loop_start;
+            read_pos += (double)playback_speed;
+            if (read_pos >= (double)le)
+                read_pos = (double)loop_start;
 
-				break;
-			}
+            break;
+        }
 
-			case IDLE:
-				output = mon_on ? in_s : 0.0f;
-				break;
-			case STOPPED: 
-			default:
-				output = 0.0f;
-				break;
-		}
+        case IDLE:
+            output = mon_on ? in_s : 0.0f;
+            break;
+        case STOPPED:
+        default:
+            output = 0.0f;
+            break;
+        }
 
-		disp_read_pos = read_pos;
-		float val = output * amp;
-		out[i] = val;
-	}
+        disp_read_pos = read_pos;
+        float val = output * amp;
+        out[i] = val;
+    }
 
     pthread_mutex_lock(&s->lock);
     s->read_pos = disp_read_pos;
     s->write_pos = write_pos;
-	s->loop_end = loop_end;
-	s->display_playback_speed = disp_playback_speed;
-	s->display_amp = disp_amp;
+    s->loop_end = loop_end;
+    s->display_playback_speed = disp_playback_speed;
+    s->display_amp = disp_amp;
     pthread_mutex_unlock(&s->lock);
 }
 
@@ -230,8 +249,10 @@ static void clamp_params(Looper *state) {
 
     if (state->looper_state != RECORDING) {
         cap = (unsigned long)state->write_pos;
-        if (cap < 2) cap = 2;
-        if (cap > state->buffer_len) cap = state->buffer_len;
+        if (cap < 2)
+            cap = 2;
+        if (cap > state->buffer_len)
+            cap = state->buffer_len;
     }
     if (state->loop_start > cap - 1)
         state->loop_start = cap - 1;
@@ -243,12 +264,11 @@ static void clamp_params(Looper *state) {
     clampf(&state->amp, 0.0f, 1.0f);
 }
 
-static void looper_draw_ui(Module* m, int y, int x) {
-    Looper* state = (Looper*)m->state;
+static void looper_draw_ui(Module *m, int y, int x) {
+    Looper *state = (Looper *)m->state;
 
-    static const char* state_names[] = {
-        "IDLE", "RECORDING", "PLAYING", "OVERDUBBING", "STOPPED"
-    };
+    static const char *state_names[] = {"IDLE", "RECORDING", "PLAYING",
+                                        "OVERDUBBING", "STOPPED"};
 
     pthread_mutex_lock(&state->lock);
 
@@ -259,20 +279,24 @@ static void looper_draw_ui(Module* m, int y, int x) {
     float sr = state->sample_rate;
 
     float start_sec = state->loop_start / sr;
-    float end_sec   = state->loop_end   / sr;
-	float pos_sec;
+    float end_sec = state->loop_end / sr;
+    float pos_sec;
 
-	if (lstate == RECORDING) {
-		float write_sec = state->write_pos / sr;
-		if (write_sec < start_sec) write_sec = start_sec;
-		if (write_sec > end_sec)   write_sec = end_sec;
-		pos_sec = write_sec;
-	} else {
-		float read_sec = state->read_pos / sr;
-		if (read_sec < start_sec) read_sec = start_sec;
-		if (read_sec > end_sec)   read_sec = end_sec;
-		pos_sec = read_sec;
-	}
+    if (lstate == RECORDING) {
+        float write_sec = state->write_pos / sr;
+        if (write_sec < start_sec)
+            write_sec = start_sec;
+        if (write_sec > end_sec)
+            write_sec = end_sec;
+        pos_sec = write_sec;
+    } else {
+        float read_sec = state->read_pos / sr;
+        if (read_sec < start_sec)
+            read_sec = start_sec;
+        if (read_sec > end_sec)
+            read_sec = end_sec;
+        pos_sec = read_sec;
+    }
 
     char cmd[64];
     strncpy(cmd, state->command_buffer, sizeof(cmd));
@@ -280,44 +304,61 @@ static void looper_draw_ui(Module* m, int y, int x) {
 
     pthread_mutex_unlock(&state->lock);
 
-	BLUE();
-	mvprintw(y,x, "[Looper:%s] ", m->name);
-	CLR();
+    BLUE();
+    mvprintw(y, x, "[Looper:%s] ", m->name);
+    CLR();
 
-	LABEL(2,"");
-	ORANGE(); printw("%s|", state_names[lstate]); CLR();
-	LABEL(2, "range:");
-	ORANGE(); printw("%.2f->%.2f|", start_sec, end_sec); CLR();
-	LABEL(2, "sp:");
-	ORANGE(); printw("%.2fx|", speed); CLR();
-	LABEL(2, "pos:");
-	ORANGE(); printw("%.2f|", pos_sec); CLR();
-	LABEL(2, "amp:");
-	ORANGE(); printw("%.2f", amp); CLR();
-	LABEL(2, "mon:");
-	ORANGE(); printw("%s", mon ? "on" : "off"); CLR();
+    LABEL(2, "");
+    ORANGE();
+    printw("%s|", state_names[lstate]);
+    CLR();
+    LABEL(2, "range:");
+    ORANGE();
+    printw("%.2f->%.2f|", start_sec, end_sec);
+    CLR();
+    LABEL(2, "sp:");
+    ORANGE();
+    printw("%.2fx|", speed);
+    CLR();
+    LABEL(2, "pos:");
+    ORANGE();
+    printw("%.2f|", pos_sec);
+    CLR();
+    LABEL(2, "amp:");
+    ORANGE();
+    printw("%.2f", amp);
+    CLR();
+    LABEL(2, "mon:");
+    ORANGE();
+    printw("%s", mon ? "on" : "off");
+    CLR();
 
-	YELLOW();
-    mvprintw(y + 1, x, "-/= st, _/+ end, [/] sp, m mon, rpos rec/play/odub/stop, c clr");
+    YELLOW();
+    mvprintw(y + 1, x,
+             "-/= st, _/+ end, [/] sp, m mon, rpos rec/play/odub/stop, c clr");
     mvprintw(y + 2, x, "Cmd Mode: :1=start, :2=end, :3=speed, :4=amp");
-	BLACK();
+    BLACK();
 }
 
-static void looper_handle_input(Module* m, int ch) {
-    Looper* state = (Looper*)m->state;
+static void looper_handle_input(Module *m, int ch) {
+    Looper *state = (Looper *)m->state;
     int handled = 0;
 
     pthread_mutex_lock(&state->lock);
 
     if (state->entering_command) {
-        if (ch == 10 || ch == '\r') {  // ENTER
+        if (ch == 10 || ch == '\r') { // ENTER
             char type = state->command_buffer[0];
             float val = atof(&state->command_buffer[1]);
 
-            if (type == '1') state->loop_start = (unsigned long)(val * state->sample_rate);
-            else if (type == '2') state->loop_end = (unsigned long)(val * state->sample_rate);
-            else if (type == '3') state->playback_speed = val;
-            else if (type == '4') state->amp = val;
+            if (type == '1')
+                state->loop_start = (unsigned long)(val * state->sample_rate);
+            else if (type == '2')
+                state->loop_end = (unsigned long)(val * state->sample_rate);
+            else if (type == '3')
+                state->playback_speed = val;
+            else if (type == '4')
+                state->amp = val;
 
             state->entering_command = false;
             state->command_index = 0;
@@ -325,95 +366,124 @@ static void looper_handle_input(Module* m, int ch) {
 
             clamp_params(state);
             handled = 1;
-        } else if (ch == 27) {  // ESC
+        } else if (ch == 27) { // ESC
             state->entering_command = false;
             state->command_index = 0;
             state->command_buffer[0] = '\0';
             handled = 1;
-        } else if (state->command_index < (int)(sizeof(state->command_buffer) - 1)) {
+        } else if (state->command_index <
+                   (int)(sizeof(state->command_buffer) - 1)) {
             state->command_buffer[state->command_index++] = (char)ch;
             state->command_buffer[state->command_index] = '\0';
             handled = 1;
         }
     } else {
         switch (ch) {
-			case '=': state->loop_start += (unsigned long)(0.1 * state->sample_rate); handled=1; break;
-			case '-': state->loop_start -= (unsigned long)(0.1 * state->sample_rate); handled=1; break;
-			case '+': state->loop_end += (unsigned long)(0.1 * state->sample_rate); handled=1; break;
-			case '_': state->loop_end -= (unsigned long)(0.1 * state->sample_rate); handled=1; break;
-			case ']': state->playback_speed += 0.05; handled=1; break;
-			case '[': state->playback_speed -= 0.05; handled=1; break;
-			case '}': state->amp += 0.01; handled=1; break;
-			case '{': state->amp -= 0.01; handled=1; break;
-			case 'm': state->monitor_on = !state->monitor_on; handled=1; break;
-            case 'c': {
-                memset(state->buffer, 0, state->buffer_len * sizeof(float));
-                state->loop_start = 0;
-                state->loop_end   = 1;
-                state->read_pos  = 0.0;
-                state->write_pos = 0.0;
-                state->playback_speed = 1.0f;
-                state->amp = 1.0f;
-                state->looper_state = IDLE;
-                handled = 1;
-                break;
+        case '=':
+            state->loop_start += (unsigned long)(0.1 * state->sample_rate);
+            handled = 1;
+            break;
+        case '-':
+            state->loop_start -= (unsigned long)(0.1 * state->sample_rate);
+            handled = 1;
+            break;
+        case '+':
+            state->loop_end += (unsigned long)(0.1 * state->sample_rate);
+            handled = 1;
+            break;
+        case '_':
+            state->loop_end -= (unsigned long)(0.1 * state->sample_rate);
+            handled = 1;
+            break;
+        case ']':
+            state->playback_speed += 0.05;
+            handled = 1;
+            break;
+        case '[':
+            state->playback_speed -= 0.05;
+            handled = 1;
+            break;
+        case '}':
+            state->amp += 0.01;
+            handled = 1;
+            break;
+        case '{':
+            state->amp -= 0.01;
+            handled = 1;
+            break;
+        case 'm':
+            state->monitor_on = !state->monitor_on;
+            handled = 1;
+            break;
+        case 'c': {
+            memset(state->buffer, 0, state->buffer_len * sizeof(float));
+            state->loop_start = 0;
+            state->loop_end = 1;
+            state->read_pos = 0.0;
+            state->write_pos = 0.0;
+            state->playback_speed = 1.0f;
+            state->amp = 1.0f;
+            state->looper_state = IDLE;
+            handled = 1;
+            break;
+        }
+        case ':':
+            state->entering_command = true;
+            state->command_index = 0;
+            state->command_buffer[0] = '\0';
+            handled = 1;
+            break;
+        case 'r':
+            if (state->looper_state != RECORDING) {
+                state->write_pos = (double)state->loop_start;
+                state->loop_end = state->loop_start + 1;
+                state->read_pos = (double)state->loop_start;
+                state->looper_state = RECORDING;
             }
-            case ':':
-                state->entering_command = true;
-                state->command_index = 0;
-                state->command_buffer[0] = '\0';
-                handled = 1;
-                break;
-				case 'r':
-					if (state->looper_state != RECORDING) {
-						state->write_pos = (double)state->loop_start;
-						state->loop_end  = state->loop_start + 1;
-						state->read_pos  = (double)state->loop_start;
-						state->looper_state = RECORDING;
-					}
-					handled = 1;
-					break;
+            handled = 1;
+            break;
 
-				case 'p':
-					if (state->looper_state != PLAYING) {
-						state->read_pos = (double)state->loop_start;
-						state->looper_state = PLAYING;
-					}
-					handled = 1;
-					break;
+        case 'p':
+            if (state->looper_state != PLAYING) {
+                state->read_pos = (double)state->loop_start;
+                state->looper_state = PLAYING;
+            }
+            handled = 1;
+            break;
 
-				case 'o':
-					if (state->looper_state != OVERDUBBING) {
-						state->looper_state = OVERDUBBING;
-					}
-					handled = 1;
-					break;
+        case 'o':
+            if (state->looper_state != OVERDUBBING) {
+                state->looper_state = OVERDUBBING;
+            }
+            handled = 1;
+            break;
 
-				case 's':
-					if (state->looper_state != STOPPED) {
-						if (state->looper_state == RECORDING) {
-							unsigned long le = state->write_pos;
-							if (le <= state->loop_start) le = state->loop_start + 1;
-							if (le > state->buffer_len)  le = state->buffer_len;
-							state->loop_end = le;
-							state->read_pos = (double)state->loop_start;
-						}
-						state->looper_state = STOPPED;
-					}
-					handled = 1;
-					break;
-
+        case 's':
+            if (state->looper_state != STOPPED) {
+                if (state->looper_state == RECORDING) {
+                    unsigned long le = state->write_pos;
+                    if (le <= state->loop_start)
+                        le = state->loop_start + 1;
+                    if (le > state->buffer_len)
+                        le = state->buffer_len;
+                    state->loop_end = le;
+                    state->read_pos = (double)state->loop_start;
+                }
+                state->looper_state = STOPPED;
+            }
+            handled = 1;
+            break;
         }
     }
 
-	if (handled)
-		clamp_params(state);
+    if (handled)
+        clamp_params(state);
 
     pthread_mutex_unlock(&state->lock);
 }
 
-static void looper_set_osc_param(Module* m, const char* param, float value) {
-    Looper* state = (Looper*)m->state;
+static void looper_set_osc_param(Module *m, const char *param, float value) {
+    Looper *state = (Looper *)m->state;
     pthread_mutex_lock(&state->lock);
 
     if (strcmp(param, "speed") == 0) {
@@ -421,33 +491,35 @@ static void looper_set_osc_param(Module* m, const char* param, float value) {
         float norm = fminf(fmaxf(value, 0.0f), 1.0f);
         state->playback_speed = min * powf(max / min, norm);
     } else if (strcmp(param, "amp") == 0) {
-		state->amp = value;
+        state->amp = value;
     } else if (strcmp(param, "mon") == 0 && value > 0.5f) {
-		state->monitor_on = !state->monitor_on; 
+        state->monitor_on = !state->monitor_on;
     } else if (strcmp(param, "start") == 0) {
         state->loop_start = (unsigned long)(value * state->sample_rate);
     } else if (strcmp(param, "end") == 0) {
         state->loop_end = (unsigned long)(value * state->sample_rate);
     } else if (strcmp(param, "record") == 0 && value > 0.5f) {
-		if (state->looper_state != RECORDING)
-			state->looper_state = RECORDING;
+        if (state->looper_state != RECORDING)
+            state->looper_state = RECORDING;
     } else if (strcmp(param, "play") == 0 && value > 0.5f) {
-		if (state->looper_state != PLAYING)
-			state->looper_state = PLAYING;
+        if (state->looper_state != PLAYING)
+            state->looper_state = PLAYING;
     } else if (strcmp(param, "overdub") == 0 && value > 0.5f) {
-		if (state->looper_state != OVERDUBBING)
-			state->looper_state = OVERDUBBING;
-	} else if (strcmp(param, "stop") == 0 && value > 0.5f) {
-		if (state->looper_state != STOPPED) {
-			if (state->looper_state == RECORDING) {
-				unsigned long le = state->write_pos;
-				if (le <= state->loop_start) le = state->loop_start + 1;
-				if (le > state->buffer_len)  le = state->buffer_len;
-				state->loop_end = le;
-				state->read_pos = (double)state->loop_start;
-			}
-		}
-			state->looper_state = STOPPED;
+        if (state->looper_state != OVERDUBBING)
+            state->looper_state = OVERDUBBING;
+    } else if (strcmp(param, "stop") == 0 && value > 0.5f) {
+        if (state->looper_state != STOPPED) {
+            if (state->looper_state == RECORDING) {
+                unsigned long le = state->write_pos;
+                if (le <= state->loop_start)
+                    le = state->loop_start + 1;
+                if (le > state->buffer_len)
+                    le = state->buffer_len;
+                state->loop_end = le;
+                state->read_pos = (double)state->loop_start;
+            }
+        }
+        state->looper_state = STOPPED;
     } else {
         fprintf(stderr, "[looper] Unknown OSC param: %s\n", param);
     }
@@ -456,25 +528,26 @@ static void looper_set_osc_param(Module* m, const char* param, float value) {
     pthread_mutex_unlock(&state->lock);
 }
 
-static void looper_destroy(Module* m) {
-    Looper* state = (Looper*)m->state;
-	if (state) pthread_mutex_destroy(&state->lock);
+static void looper_destroy(Module *m) {
+    Looper *state = (Looper *)m->state;
+    if (state)
+        pthread_mutex_destroy(&state->lock);
     destroy_base_module(m);
 }
 
-Module* create_module(const char* args, float sample_rate) {
-	float loop_length = 10.0f;
-	float playback_speed = 1.0f;
-	float amp = 1.0f;
+Module *create_module(const char *args, float sample_rate) {
+    float loop_length = 10.0f;
+    float playback_speed = 1.0f;
+    float amp = 1.0f;
     bool mon = true;
 
     if (args && strstr(args, "length=")) {
         sscanf(strstr(args, "length="), "length=%f", &loop_length);
-	}
-	if (args && strstr(args, "speed=")) {
+    }
+    if (args && strstr(args, "speed=")) {
         sscanf(strstr(args, "speed="), "speed=%f", &playback_speed);
     }
-	if (args && strstr(args, "amp=")) {
+    if (args && strstr(args, "amp=")) {
         sscanf(strstr(args, "amp="), "amp=%f", &amp);
     }
     if (args && strstr(args, "mon=")) {
@@ -483,33 +556,33 @@ Module* create_module(const char* args, float sample_rate) {
         mon = (tmp != 0);
     }
 
-    Looper* state = calloc(1, sizeof(Looper));
+    Looper *state = calloc(1, sizeof(Looper));
     state->sample_rate = sample_rate;
-	state->max_buffer_len = (unsigned long)(sample_rate * 300.0f);
-	state->buffer_len = state->max_buffer_len;
-	state->buffer = calloc(state->max_buffer_len, sizeof(float));														  
+    state->max_buffer_len = (unsigned long)(sample_rate * 300.0f);
+    state->buffer_len = state->max_buffer_len;
+    state->buffer = calloc(state->max_buffer_len, sizeof(float));
     state->loop_start = 0;
     state->loop_end = 1;
     state->playback_speed = playback_speed;
-	state->amp = amp;
+    state->amp = amp;
     state->monitor_on = mon;
-	state->read_pos = 0.0f;
-	state->write_pos = 0;
-	state->looper_state = IDLE;
+    state->read_pos = 0.0f;
+    state->write_pos = 0;
+    state->looper_state = IDLE;
     pthread_mutex_init(&state->lock, NULL);
-	init_sine_table();
+    init_sine_table();
     init_smoother(&state->smooth_speed, 0.75f);
     init_smoother(&state->smooth_amp, 0.75f);
     clamp_params(state);
 
-    Module* m = calloc(1, sizeof(Module));
+    Module *m = calloc(1, sizeof(Module));
     m->name = "looper";
     m->state = state;
-	m->output_buffer = calloc(MAX_BLOCK_SIZE, sizeof(float));
+    m->output_buffer = calloc(MAX_BLOCK_SIZE, sizeof(float));
     m->process = looper_process;
     m->draw_ui = looper_draw_ui;
     m->handle_input = looper_handle_input;
-	m->set_param = looper_set_osc_param;
+    m->set_param = looper_set_osc_param;
     m->destroy = looper_destroy;
     return m;
 }

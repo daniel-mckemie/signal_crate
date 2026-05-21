@@ -32,7 +32,7 @@ static void c_output_process(Module *m, float *in, unsigned long frames) {
         if (!m->control_inputs[i] || !m->control_input_params[i]) {
             continue;
         }
-        if (strcmp(m->control_input_params[i], "val") == 0) {
+        if (strcmp(m->control_input_params[i], "in") == 0) {
             cv = m->control_inputs[i];
             break;
         }
@@ -152,8 +152,8 @@ Module *create_module(const char *args, float sample_rate) {
     float val = 0.0f;
     int ch = -1;
 
-    if (args && strstr(args, "val="))
-        sscanf(strstr(args, "val="), "val=%f", &val);
+    if (args && strstr(args, "in="))
+        sscanf(strstr(args, "in="), "in=%f", &val);
 
     if (args && strstr(args, "ch="))
         sscanf(strstr(args, "ch="), "ch=%d", &ch);

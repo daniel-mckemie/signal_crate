@@ -47,7 +47,7 @@ but the input scale is built and again, if that feature is desired, use an inter
 float, so any work on building an interface requires no additional scaling assignments beyond that, unless
 you want to.
 - MIDI control is supported via the `c_midi_to_cv` module, with full support for standard 7-bit CC and 
-high-resolution 14-bit CC per the MIDI specification. 
+high-resolution up to 14-bit CC per the MIDI specification. 
 - 14-bit control is available only for CC 0–31, where the assigned CC is treated as the MSB and the 
 corresponding LSB is CC + 32. When both messages are present, Signal Crate reconstructs the full 
 14-bit value internally.

@@ -8,25 +8,21 @@
 #include "util.h"
 #include "wavefolder.h"
 
-static inline float folder(float x, float amt, float *lp_z, float sample_rate) {
-    // 2x oversampling - analog style
-    if (amt <= 0.0f)
-        return 0.0f;
-    x = tanhf(x * amt);
-    float x0 = x;
-    float xm = 0.5f * x0;
-
-    float y0 = tanhf(x0);
-    float y1 = tanhf(xm);
-
-    // simple one-pole lowpass before decimation
-    float cutoff = 0.45f * sample_rate;
-    float a = cutoff / (cutoff + sample_rate);
-
-    *lp_z += a * (y0 - *lp_z);
-    *lp_z += a * (y1 - *lp_z);
-
-    return *lp_z;
+static inline float wavefold(float x, float fold_amt) {
+    if (fold_amt <= 0.0f)
+        return x;
+    
+    x = x * fold_amt;
+    x = fabsf(x);
+    
+    int folds = (int)floorf(x);
+    float frac = x - folds;
+    
+    if (folds % 2 == 0) {
+        return frac;
+    } else {
+        return 1.0f - frac;
+    }
 }
 
 static void wavefolder_process(Module *m, float *in, unsigned long frames) {
@@ -62,25 +58,26 @@ static void wavefolder_process(Module *m, float *in, unsigned long frames) {
             control = fminf(fmaxf(control, -1.0f), 1.0f);
 
             if (strcmp(param, "fold") == 0) {
-                fold += control * 5.0;
+                fold += control * 8.0f;
             } else if (strcmp(param, "blend") == 0) {
                 blend += control;
             } else if (strcmp(param, "drive") == 0) {
-                drive += control * 10.0f;
+                drive += control * 5.0f;
             }
         }
 
-        clampf(&fold, 0.01f, 5.0f);
+        clampf(&fold, 0.01f, 8.0f);
         clampf(&blend, 0.0f, 1.0f);
-        clampf(&drive, 0.01f, 10.0f);
+        clampf(&drive, 0.01f, 5.0f);
 
         disp_fold = fold;
         disp_blend = blend;
         disp_drive = drive;
 
         float in_s = input ? input[i] : 0.0f;
-        float f = folder(in_s * drive, fold, &state->lp_z, state->sample_rate);
-        float val = (1.0f - blend) * in_s + blend * f;
+        float driven = in_s * drive;
+        float folded = wavefold(driven, fold);
+        float val = (1.0f - blend) * in_s + blend * folded;
         out[i] = val;
     }
     pthread_mutex_lock(&state->lock);
@@ -91,7 +88,7 @@ static void wavefolder_process(Module *m, float *in, unsigned long frames) {
 }
 
 static void clamp_params(Wavefolder *state) {
-    clampf(&state->fold, 0.01f, 5.0f);
+    clampf(&state->fold, 0.01f, 10.0f);
     clampf(&state->blend, 0.0f, 1.0f);
     clampf(&state->drive, 0.01f, 10.0f);
 }
@@ -214,7 +211,7 @@ static void wavefolder_set_osc_param(Module *m, const char *param,
 
     float norm = fminf(fmaxf(value, 0.0f), 1.0f);
     if (strcmp(param, "fold") == 0) {
-        state->fold = 0.01f + norm * (5.0f - 0.01f);
+        state->fold = 0.01f + norm * (10.0f - 0.01f);
     } else if (strcmp(param, "blend") == 0) {
         state->blend = norm;
     } else if (strcmp(param, "drive") == 0) {
@@ -232,7 +229,7 @@ static void wavefolder_destroy(Module *m) {
 }
 
 Module *create_module(const char *args, float sample_rate) {
-    float fold = 0.5f;
+    float fold = 1.0f;
     float blend = 0.0f;
     float drive = 1.0f;
 
